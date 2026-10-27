@@ -184,7 +184,7 @@ const FMusic = (() => {
     if (liveAc) return true;
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return false;
-    ac = liveAc = new AC();
+    try { ac = liveAc = new AC({ latencyHint: 'balanced' }); } catch (e) { ac = liveAc = new AC(); }
     const comp = ac.createDynamicsCompressor();
     comp.threshold.value = -14; comp.knee.value = 8; comp.ratio.value = 5; comp.attack.value = 0.003; comp.release.value = 0.1;
     const master = ac.createGain(); master.gain.value = 0.9;
@@ -233,26 +233,39 @@ const FMusic = (() => {
   // ---------------------------------------------------------------
   //  BUILDING BLOCKS
   // ---------------------------------------------------------------
+  const VOICE_SOFT = 56, VOICE_HARD = 80;   // oscillators ringing at once
+  const live = [];   // end times of the oscillators running on the live context
+  function liveCount(t) { let n = 0, w = 0; for (let i = 0; i < live.length; i++) if (live[i] > t) { live[w++] = live[i]; n++; } live.length = w; return n; }
   function O(type, f, t, end, dest, det) {
+    if (ac === liveAc) live.push(end);
     const o = ac.createOscillator(); o.type = type; o.frequency.value = f;
     if (det) o.detune.value = det;
     o.connect(dest); o.start(t); o.stop(end); return o;
   }
   function G(dest, v = 0) { const g = ac.createGain(); g.gain.value = v; g.connect(dest); return g; }
   function F(type, f, q, dest) { const x = ac.createBiquadFilter(); x.type = type; x.frequency.value = f; if (q != null) x.Q.value = q; x.connect(dest); return x; }
-  function N(t, dur, dest) { const s = ac.createBufferSource(); s.buffer = A_().noise; s.connect(dest); s.start(t, Math.random() * 1.2, dur + 0.05); return s; }
+  function N(t, dur, dest) {   // the noise buffer is 2 s: loop it for longer sounds (an unlooped buffer just stops → pop)
+    const s = ac.createBufferSource(); s.buffer = A_().noise; s.connect(dest);
+    // keep it running a little past the note: the gain envelope (not the source) decides when it goes quiet
+    if (dur > 0.5) { s.loop = true; s.start(t, Math.random() * 1.2); s.stop(t + dur + 0.25); } else s.start(t, Math.random() * 0.7, dur + 0.25);
+    return s;
+  }
   // sustained: attack a, hold to t+dur, release r  → returns end time
+  // every note ends with a short linear fade to true silence, so stopping the oscillator never clicks
+  const FADE = 0.03;
   function sus(g, t, a, peak, dur, r) {
-    const p = g.gain, e = t + Math.max(dur, a + 0.01);
+    const p = g.gain, e = t + Math.max(dur, a + 0.01), t1 = e + r * 0.8;
     p.setValueAtTime(0, t); p.linearRampToValueAtTime(peak, t + a);
     p.setValueAtTime(peak, e); p.setTargetAtTime(0, e, r / 3.5);
-    return e + r + 0.05;
+    p.setValueAtTime(peak * Math.exp(-2.8), t1); p.linearRampToValueAtTime(0, t1 + FADE);
+    return t1 + FADE + 0.01;
   }
   // percussive: attack a, exponential decay tau  → returns end time
   function dec(g, t, a, peak, tau) {
-    const p = g.gain; p.setValueAtTime(0, t); p.linearRampToValueAtTime(peak, t + a);
+    const p = g.gain, t1 = t + a + tau * 3.6; p.setValueAtTime(0, t); p.linearRampToValueAtTime(peak, t + a);
     p.setTargetAtTime(0, t + a, tau);
-    return t + a + tau * 4.5;   // -39 dB: inaudible under the reverb, frees the voice early
+    p.setValueAtTime(peak * Math.exp(-3.6), t1); p.linearRampToValueAtTime(0, t1 + FADE);   // -31 dB, then fade out
+    return t1 + FADE + 0.01;
   }
   function vib(t, oscs, rate, cents, delay, end) {
     if (cents <= 0 || LITE) return;
@@ -658,7 +671,7 @@ const FMusic = (() => {
     const t = ac.currentTime, m = ac.createGain(), g0 = active({ arr, layer: opt.layer, rage: false }).gain || 1;
     m.gain.setValueAtTime(0.0001, t); m.gain.linearRampToValueAtTime(g0, t + (opt.fadeIn || 0.06));
     m.connect(out);
-    const conv = ac.createConvolver(); conv.buffer = IR(arr.room || 2);
+    const conv = ac.createConvolver(); conv.buffer = IR(Math.min(ac === liveAc ? 3 : 9, arr.room || 2));
     const wet = ac.createGain(); wet.gain.value = arr.wet != null ? arr.wet : 0.32; conv.connect(wet); wet.connect(m);
     const SD = opt.stemDest, D = k => SD ? SD[k] : m;     // stemDest: measure groups separately (dry)
     const ch = {
@@ -782,6 +795,9 @@ const FMusic = (() => {
     if (!Array.isArray(harm)) harm = [harm];
     harm = harm.filter(L => !L.sec || L.sec.includes(sec));
     if (Ss.rageOn && A.rageR.harm) harm = harm.concat([A.rageR.harm]);
+    // voice budget (live playback only): when many notes are still ringing, drop the extra accompaniment layers first
+    const busy = ac === liveAc ? liveCount(t) : 0;
+    if (busy > VOICE_SOFT) harm = harm.slice(0, busy > VOICE_HARD ? 0 : 1);
     LITE = true;
     try { if (!SK.harm) harm.forEach((L, li) => harmLayer(Ss, A, L, st, t, sd, sc, bi, Ss.ch['h' + Math.min(li, 2)], bar)); } finally { LITE = false; }
 
@@ -799,8 +815,9 @@ const FMusic = (() => {
         I[lead](t, g, sd * 0.45, 0.7 * lv, Ss.ch.lead); tt = t + sd * 0.45;
       }
       I[lead](tt, p, dur - (tt - t), lv, Ss.ch.lead);
-      if (dbl) I[dbl[0]](tt, p + (dbl[1] || 0), dur - (tt - t), dbl[2] || 0.6, Ss.ch.dbl);
-      if (echo) I[echo.i](t + echo.d * sd, p + (echo.o || 0), Math.min(dur, sd * 4), echo.v || 0.35, Ss.ch.echo);
+      const crowded = ac === liveAc && liveCount(t) > VOICE_HARD;
+      if (dbl && !crowded) I[dbl[0]](tt, p + (dbl[1] || 0), dur - (tt - t), dbl[2] || 0.6, Ss.ch.dbl);
+      if (echo && !crowded) I[echo.i](t + echo.d * sd, p + (echo.o || 0), Math.min(dur, sd * 4), echo.v || 0.35, Ss.ch.echo);
     }
 
     // ---------- ambience ----------
@@ -868,8 +885,8 @@ const FMusic = (() => {
       const g = G(ch), o = ac.createOscillator(), f0 = 900 + hash(s + 3) * 900;
       o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * 2.2, t + 0.05);
       o.connect(g); const e = dec(g, t, 0.002, 0.05, 0.03); o.start(t); o.stop(e);
-    } else if (f === 'embers' && r < 0.18) {
-      const g = G(ch); dec(g, t, 0.001, 0.05 * hash(s + 9), 0.004); N(t, 0.02, F('highpass', 3000, 0.7, g));
+    } else if (f === 'embers' && r < 0.08) {   // a few soft crackles (kept sparse: a dense crackle reads as line noise)
+      const g = G(ch); dec(g, t, 0.002, 0.025 * hash(s + 9), 0.006); N(t, 0.02, F('highpass', 3000, 0.7, g));
     } else if (f === 'owl' && s % (Ss.theme.spb * 8) === Ss.theme.spb * 2) {
       for (const [dt, len] of [[0, 0.35], [0.5, 0.2], [0.75, 0.5]]) {
         const g = G(ch), o = ac.createOscillator(); o.frequency.setValueAtTime(380, t + dt); o.frequency.linearRampToValueAtTime(340, t + dt + len);
@@ -883,7 +900,9 @@ const FMusic = (() => {
   // ---------------------------------------------------------------
   function tick() {
     const Ss = S; if (!Ss || !Ss.playing) return;
-    while (Ss.next < ac.currentTime + 0.14) {
+    const now = ac.currentTime;
+    if (Ss.next < now - 0.05) { const A0 = Ss.A || active(Ss), sd = 60 / (A0.bpm || 120) / 4; const k = Math.ceil((now + 0.03 - Ss.next) / sd); Ss.next += k * sd; Ss.step += k; }
+    while (Ss.next < now + 0.3) {
       const A0 = Ss.A || active(Ss);
       const sd = 60 / (A0.bpm || 120) / (Ss.rage && A0.rageR ? 1 / (A0.rageR.tempo || 1) : 1) / 4, sw = A0.swing || 0, st = Ss.step % Ss.theme.spb;
       const off = (st % 4 === 2) ? sw * sd : 0;
