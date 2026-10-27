@@ -2004,7 +2004,7 @@ const SPR = (() => {
     frostlizard: { base: 'lizard', h: 175 }, lavagolem: { base: 'golem', tint: '#ff5a1a', a: 0.4 }, crimsonknight: { base: 'knight', tint: '#c81a2a', a: 0.45 },
     snowwolf: { base: 'wolf', s: 0.25, l: 0.2 }, sleepshroom: { base: 'mushroom', h: -95 }, poisonspider: { base: 'spider', h: -95, s: 1.2 },
     deepfishman: { base: 'fishman', h: 95, l: -0.08 }, goldscorpion: { base: 'scorpion', s: 1.6, l: 0.08 }, cursemummy: { base: 'mummy', tint: '#7a3ab0', a: 0.4 },
-    iceimp: { base: 'imp', h: -160 }, icewyvern: { base: 'wyvern', h: 25, l: 0.12 }, shadowarmor: { base: 'armor', tint: '#3a1060', a: 0.55 },
+    iceimp: { base: 'imp', h: -160 }, goldslime: { base: 'slime', tint: '#ffcc2a', a: 0.62 }, icewyvern: { base: 'wyvern', h: 25, l: 0.12 }, shadowarmor: { base: 'armor', tint: '#3a1060', a: 0.55 },
   };
   function toHsl(r, g, b) {
     r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2; let h = 0, s = 0;
@@ -2242,6 +2242,39 @@ const SPR = (() => {
   const FLAME = { fire: ['#c83a10', '#ff8a2a', '#ffe060', '#3a0a04'], poison: ['#3a8a10', '#8ae02a', '#e8ff90', '#0e2a04'],
     water: ['#1a5ac8', '#4ab0ff', '#d0f4ff', '#04142a'], ghost: ['#1a8a6a', '#4affc0', '#e0fff4', '#04261c'], void: ['#5a0aa0', '#c03aff', '#ffc8ff', '#14021e'] };
   const ENV = {
+    // ---- surprise events ----
+    qbox(f) {          // ハテナ箱: a floating rune box; the "？" glimmers
+      return mk('qbox' + (f % 4), 26, 28, 13, 24, g => {
+        const F = { d: '#2a1a6a', m: '#5a3ad8', h: '#9a80ff' }, G = '#f2c14e', GH = '#fff2c0';
+        g.poly([[3, 8], [13, 3], [23, 8], [13, 13]], '#b8a8ff'); g.poly([[13, 3], [23, 8], [13, 13]], '#8a70f0');   // top face
+        g.poly([[3, 8], [13, 13], [13, 25], [3, 20]], F.m); g.poly([[13, 13], [23, 8], [23, 20], [13, 25]], F.d);
+        g.line(3, 8, 13, 13, 1, G); g.line(13, 13, 23, 8, 1, G); g.line(13, 13, 13, 25, 1, G); g.line(3, 8, 3, 20, 1, G); g.line(23, 8, 23, 20, 1, G);
+        for (const [x, y] of [[3, 8], [23, 8], [13, 13], [13, 3]]) g.p(x, y, GH);
+        const C = ['#ffffff', '#fff2a0', '#ffd0ff', '#c0f0ff'][f % 4];
+        // "？" on the front-left face
+        g.r(6, 12, 4, 1, C); g.r(9, 13, 1, 2, C); g.r(7, 15, 2, 1, C); g.r(7, 16, 1, 1, C); g.r(7, 18, 1, 1, C);
+        g.r(16, 12, 4, 1, '#c8b0ff'); g.r(19, 13, 1, 2, '#c8b0ff'); g.r(17, 15, 2, 1, '#c8b0ff'); g.r(17, 16, 1, 1, '#c8b0ff'); g.r(17, 18, 1, 1, '#c8b0ff');
+        if (f % 2) { g.p(24, 2, '#ffffff'); g.p(1, 14, '#fff2a0'); } else { g.p(2, 3, '#ffffff'); g.p(25, 16, '#fff2a0'); }
+      }, '#120a2a');
+    },
+    qicon(kind) {      // what came out of the box
+      return mk('qi' + kind, 22, 22, 11, 11, g => {
+        if (kind === 'giant') { g.poly([[11, 2], [19, 10], [14, 10], [14, 19], [8, 19], [8, 10], [3, 10]], '#ff5a3a'); g.poly([[11, 2], [19, 10], [14, 10], [14, 19], [11, 19]], '#c8301a'); g.line(8, 10, 11, 4, 1, '#ffd0a0'); }
+        else if (kind === 'bolt') { g.poly([[13, 1], [5, 12], [10, 12], [8, 21], [17, 8], [12, 8], [15, 1]], '#ffe14a'); g.poly([[13, 1], [10, 9], [12, 8], [15, 1]], '#ffffff'); }
+        else if (kind === 'clone') { for (const [x, c, c2] of [[8, '#5a8ad8', '#3a5aa0'], [14, '#a8d0ff', '#6a98d8']]) { g.ell(x, 7, 3.4, 3.4, c); g.poly([[x - 4, 20], [x - 3.5, 11], [x + 3.5, 11], [x + 4, 20]], c2); g.r(x - 3, 11, 6, 3, c); } g.p(13, 6, '#1a1420'); g.p(15, 6, '#1a1420'); }
+        else if (kind === 'bomb') { g.ell(10, 13, 7, 7, '#2a2a34'); g.ell(8, 11, 2.4, 2, '#6a6a80'); g.r(13, 4, 3, 3, '#5a5a6a'); g.line(15, 4, 18, 1, 1, '#c8b890'); g.r(17, 0, 3, 3, '#ffd24a'); g.p(18, 1, '#ffffff'); }
+        else if (kind === 'rush') { for (const [x, y] of [[7, 15], [15, 15], [11, 9]]) { g.ell(x, y, 5, 4.4, '#f2c14e'); g.ell(x, y, 3.4, 2.8, '#ffe08a'); g.r(x, y - 2, 1, 4, '#c8902a'); } g.p(18, 3, '#ffffff'); g.p(4, 5, '#ffffff'); }
+        else if (kind === 'slip') { g.ell(11, 15, 9, 4.4, '#3a8ad8'); g.ell(11, 14, 7, 3, '#8ad0ff'); g.ell(8, 13, 2, 1, '#ffffff'); for (const [x, y] of [[6, 5], [14, 3], [17, 8]]) { g.ell(x, y, 1.6, 2.2, '#8ad0ff'); } }
+        else { for (const [y, d] of [[6, 1], [15, -1]]) { g.r(5, y - 1, 12, 3, '#c070ff'); g.poly(d > 0 ? [[17, y - 4], [21, y], [17, y + 4]] : [[5, y - 4], [1, y], [5, y + 4]], '#c070ff'); g.r(6, y - 1, 10, 1, '#f0c8ff'); } }
+      }, '#1a1420');
+    },
+    star(f) {          // a fallen shooting star
+      return mk('star' + (f % 3), 26, 26, 13, 13, g => {
+        const R = [11, 12, 11.5][f % 3], pts = [];
+        for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? R * 0.45 : R; pts.push([13 + Math.cos(a) * r, 13 + Math.sin(a) * r]); }
+        g.poly(pts, '#ffcc2a'); g.poly(pts.map(([x, y]) => [13 + (x - 13) * 0.6, 12 + (y - 13) * 0.6]), '#fff2a0'); g.ell(12, 11, 2.4, 2, '#ffffff');
+      }, '#5a3a08');
+    },
     // ---- field gimmicks ----
     bumper(rgb, lit) {   // a post that flings the hero back
       return mk('bump' + rgb + (lit ? 1 : 0), 30, 34, 15, 26, g => {
@@ -2362,7 +2395,15 @@ const SPR = (() => {
     npc(kind, f) {
       return mk('npc' + kind + (f % 2), 40, 46, 20, 44, g => {
         const sk = '#f8d0a8', b = f % 2;
-        if (kind === 'smith') {
+        if (kind === 'merchant') {   // hooded traveller with a huge pack, lantern swinging
+          g.poly([[6, 14 + b], [34, 14 + b], [33, 36 + b], [7, 36 + b]], '#7a5a3a'); g.poly([[24, 14 + b], [34, 14 + b], [33, 36 + b], [24, 36 + b]], '#5a3e24');
+          for (const [x, y, c] of [[9, 10, '#c84a3a'], [27, 11, '#3a8a5a'], [14, 8, '#e0c060']]) g.r(x, y + b, 6, 5, c);   // things strapped on top
+          g.line(8, 18 + b, 32, 18 + b, 1, '#3a2614'); g.line(8, 28 + b, 32, 28 + b, 1, '#3a2614');
+          g.poly([[11, 20 + b], [29, 20 + b], [32, 44], [8, 44]], '#5a2a5a'); g.poly([[20, 20 + b], [29, 20 + b], [32, 44], [20, 44]], '#3e1a40'); g.r(19, 22 + b, 2, 20, '#f2c14e');
+          g.poly([[12, 22 + b], [20, 4 + b], [28, 22 + b]], '#6a3a6a'); g.poly([[20, 4 + b], [28, 22 + b], [20, 22 + b]], '#4a2450');
+          g.ell(20, 17 + b, 5.5, 5, '#1a0e1a'); g.p(18, 16 + b, '#ffe14a'); g.p(22, 16 + b, '#ffe14a'); g.r(18, 19 + b, 5, 1, '#e8e0d0');
+          g.line(31, 26 + b, 35, 30, 1, '#8a8a90'); g.r(33, 30, 5, 6, '#3a3a40'); g.r(34, 31, 3, 4, f % 2 ? '#ffe880' : '#ffc040');
+        } else if (kind === 'smith') {
           g.r(9, 22 + b, 22, 18, '#8a5a3a'); g.r(12, 26 + b, 16, 14, '#5a3a2a'); g.r(19, 26 + b, 2, 14, '#3a2418');
           g.r(5, 24 + b, 5, 12, sk); g.r(30, 24 + b, 5, 12, sk); g.r(4, 35 + b, 6, 4, sk); g.r(30, 35 + b, 6, 4, sk);
           g.ell(20, 14 + b, 9, 9, sk); g.ell(20, 22 + b, 9, 6, '#a8683a'); g.r(13, 7 + b, 14, 4, '#d8d0c0'); g.r(12, 9 + b, 16, 2, '#b8b0a0');
