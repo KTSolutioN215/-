@@ -254,6 +254,18 @@
       pal: { wall: '#170d22', wallHi: '#35214c', floor: '#54406a', floorLn: '#3f2f52', light: '220,120,255', fog: 0.56 }, song: 'c3', key: 2, bpm: 152, boss: 'maou', m: 40.15, a: 16.31, xp: 26295, gp: 165833 },
   ];
 
+  // field gimmicks per dungeon. Floor patches (mud / poison / ice / belt / stream / crumble / vent) are few, never span the
+  // whole corridor, and are spaced apart, so there is always a plain way through.
+  const GIM = [
+    {}, { mud: 3, bumper: 3 }, { boulder: 2, barrel: 3 }, { bumper: 4 }, { crumble: 3, swing: 2 },
+    { vent: 5 }, { ice: 3 }, { crumble: 3, warp: 1 }, { mace: 3, barrel: 3 }, { stream: 3 },
+    { boulder: 2, crumble: 2 }, { belt: 3, mace: 2, bumper: 2 }, { warp: 2, bumper: 3 }, { vent: 4, mace: 1 },
+    { poison: 3, barrel: 2 }, { barrel: 4, swing: 2 }, { boulder: 3, bumper: 2 }, { warp: 2, bumper: 2, swing: 1 }, { mud: 2, boulder: 2 },
+    { belt: 3, vent: 3 }, { ice: 2, bumper: 4, warp: 1 }, { stream: 3, bumper: 2 }, { crumble: 3, swing: 2 }, { vent: 4, boulder: 2 },
+    { mace: 3, crumble: 2, warp: 1 },
+  ];
+  const FLOOR_GIM = { mud: 1, poison: 1, ice: 1, belt: 1, stream: 1, crumble: 1, vent: 1 };
+
   // bosses live in a big round room. moves = phase 1, moves2 = below half HP (faster, nastier)
   const BOSSES = {
     kingslime: { name: 'キングスライム', hp: 290, atk: 11, def: 0, r: 40, exp: 70, gold: 120, col: '#4fd468', song: 'guardian', key: 0, bpm: 136,
@@ -432,10 +444,62 @@
     for (let i = 0; i < D.rocks; i++) { const p = place(380, D.len - 300); props.push({ type: 'rock', x: p.x, y: p.y, r: R(14, 22), seed: r() }); }
     for (let i = 0; i < D.crates; i++) { const p = place(300, D.len - 300); props.push({ type: 'crate', x: p.x, y: p.y, r: 13, hp: 1 }); }
     for (let i = 0; i < D.chests; i++) { const p = place(D.len * (0.25 + i * 0.4), D.len * (0.4 + i * 0.4)); props.push({ type: 'chest', x: p.x, y: p.y, r: 14, open: false }); }
-    for (let i = 0; i < D.spikes; i++) {
-      const py = R(600, D.len - 400), tn = tunnelAt(py), w2 = R(0.35, 0.6) * tn.w;
+    // gimmicks and spike traps each claim a stretch of corridor so they never pile up
+    const used = props.filter(p => p.type === 'chest').map(p => [p.y - 90, p.y + 90]);
+    used.push([D.len - 420, D.len + 999]);
+    const claim = (half, tries = 30) => {
+      for (let k = 0; k < tries; k++) {
+        const y = R(560, D.len - 440);
+        if (used.every(([a, b]) => y + half + 60 < a || y - half - 60 > b)) { used.push([y - half, y + half]); return y; }
+      }
+      return null;
+    };
+    const G = GIM[di] || {}, side = () => (r() < 0.5 ? -1 : 1);
+    let hazards = 0;
+    for (const kind in G) for (let i = 0; i < G[kind]; i++) {
+      if (kind === 'mud' || kind === 'poison' || kind === 'ice') {
+        const y = claim(70); if (y == null) continue; const tn = tunnelAt(y), rx = tn.w * R(0.2, 0.26), sd = side();
+        props.push({ type: kind, x: tn.cx + sd * (tn.w / 2 - rx * 1.15), y, rx, ry: R(55, 75), seed: r() });
+        if (kind === 'poison') hazards++;
+      } else if (kind === 'belt' || kind === 'stream') {
+        const y = claim(80); if (y == null) continue; const tn = tunnelAt(y), w2 = tn.w * 0.44, sd = side();
+        const dir = kind === 'stream' ? (r() < 0.55 ? 1 : -1) : (r() < 0.5 ? 1 : -1);
+        props.push({ type: kind, x: tn.cx + sd * (tn.w / 2 - w2 / 2 - 10), y, w: w2, h: 150, dir, spd: kind === 'belt' ? 230 : 200 });
+      } else if (kind === 'crumble') {
+        const y = claim(45); if (y == null) continue; const tn = tunnelAt(y), w2 = tn.w * R(0.36, 0.44);
+        props.push({ type: 'crumble', x: tn.cx + R(-0.22, 0.22) * tn.w, y, w: w2, h: 72, st: 0, t: 0 }); hazards++;
+      } else if (kind === 'vent') {
+        const y = claim(40); if (y == null) continue; const tn = tunnelAt(y);
+        props.push({ type: 'vent', x: tn.cx + R(-0.3, 0.3) * tn.w, y, r: 34, ph: r() * 3.4, hit: new Set() }); hazards++;
+      } else if (kind === 'bumper') {
+        const y = claim(30); if (y == null) continue; const tn = tunnelAt(y);
+        props.push({ type: 'bumper', x: tn.cx + R(-0.3, 0.3) * tn.w, y, r: 17, lit: 0 });
+      } else if (kind === 'barrel') {
+        const y = claim(25); if (y == null) continue; const tn = tunnelAt(y);
+        for (let k = 0; k < (r() < 0.5 ? 2 : 1); k++) props.push({ type: 'barrel', x: tn.cx + R(-0.32, 0.32) * tn.w, y: y + k * 30, vx: 0, vy: 0, r: 14, fuse: 0 });
+      } else if (kind === 'boulder') {
+        const y = claim(60); if (y == null) continue;
+        props.push({ type: 'roller', x: tunnelAt(y).cx, y, lane: side() * R(0.15, 0.3), t: r() * 2, warn: 0 });
+      } else if (kind === 'warp') {
+        const y1 = claim(35), y2 = y1 == null ? null : claim(35); if (y1 == null || y2 == null) continue;
+        const a = Math.min(y1, y2), b = Math.max(y1, y2), id = props.length, t1 = tunnelAt(a), t2 = tunnelAt(b);
+        props.push({ type: 'warp', x: t1.cx + R(-0.25, 0.25) * t1.w, y: a, r: 24, pair: id + 1 }, { type: 'warp', x: t2.cx + R(-0.25, 0.25) * t2.w, y: b, r: 24, pair: id });
+      } else if (kind === 'mace') {
+        const y = claim(95); if (y == null) continue; const tn = tunnelAt(y);
+        props.push({ type: 'mace', x: tn.cx + R(-0.12, 0.12) * tn.w, y, len: Math.min(84, tn.w * 0.3), ang: r() * 6.28, w: side() * R(1.7, 2.2), hit: new Map() });
+      } else if (kind === 'swing') {
+        const y = claim(70); if (y == null) continue; const tn = tunnelAt(y), sd = side();
+        props.push({ type: 'swing', x: tn.cx + sd * (tn.w / 2 - 4), y, sd, len: tn.w * 0.72, ph: r() * 6.28, hit: new Map() });
+      }
+    }
+    // fewer spike traps where the floor already hurts
+    const nSpikes = D.spikes ? Math.max(1, D.spikes - hazards) : 0;
+    for (let i = 0; i < nSpikes; i++) {
+      const py = claim(17); if (py == null) continue; const tn = tunnelAt(py), w2 = R(0.35, 0.6) * tn.w;
       props.push({ type: 'spike', x: tn.cx + R(-0.2, 0.2) * tn.w, y: py, w: w2, h: 34, ph: r() * 2 });
     }
+    // warp pads point at each other by index, so link them before sorting
+    for (const p of props) if (p.type === 'warp') p.to = props[p.pair];
     for (let ty = 200; ty < D.len; ty += 230) props.push({ type: 'torch', side: (ty / 230) % 2 < 1 ? -1 : 1, y: ty });
     props.push({ type: 'spring', x: W / 2, y: goalY - 190, r: 26, used: false });
     props.sort((a, b) => a.y - b.y);
@@ -672,18 +736,19 @@
   const drag = { down: false, id: null, ox: 0, oy: 0, px: 0, py: 0 };
 
   function updateHero(dt) {
-    const h = hero, maxS = MAXSPD * h.s.ram;
+    const h = hero, maxS = MAXSPD * h.s.ram, G = h.gnd || {};
     if (h.recoil > 0) {   // 反動: just after a ram the hero flies back and the pad is ignored for a moment
       h.recoil -= dt; const f = Math.exp(-dt * 3); h.vx *= f; h.vy *= f;
     } else if (drag.down) {
       const dx = drag.px - drag.ox, dy = drag.py - drag.oy, d = hyp(dx, dy);
       const mag = d < 6 ? 0 : clamp((d - 6) / (PAD_R - 6), 0, 1);
-      const top = PAD_MAX * h.s.ram * (h.slow > 0 ? 0.55 : 1);
-      const tvx = d ? dx / d * mag * top : 0, tvy = d ? -dy / d * mag * top : 0;
-      const k = 1 - Math.exp(-dt * 25);   // snappy like a joystick (bounces come from the recoil above)
+      const top = PAD_MAX * h.s.ram * (h.slow > 0 ? 0.55 : 1) * (G.mud ? 0.6 : 1) * (G.ice ? 1.12 : 1);
+      const tvx = (d ? dx / d * mag * top : 0) + (G.px || 0), tvy = (d ? -dy / d * mag * top : 0) + (G.py || 0);
+      const k = 1 - Math.exp(-dt * (G.ice ? 2.6 : 25));   // snappy like a joystick (bounces come from the recoil above); ice slides
       h.vx = lerp(h.vx, tvx, k); h.vy = lerp(h.vy, tvy, k);
     } else {
-      const f = Math.exp(-dt * 5); h.vx *= f; h.vy *= f;
+      const f = Math.exp(-dt * (G.ice ? 0.5 : 5)), px = G.px || 0, py = G.py || 0;
+      h.vx = (h.vx - px) * f + px; h.vy = (h.vy - py) * f + py;   // a belt / current carries you
     }
     const sp = hyp(h.vx, h.vy);
     if (sp > maxS) { h.vx *= maxS / sp; h.vy *= maxS / sp; }
@@ -698,6 +763,7 @@
     }
     if (h.itemCD > 0) { h.itemCD -= dt; if (h.itemCD <= 0) { h.itemCD = 0; updateHudButtons(); } else itemCdShow(h.itemCD); }
     if (h.ramSafe > 0) h.ramSafe -= dt;
+    if (h.warpCD > 0) h.warpCD -= dt;
     if (h.slow > 0) h.slow -= dt;
     if (h.buff.atk > 0) h.buff.atk -= dt; if (h.buff.def > 0) h.buff.def -= dt;
     if (h.lvFlash > 0) h.lvFlash -= dt;
@@ -967,7 +1033,7 @@
     for (const r of rings) {
       r.r += r.spd * dt;
       const d = hyp(hero.x - r.x, hero.y - r.y);
-      if (!r.hit && Math.abs(d - r.r) < r.w + hero.r * 0.5) { r.hit = true; hurtHero(r.dmg, r.x, r.y, 380, 'ring'); }
+      if (!r.fx && !r.hit && Math.abs(d - r.r) < r.w + hero.r * 0.5) { r.hit = true; hurtHero(r.dmg, r.x, r.y, 380, 'ring'); }
     }
     rings = rings.filter(r => r.r < r.max);
   }
@@ -976,10 +1042,137 @@
     burst(b.x, b.y, 24, '#ff8a3a', 240); shake = Math.max(shake, 8); A.sfx('boom');
   }
 
+  // damage a monster with a trap / barrel / boulder (no combo, but the kill still pays out)
+  function hazardHit(e, dmg, fx, fy, power) {
+    if (e.dead || e.hp <= 0) return;
+    dmg = Math.max(1, Math.round(dmg)); e.hp -= dmg; e.hurt = 0.18;
+    const dx = e.x - fx, dy = e.y - fy, d = hyp(dx, dy) || 1; e.vx += dx / d * power; e.vy += dy / d * power;
+    popText(e.x, e.y + 20, '' + dmg, '#ffb070', 15, 0.7);
+    if (e.hp <= 0) killEnemy(e);
+  }
+  function explodeBarrel(p) {
+    p.gone = true; const R = 85;
+    for (const e of enemies) if (!e.dead && hyp(e.x - p.x, e.y - p.y) < R + e.r) hazardHit(e, hero.s.atk * 2.5 - e.def * 0.5, p.x, p.y, 420);
+    if (hero.hp > 0 && hyp(hero.x - p.x, hero.y - p.y) < R + hero.r * 0.5) hurtHero(Math.round(7 * D.a), p.x, p.y, 520, 'barrel');
+    for (const o of props) if (o.type === 'barrel' && !o.gone && hyp(o.x - p.x, o.y - p.y) < R + 10) o.fuse = o.fuse > 0 ? Math.min(o.fuse, 0.15) : 0.15;
+    burst(p.x, p.y, 46, '#ff9a3a', 380, 0.7); burst(p.x, p.y, 20, '#ffe080', 240, 0.5);
+    anims.push({ kind: 'poof', x: p.x, y: p.y, t: 0, dur: 0.4, frames: 5 });
+    rings.push({ x: p.x, y: p.y, r: 10, max: R, spd: 420, dmg: 0, w: 6, fx: true });
+    shake = Math.max(shake, 14); flash = 0.25; flashCol = '255,180,90'; A.sfx('boom');
+  }
+  const inRect = (o, p) => Math.abs(o.x - p.x) < p.w / 2 && Math.abs(o.y - p.y) < p.h / 2;
+  const inEll = (o, p) => ((o.x - p.x) / p.rx) ** 2 + ((o.y - p.y) / p.ry) ** 2 < 1;
+
   function updateProps(dt) {
-    const h = hero;
+    const h = hero, gnd = {}, spawned = [];
     for (const p of props) {
-      if (Math.abs(p.y - h.y) > H) continue;
+      if (Math.abs(p.y - h.y) > H && p.type !== 'boulder') continue;
+      // ---------- field gimmicks ----------
+      if (p.type === 'mud' || p.type === 'poison') {
+        if (inEll(h, p)) { gnd.mud = 1; if (p.type === 'poison' && h.hp > 1) { h.hp = Math.max(1, h.hp - h.s.maxHp * 0.035 * dt); h.poisonT = 0.25; } }
+        continue;
+      }
+      if (p.type === 'ice') { if (inEll(h, p)) gnd.ice = 1; continue; }
+      if (p.type === 'belt' || p.type === 'stream') { if (inRect(h, p)) gnd.py = p.dir * p.spd; continue; }
+      if (p.type === 'crumble') {
+        const on = inRect(h, p);
+        if (p.st === 0) { if (on) { p.t += dt; if (p.t > 0.6) { p.st = 1; p.t = 0; A.sfx('crate'); burst(p.x, p.y, 16, '#8a7a6a', 160); } } else p.t = Math.max(0, p.t - dt * 0.5); }
+        else {
+          p.t += dt; if (p.t > 6) { p.st = 0; p.t = 0; }
+          else if (on && h.hp > 0 && h.inv <= 0) {   // fell through: hurt a little and climb back out before the hole
+            const d2 = Math.max(1, Math.round(h.s.maxHp * 0.08)); h.hp -= d2; h.inv = 1.0;
+            popText(h.x, h.y + 26, 'おちた！ -' + d2, '#ff5a4a', 16, 1); A.sfx('hurt'); combo = 0;
+            h.y = p.y - p.h / 2 - 50; h.x = tunnelAt(h.y).cx; h.vx = 0; h.vy = 0; h.recoil = 0.2;
+            if (h.hp <= 0) { h.hp = 0; heroDown(); }
+          }
+        }
+        continue;
+      }
+      if (p.type === 'vent') {
+        const c = (t + p.ph) % 3.4, st = c < 2.0 ? 0 : c < 2.8 ? 1 : 2;
+        if (st === 2 && p.st !== 2) { A.sfx('boom'); shake = Math.max(shake, 5); }
+        if (st !== 2) p.hit.clear();
+        p.st = st;
+        if (st === 2) {
+          if (h.hp > 0 && hyp(h.x - p.x, h.y - p.y) < p.r + h.r * 0.4) hurtHero(Math.round(8 * D.a), p.x, p.y, 320, 'vent');
+          for (const e of enemies) if (!e.dead && !p.hit.has(e) && hyp(e.x - p.x, e.y - p.y) < p.r + e.r * 0.5) { p.hit.add(e); hazardHit(e, e.maxHp * 0.3, p.x, p.y, 200); }
+        }
+        continue;
+      }
+      if (p.type === 'warp') {
+        const d2 = hyp(h.x - p.x, h.y - p.y);
+        if (h.warpLock === p && d2 > p.r + h.r) h.warpLock = null;
+        if (p.to && h.hp > 0 && h.warpLock !== p && d2 < p.r * 0.8 + h.r * 0.3) {
+          burst(p.x, p.y, 20, '#c88aff', 200); h.x = p.to.x; h.y = p.to.y; h.warpLock = p.to;
+          burst(h.x, h.y, 24, '#c88aff', 220); A.sfx('warp'); flash = 0.2; flashCol = '200,140,255';
+          camY = Math.max(h.y + 40, H * 0.38 - 30);
+        }
+        continue;
+      }
+      if (p.type === 'bumper') {
+        if (p.lit > 0) p.lit -= dt;
+        const dx = h.x - p.x, dy = h.y - p.y, d = hyp(dx, dy), rr = p.r + h.r;
+        if (d < rr && d > 0) {
+          const nx = dx / d, ny = dy / d, sp = Math.max(640, hyp(h.vx, h.vy) * 1.05);
+          h.x = p.x + nx * rr; h.y = p.y + ny * rr; h.vx = nx * sp; h.vy = ny * sp; h.recoil = 0.24; p.lit = 0.2;
+          anims.push({ kind: 'spark', x: p.x + nx * p.r, y: p.y + ny * p.r, t: 0, dur: 0.2, frames: 4, big: false }); A.sfx('block');
+        }
+        for (const e of enemies) { const ex = e.x - p.x, ey = e.y - p.y, ed = hyp(ex, ey), er = p.r + e.r; if (ed < er && ed > 0 && !e.fly) { e.x = p.x + ex / ed * er; e.y = p.y + ey / ed * er; e.vx += ex / ed * 220; e.vy += ey / ed * 220; } }
+        continue;
+      }
+      if (p.type === 'barrel') {
+        const res = h.hp > 0 ? collide(p, 1.3) : null;
+        if (res && res.kind === 'ram' && !(p.fuse > 0)) { p.fuse = 1.1; popText(p.x, p.y + 24, '！', '#ffd24a', 18, 0.6); A.sfx('magic2'); }
+        p.x += p.vx * dt; p.y += p.vy * dt; const f = Math.exp(-dt * 2.2); p.vx *= f; p.vy *= f;
+        const wall = confine(p, 0.5);
+        if (p.fuse > 0) {
+          p.fuse -= dt;
+          let boom = p.fuse <= 0 || (wall && hyp(p.vx, p.vy) > 120);
+          for (const e of enemies) if (!e.dead && hyp(e.x - p.x, e.y - p.y) < e.r + p.r) boom = true;
+          if (boom) explodeBarrel(p);
+        }
+        continue;
+      }
+      if (p.type === 'roller') {   // a crack up the slope that sends boulders rolling down at you
+        const ahead = p.y - h.y;
+        if (ahead > 60 && ahead < 720) {
+          p.t -= dt; p.warn = p.t < 0.8;
+          if (p.t <= 0) { p.t = rnd(3.2, 4.4); p.warn = false; const tn = tunnelAt(p.y); spawned.push({ type: 'boulder', x: tn.cx + p.lane * tn.w, y: p.y, r: 22, vy: -185, lane: p.lane, roll: 0, from: p.y, hit: new Set() }); A.sfx('quake'); }
+        } else p.warn = false;
+        continue;
+      }
+      if (p.type === 'boulder') {
+        p.y += p.vy * dt; p.roll += dt * 7; const tn = tunnelAt(p.y); p.x = lerp(p.x, tn.cx + p.lane * tn.w, 1 - Math.exp(-dt * 3));
+        if (p.y < p.from - 1100 || p.y < 60) { p.gone = true; continue; }
+        for (const o of props) if (o.type === 'rock' && hyp(o.x - p.x, o.y - p.y) < o.r + p.r) { p.gone = true; burst(p.x, p.y, 18, '#8a8478', 200); }
+        if (p.gone) continue;
+        const dx = h.x - p.x, dy = h.y - p.y, d = hyp(dx, dy) || 1;
+        if (h.hp > 0 && d < p.r + h.r) {
+          const into = -(h.vx * dx + h.vy * dy) / d;
+          if (into > PAD_MAX * h.s.ram * 0.75) {   // a full-tilt charge smashes it
+            p.gone = true; burst(p.x, p.y, 30, '#a89a88', 280); A.sfx('crate'); popText(p.x, p.y + 30, 'こなごな！', '#fff', 15, 0.9);
+            dropCoins(p.x, p.y, Math.max(1, Math.round(D.gp * 0.012))); h.vx = dx / d * 300; h.vy = dy / d * 300; h.recoil = 0.15; continue;
+          }
+          h.x = p.x + dx / d * (p.r + h.r); h.y = p.y + dy / d * (p.r + h.r);
+          hurtHero(Math.round(9 * D.a), p.x, p.y, 420, 'boulder');
+        }
+        for (const e of enemies) if (!e.dead && !e.fly && !p.hit.has(e) && hyp(e.x - p.x, e.y - p.y) < p.r + e.r) { p.hit.add(e); hazardHit(e, e.maxHp * 0.25, p.x, p.y, 260); }
+        continue;
+      }
+      if (p.type === 'mace') {
+        p.ang += p.w * dt;
+        const bx = p.x + Math.cos(p.ang) * p.len, by = p.y + Math.sin(p.ang) * p.len;
+        if (h.hp > 0 && hyp(h.x - bx, h.y - by) < 12 + h.r * 0.8) hurtHero(Math.round(9 * D.a), bx, by, 450, 'mace');
+        for (const e of enemies) if (!e.dead && (p.hit.get(e) || 0) < t && hyp(e.x - bx, e.y - by) < 12 + e.r) { p.hit.set(e, t + 1); hazardHit(e, e.maxHp * 0.2, bx, by, 300); }
+        continue;
+      }
+      if (p.type === 'swing') {
+        p.a = (p.sd > 0 ? Math.PI : 0) + Math.sin(t * 1.5 + p.ph) * 1.05;
+        const ca = Math.cos(p.a), sa = Math.sin(p.a), x1 = p.x + ca * p.len * 0.45, y1 = p.y + sa * p.len * 0.45, x2 = p.x + ca * p.len, y2 = p.y + sa * p.len;
+        if (h.hp > 0 && segDist(h.x, h.y, x1, y1, x2, y2) < 9 + h.r * 0.7) hurtHero(Math.round(10 * D.a), x2, y2, 450, 'swing');
+        for (const e of enemies) if (!e.dead && (p.hit.get(e) || 0) < t && segDist(e.x, e.y, x1, y1, x2, y2) < 9 + e.r) { p.hit.set(e, t + 1); hazardHit(e, e.maxHp * 0.2, x2, y2, 300); }
+        continue;
+      }
       if (p.type === 'rock') {
         const dx = h.x - p.x, dy = h.y - p.y, d = hyp(dx, dy), rr = p.r + h.r;
         if (d < rr && d > 0) { const nx = dx / d, ny = dy / d; h.x = p.x + nx * rr; h.y = p.y + ny * rr; const vn = h.vx * nx + h.vy * ny; if (vn < 0) { h.vx -= 1.6 * vn * nx; h.vy -= 1.6 * vn * ny; } }
@@ -1008,6 +1201,9 @@
         if (p.state === 2 && Math.abs(h.x - p.x) < p.w / 2 + h.r * 0.3 && Math.abs(h.y - p.y) < p.h / 2 + h.r * 0.3) hurtHero(Math.round(6 * D.a), h.x, h.y - 30, 200, 'spike');
       }
     }
+    h.gnd = gnd;
+    if (h.poisonT > 0) h.poisonT -= dt;
+    if (spawned.length) props.push(...spawned);
     props = props.filter(p => !p.gone);
     // pickups fly to the hero
     for (const d of drops) {
@@ -1474,10 +1670,118 @@
     ctx.restore();
     SPR.draw(ctx, SPR.ENV.torch(D.pal.light, Math.floor(globalT * 6 + x * 0.1) % 3), x, y + 10);
   }
+  // ---------- field gimmicks: floor patches first, then the objects with the other props ----------
+  const GIM_OBJ = { vent: 1, bumper: 1, barrel: 1, roller: 1, boulder: 1, mace: 1, swing: 1 };
+  const FLOOR_DRAW = { mud: 1, poison: 1, ice: 1, belt: 1, stream: 1, crumble: 1, vent: 1, warp: 1 };
+  function ellPath(x, y, rx, ry) { ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, 7); }
+  function drawFloorGim(p, y) {
+    const x = p.x;
+    if (p.type === 'mud' || p.type === 'poison') {
+      const P = p.type === 'poison';
+      ellPath(x, y, p.rx + 3, p.ry + 3); ctx.fillStyle = P ? 'rgba(40,60,20,.6)' : 'rgba(50,34,20,.6)'; ctx.fill();
+      ellPath(x, y, p.rx, p.ry); ctx.fillStyle = P ? '#5a2a78' : 'rgba(96,66,38,.9)'; ctx.fill();
+      ctx.fillStyle = ditherFill(P ? '150,235,70' : '70,46,26', P ? 0.75 : 0.6); ellPath(x, y, p.rx * 0.85, p.ry * 0.8); ctx.fill();
+      if (P) { ctx.fillStyle = '#a8f04a'; ellPath(x, y, p.rx * 0.35, p.ry * 0.3); ctx.fill(); }
+      for (let i = 0; i < 5; i++) {   // bubbles
+        const k = (globalT * 0.6 + i * 0.37 + p.seed) % 1, bx = x + Math.sin(i * 2.4 + p.seed * 9) * p.rx * 0.6, by = y + Math.cos(i * 1.7) * p.ry * 0.5;
+        const r2 = q(1.5 + k * 4.5); ctx.strokeStyle = P ? `rgba(220,255,140,${1 - k})` : `rgba(200,170,130,${1 - k})`; ctx.lineWidth = 1.5; ctx.strokeRect(q(bx) - r2 / 2, q(by) - r2 / 2, r2, r2);
+      }
+    } else if (p.type === 'ice') {
+      ellPath(x, y, p.rx, p.ry); ctx.fillStyle = 'rgba(190,230,255,.7)'; ctx.fill();
+      ctx.fillStyle = ditherFill('255,255,255', 0.4); ellPath(x, y, p.rx * 0.85, p.ry * 0.8); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < 4; i++) { const sx = q(x - p.rx * 0.5 + i * p.rx * 0.32), sy2 = q(y - p.ry * 0.3 + (i % 2) * p.ry * 0.4); for (let k = 0; k < 4; k++) ctx.fillRect(sx + k * 1.5, sy2 - k * 1.5, 1.5, 1.5); }
+      if ((globalT * 1.3 + p.seed) % 2 < 0.25) { ctx.fillRect(q(x + p.rx * 0.3), q(y - p.ry * 0.5), 1.5, 4.5); ctx.fillRect(q(x + p.rx * 0.3) - 1.5, q(y - p.ry * 0.5) + 1.5, 4.5, 1.5); }
+    } else if (p.type === 'belt' || p.type === 'stream') {
+      const x0 = q(x - p.w / 2), y0 = q(y - p.h / 2), w = q(p.w), hh = q(p.h), B = p.type === 'belt';
+      ctx.fillStyle = B ? '#2a2a32' : 'rgba(60,150,230,.45)'; ctx.fillRect(x0, y0, w, hh);
+      if (B) { for (let yy = 0; yy < hh; yy += 6) { ctx.fillStyle = (yy / 6) % 2 ? '#f2c14e' : '#1a1a1a'; ctx.fillRect(x0, y0 + yy, 3, 3); ctx.fillRect(x0 + w - 3, y0 + yy, 3, 3); } }
+      const sh2 = ((t * p.spd) % 24) * p.dir;   // world y goes up, the screen y goes down
+      ctx.save(); ctx.beginPath(); ctx.rect(x0, y0, w, hh); ctx.clip();
+      for (let yy = -24; yy < hh + 24; yy += 24) {
+        const cy = q(y0 + yy - sh2 + 24) - 12;
+        if (B) { ctx.fillStyle = '#c8962a'; for (let k = 0; k < 4; k++) { const dy = p.dir > 0 ? k : -k; ctx.fillRect(q(x - 9 + k * 1.5), cy + dy * 1.5, 3, 3); ctx.fillRect(q(x + 6 - k * 1.5), cy + dy * 1.5, 3, 3); } }
+        else { ctx.fillStyle = 'rgba(220,245,255,.7)'; ctx.fillRect(q(x0 + w * 0.25), cy, 1.5, 9); ctx.fillRect(q(x0 + w * 0.6), cy + 9, 1.5, 7.5); ctx.fillRect(q(x0 + w * 0.8), cy - 6, 1.5, 6); }
+      }
+      ctx.restore();
+    } else if (p.type === 'crumble') {
+      const shk = p.st === 0 && p.t > 0 ? q(rnd(-1.5, 1.5)) : 0, x0 = q(x - p.w / 2) + shk, y0 = q(y - p.h / 2), w = q(p.w), hh = q(p.h);
+      if (p.st === 1) {
+        const k = p.t > 5.4 ? (p.t - 5.4) / 0.6 : 0;
+        ctx.fillStyle = '#05040a'; ctx.fillRect(x0, y0, w, hh); ctx.fillStyle = 'rgba(60,50,70,.9)'; ctx.fillRect(x0, y0, w, 4.5);
+        if (k) { ctx.fillStyle = `rgba(160,150,140,${k})`; ctx.fillRect(x0, y0, w, hh); }
+      } else {
+        ctx.fillStyle = '#16121a'; ctx.fillRect(x0 - 1.5, y0 - 1.5, w + 3, hh + 3);
+        ctx.fillStyle = SPR.shade(D.pal.floor, 0.12); ctx.fillRect(x0, y0, w, hh);
+        ctx.fillStyle = '#16121a';
+        for (let i = 1; i < 4; i++) ctx.fillRect(x0 + q(w * i / 4), y0, 3, hh);
+        ctx.fillRect(x0, y0 + q(hh / 2), w, 3);
+        for (let i = 0; i < 4; i++) for (let k = 0; k < 5; k++) ctx.fillRect(x0 + q(w * (i + 0.2) / 4 + k * 3), y0 + q(hh * 0.15 + ((k + i) % 3) * 4.5 + (i % 2) * hh * 0.5), 3, 1.5);
+        if (p.t > 0.25) { ctx.fillStyle = 'rgba(255,80,60,.6)'; ctx.fillRect(x0, y0, w, 1.5); ctx.fillRect(x0, y0 + hh - 1.5, w, 1.5); }
+      }
+    } else if (p.type === 'vent') {
+      ellPath(x, y, p.r * 0.75, p.r * 0.5); ctx.fillStyle = '#1a0a08'; ctx.fill();
+      ctx.fillStyle = '#3a1810';
+      for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28; for (let k = 2; k < 6; k++) ctx.fillRect(q(x + Math.cos(a) * p.r * k / 5), q(y + Math.sin(a) * p.r * 0.7 * k / 5), 1.5, 1.5); }
+      if (p.st === 1) { const pul = 0.4 + 0.4 * Math.sin(globalT * 22); ctx.fillStyle = ditherFill('255,110,40', 0.35 + pul * 0.4); ellPath(x, y, p.r, p.r * 0.7); ctx.fill(); ctx.fillStyle = '#ff8a2a'; ellPath(x, y, p.r * 0.35, p.r * 0.22); ctx.fill(); }
+      else if (p.st !== 2) { ctx.fillStyle = `rgba(255,90,40,${0.25 + 0.15 * Math.sin(globalT * 3 + p.ph)})`; ellPath(x, y, p.r * 0.3, p.r * 0.18); ctx.fill(); }
+    } else if (p.type === 'warp') {
+      const rot = globalT * 1.6;
+      ellPath(x, y, p.r, p.r * 0.62); ctx.fillStyle = 'rgba(120,60,200,.45)'; ctx.fill();
+      ctx.strokeStyle = '#c88aff'; ctx.lineWidth = 1.5; ellPath(x, y, p.r, p.r * 0.62); ctx.stroke(); ellPath(x, y, p.r * 0.6, p.r * 0.37); ctx.stroke();
+      ctx.fillStyle = '#f0d8ff';
+      for (let i = 0; i < 6; i++) { const a = rot + i / 6 * 6.28; ctx.fillRect(q(x + Math.cos(a) * p.r * 0.8) - 1.5, q(y + Math.sin(a) * p.r * 0.5) - 1.5, 3, 3); }
+      for (let i = 0; i < 3; i++) { const k = (globalT * 0.9 + i / 3) % 1; ctx.fillStyle = `rgba(220,180,255,${1 - k})`; ctx.fillRect(q(x + Math.sin(i * 2.1) * p.r * 0.5), q(y - k * 26), 1.5, 3); }
+    }
+  }
+  function drawObjGim(p, y) {
+    const x = p.x;
+    if (p.type === 'vent' && p.st === 2) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255,140,60,.45)'; ellPath(x, y, p.r, p.r * 0.7); ctx.fill(); ctx.restore();
+      const f = Math.floor(globalT * 12);
+      for (let i = 0; i < 5; i++) SPR.draw(ctx, SPR.ENV.flame(f + i, true, D.boss === 'hydra' ? 'poison' : null), x + Math.sin(f * 0.7 + i) * 4, y - i * 13);
+    } else if (p.type === 'bumper') {
+      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(q(x - 15), q(y + 6), 30, 4.5);
+      SPR.draw(ctx, SPR.ENV.bumper(D.pal.light, p.lit > 0), x, y + 8);
+    } else if (p.type === 'barrel') {
+      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(q(x - 10.5), q(y + 9), 21, 3);
+      const lit = p.fuse > 0, blink = lit && Math.sin(globalT * (p.fuse < 0.5 ? 40 : 18)) > 0;
+      SPR.draw(ctx, SPR.ENV.barrel(lit, Math.floor(globalT * 10)), x, y + 10);
+      if (blink) { ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.fillRect(q(x - 9), q(y - 18), 18, 22.5); }
+    } else if (p.type === 'roller') {
+      ctx.fillStyle = '#120e10'; ctx.fillRect(q(x - 30), q(y - 12), 60, 21); ctx.fillStyle = '#2a2224'; ctx.fillRect(q(x - 27), q(y - 9), 54, 4.5);
+      if (p.warn) { for (let i = 0; i < 4; i++) { const k = (globalT * 2 + i / 4) % 1; ctx.fillStyle = `rgba(200,180,150,${1 - k})`; ctx.fillRect(q(x - 24 + i * 15), q(y - 12 - k * 18), 3, 3); } ctx.fillStyle = 'rgba(255,80,60,.7)'; ctx.fillRect(q(x - 30), q(y + 9), 60, 1.5); }
+    } else if (p.type === 'boulder') {
+      ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(q(x - p.r), q(y + p.r * 0.5), q(p.r * 2), 4.5);
+      SPR.draw(ctx, SPR.ENV.rock('#8a7a68', Math.floor(p.roll) % 3, 15), x, y + p.r * 0.3);
+    } else if (p.type === 'mace') {
+      const bx = x + Math.cos(p.ang) * p.len, by = y - Math.sin(p.ang) * p.len;
+      ctx.fillStyle = '#3a3640'; ctx.fillRect(q(x - 6), q(y - 15), 12, 18); ctx.fillStyle = '#6a6474'; ctx.fillRect(q(x - 4.5), q(y - 15), 3, 15);
+      ctx.fillStyle = '#9a96a4'; for (let k = 1; k < 7; k++) ctx.fillRect(q(x + (bx - x) * k / 7) - 1.5, q(y - 9 + (by - y + 9) * k / 7) - 1.5, 3, 3);
+      ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(q(bx - 9), q(by + 9), 18, 3);
+      SPR.draw(ctx, SPR.ENV.mace(), bx, by);
+    } else if (p.type === 'swing') {
+      const ca = Math.cos(p.a), sa = -Math.sin(p.a), ex = x + ca * p.len, ey = y + sa * p.len;
+      ctx.fillStyle = '#4a4450'; ctx.fillRect(q(x - 6), q(y - 6), 12, 12); ctx.fillStyle = '#c9a24a'; ctx.fillRect(q(x - 1.5), q(y - 1.5), 3, 3);
+      ctx.fillStyle = '#8a8694'; for (let k = 1; k < 9; k++) ctx.fillRect(q(x + ca * p.len * 0.45 * k / 9) - 1.5, q(y + sa * p.len * 0.45 * k / 9) - 1.5, 3, 3);
+      const x1 = x + ca * p.len * 0.45, y1 = y + sa * p.len * 0.45;
+      ctx.strokeStyle = '#1a1420'; ctx.lineWidth = 15; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.strokeStyle = '#a8b0c0'; ctx.lineWidth = 10.5; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x1 - sa * 3, y1 + ca * 3); ctx.lineTo(ex - sa * 3, ey + ca * 3); ctx.stroke(); ctx.lineCap = 'butt';
+      ctx.fillStyle = '#c9a24a'; ctx.fillRect(q(x1) - 4.5, q(y1) - 4.5, 9, 9);
+    }
+  }
   function drawProps() {
+    for (const p of props) {   // floor patches under everything
+      if (!FLOOR_DRAW[p.type]) continue;
+      const y = sy(p.y); if (y < -120 || y > H + 120) continue;
+      drawFloorGim(p, y);
+    }
     for (const p of props) {
       const y = sy(p.y);
-      if (y < -60 || y > H + 60) continue;
+      if (y < -130 || y > H + 130) continue;
+      if (FLOOR_DRAW[p.type] && !(p.type === 'vent' && p.st === 2)) continue;
+      if (GIM_OBJ[p.type]) { drawObjGim(p, y); continue; }
       if (p.type === 'torch') { const tn = tunnelAt(p.y); drawTorch(tn.cx + p.side * (tn.w / 2 + 7), y); continue; }
       if (p.type === 'rock') {
         ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(q(p.x - p.r * 0.9), q(y + p.r * 0.45), q(p.r * 1.9), 4.5);
@@ -1579,6 +1883,7 @@
     }
     SPR.draw(ctx, spr, x, y + h.r * 0.75);
     if (h.lvFlash > 0) { ctx.strokeStyle = `rgba(242,193,78,${h.lvFlash / 1.6})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, h.r + 8 + (1.6 - h.lvFlash) * 30, 0, 7); ctx.stroke(); }
+    if (h.poisonT > 0) { ctx.fillStyle = '#b4f05a'; for (let k = 0; k < 3; k++) { const kk = (globalT * 1.5 + k / 3) % 1; ctx.fillRect(q(x - 9 + k * 9), q(y - h.r - kk * 22), 3, 3); } }
     if (h.slow > 0) { ctx.strokeStyle = 'rgba(235,240,255,.8)'; ctx.lineWidth = 1.5; for (let k = 0; k < 3; k++) { const a = k * 1.05 + 0.3; ctx.beginPath(); ctx.moveTo(x - Math.cos(a) * h.r * 1.3, y - Math.sin(a) * h.r * 1.3); ctx.lineTo(x + Math.cos(a) * h.r * 1.3, y + Math.sin(a) * h.r * 1.3); ctx.stroke(); } }
     ctx.globalAlpha = 1;
   }
@@ -2323,6 +2628,7 @@
       <p>・てきを たおすと けいけんちと ゴールド。レベルが あがると つよくなる。</p>
       <p>・たからばこ と 木箱は たいあたりで あけられる。</p>
       <p>・ダンジョンの おくには ボスが いる。まるい へやで 弾幕を よけながら たいあたり！</p>
+      <p>・ダンジョンには しかけが ある。ぬかるみ（おそくなる）・どくの ぬま・こおり（すべる）・ベルトや 水の ながれ・くずれる ゆか・ふきだす ようがん・はねかえりの はしら・ばくはつ だる・ころがる 大岩（ぜんりょくで こわせる）・ワープの まほうじん・まわる てっきゅう・ふりこの 刃。てきも まきこめる！</p>
       <p>・盾を もつ騎士は 正面からの こうげきを ふせぐ。よこに まわりこもう。</p>
       <p>・右下の どうぐボタンで アイテムを えらんで つかう（えらんでいる あいだは ゲームが とまる）。ちから・まもりの くすりは 20びょう こうかが つづく。つかったあとは 6びょう まつと つぎの どうぐが つかえる。</p>
       <p>・おなじ てきに つづけて あてると ヒットすうが ふえる。5ヒットめから 1ヒットごとに いりょくが 2%ずつ あがる（さいだい+50%）。こうげきを うけたり、しばらく あてないと 0に もどる。</p>

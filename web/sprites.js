@@ -1601,6 +1601,32 @@ const SPR = (() => {
   const FLAME = { fire: ['#c83a10', '#ff8a2a', '#ffe060', '#3a0a04'], poison: ['#3a8a10', '#8ae02a', '#e8ff90', '#0e2a04'],
     water: ['#1a5ac8', '#4ab0ff', '#d0f4ff', '#04142a'], ghost: ['#1a8a6a', '#4affc0', '#e0fff4', '#04261c'] };
   const ENV = {
+    // ---- field gimmicks ----
+    bumper(rgb, lit) {   // a post that flings the hero back
+      return mk('bump' + rgb + (lit ? 1 : 0), 30, 34, 15, 26, g => {
+        const C = `rgb(${rgb})`;
+        g.ell(15, 26, 13, 6, '#2a2430'); g.r(4, 14, 22, 12, '#3a3448'); g.ell(15, 14, 11, 6, '#5a5470');
+        g.ell(15, 13, 8, 4.4, lit ? '#ffffff' : C); g.ell(13, 12, 3, 1.6, '#ffffff');
+        for (const x of [6, 15, 24]) g.r(x - 1, 17, 2, 7, lit ? C : '#6a6488');
+        g.r(4, 24, 22, 2, '#1a1622');
+      }, '#120e18');
+    },
+    barrel(lit, f) {     // explodes when rammed hard
+      return mk('barrel' + (lit ? 1 : 0) + (f % 2), 24, 30, 12, 26, g => {
+        g.ell(12, 26, 9, 3, '#1a1010');
+        g.r(4, 8, 16, 18, '#a83a28'); g.r(15, 8, 5, 18, '#7a2418'); g.r(5, 9, 3, 16, '#d8604a');
+        g.r(3, 10, 18, 2, '#3a3038'); g.r(3, 21, 18, 2, '#3a3038'); g.ell(12, 8, 8, 3, '#c8503a'); g.ell(12, 8, 5, 1.6, '#5a2018');
+        g.r(10, 13, 4, 6, '#f2c14e'); g.r(11, 14, 2, 3, '#1a1010'); g.p(11, 18, '#1a1010');
+        g.line(14, 6, 17, 2, 1, '#c8b890');
+        if (lit) { g.ell(17, 2, 2.4 + (f % 2), 2.4 + (f % 2), '#ffd24a'); g.p(17, 2, '#ffffff'); }
+      }, '#120a08');
+    },
+    mace() {             // spiked ball on a chain
+      return mk('mace', 24, 24, 12, 12, g => {
+        for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283; g.poly([[12 + Math.cos(a - 0.3) * 6, 12 + Math.sin(a - 0.3) * 6], [12 + Math.cos(a) * 11, 12 + Math.sin(a) * 11], [12 + Math.cos(a + 0.3) * 6, 12 + Math.sin(a + 0.3) * 6]], '#c8ccd4'); }
+        g.ell(12, 12, 7, 7, '#5a5e6a'); g.ell(10, 10, 3, 2.4, '#a8b0c0'); g.p(9, 9, '#ffffff');
+      }, '#16141c');
+    },
     // a piece of dropped equipment, ringed by a glow in its rarity colour
     gear(slot, rar, f) {
       const C = { lo: ['#c8c0b0', '#8a8478'], fx: ['#7ad8ff', '#2a7ab0'], rare: ['#ffe14a', '#c08a2a'] }[rar] || ['#fff', '#888'], tw = f % 2;
