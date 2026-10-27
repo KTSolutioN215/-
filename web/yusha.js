@@ -264,6 +264,16 @@
     { belt: 3, vent: 3 }, { ice: 2, bumper: 4, warp: 1 }, { stream: 3, bumper: 2 }, { crumble: 3, swing: 2 }, { vent: 4, boulder: 2 },
     { mace: 3, crumble: 2, warp: 1 },
   ];
+  // each boss's own technique: [move, name shown when it starts]
+  const SIG = {
+    kingslime: ['split', 'ぶんれつジャンプ'], treant: ['roots', 'ねっこしばり'], goblinking: ['bombs', 'ばくだんなげ'], spiderqueen: ['webnet', 'くものす ばくだん'],
+    lich: ['soulstorm', 'たましいの うず'], dragon: ['firestorm', 'ほのおの たつまき'], icequeen: ['icecage', 'こおりの おり'], thunderbird: ['thunderlines', 'いかずちの あみ'],
+    deathknight: ['darkwave', 'やみの ざんげき'], kraken: ['ink', 'すみの うみ'], pharaoh: ['quicksand', 'すなじごく'], clockmachine: ['timestop', 'タイムストップ'],
+    voideye: ['gaze', 'ついびの まなざし'], cerberus: ['firetrail', 'じごくの とっしん'], hydra: ['regen', 'さいせい'], ghostcaptain: ['cannons', 'いっせい ほうげき'],
+    cyclops: ['boulders', 'いわなだれ'], archmage: ['illusion', 'げんえいじゅつ'], quetzal: ['tornado', 'たつまきの つばさ'], colossus: ['rocketfist', 'ロケットパンチ'],
+    shadowhero: ['mirror', 'かげうつし'], leviathan: ['tsunami', 'だいつなみ'], bonedragon: ['raisedead', 'しりょうの よびごえ'], demongeneral: ['whirlblade', 'まぐんの せんぷう'],
+    maou: ['despair', 'ぜつぼうの まほうじん'],
+  };
   const FLOOR_GIM = { mud: 1, poison: 1, ice: 1, belt: 1, stream: 1, crumble: 1, vent: 1 };
 
   // bosses live in a big round room. moves = phase 1, moves2 = below half HP (faster, nastier)
@@ -310,15 +320,18 @@
       moves: ['quake', 'laser3', 'rocks', 'mines', 'charge', 'twin'], moves2: ['quake', 'laser3', 'mines', 'dash3', 'clock', 'rocks'] },
     shadowhero: { name: 'かげの勇者', hp: 22750, atk: 210, def: 58, r: 34, col: '#6a5a9a', wcol: '#8a6aff', ocol: '170,120,255',
       moves: ['dash3', 'twin', 'aimed5', 'warp', 'charge', 'gapring'], moves2: ['dash3', 'twin', 'cross', 'warp', 'triple', 'laser3'] },
-    leviathan: { name: 'リヴァイアサン', hp: 44330, atk: 308, def: 61, r: 50, col: '#3a7ad8', wcol: '#3a8ad8', fcol: 'water', ocol: '120,200,255',
+    leviathan: { name: 'リヴァイアサン', hp: 41100, atk: 308, def: 61, r: 50, col: '#3a7ad8', wcol: '#3a8ad8', fcol: 'water', ocol: '120,200,255',
       moves: ['tentacles', 'breath', 'rain:water', 'wave', 'homing'], moves2: ['tentacles', 'breath3', 'rain:water', 'cross', 'dash3', 'wave'] },
-    bonedragon: { name: 'ボーンドラゴン', hp: 44000, atk: 291, def: 64, r: 48, col: '#e8e2cf', wcol: '#d8d0b8', fcol: 'ghost', ocol: '140,255,200',
+    bonedragon: { name: 'ボーンドラゴン', hp: 48890, atk: 291, def: 64, r: 48, col: '#e8e2cf', wcol: '#d8d0b8', fcol: 'ghost', ocol: '140,255,200',
       moves: ['breath', 'tail', 'rain:curse', 'quake', 'homing', 'fireball'], moves2: ['breath3', 'tail', 'rain:curse', 'cross', 'dash3', 'fireball'] },
-    demongeneral: { name: 'まぐんしょうぐん', hp: 29300, atk: 284, def: 67, r: 44, col: '#c83a3a', wcol: '#ff4a3a',
+    demongeneral: { name: 'まぐんしょうぐん', hp: 26040, atk: 268, def: 67, r: 44, col: '#c83a3a', wcol: '#ff4a3a',
       moves: ['twin', 'dash3', 'rain:meteor', 'laser3', 'sweep', 'summon'], moves2: ['twin', 'dash3', 'rain:meteor', 'cross', 'mines', 'laser3', 'triple'] },
-    maou: { name: 'まおう', hp: 25290, atk: 251, def: 72, r: 42, exp: 15000, gold: 15000, col: '#c04cff', song: 'M', key: 2, bpm: 150, rage: 1.45,
+    maou: { name: 'まおう', hp: 27300, atk: 251, def: 72, r: 42, exp: 15000, gold: 15000, col: '#c04cff', song: 'M', key: 2, bpm: 150, rage: 1.45,
       moves: ['twin', 'spiral3', 'rain:meteor', 'warp', 'homing', 'laser3', 'gapring', 'clock'], moves2: ['cross', 'triple', 'rain:void', 'warp', 'dash3', 'mines', 'laser3', 'twin', 'spiral3', 'breath3'] },
   };
+
+  // the signature shows up in both phases (twice in phase 2), so every fight has its own centrepiece
+  for (const k in SIG) { const B = BOSSES[k], m = SIG[k][0]; B.moves = B.moves.concat([m]); B.moves2 = B.moves2.concat([m, m]); }
 
   // ---------------------------------------------------------------
   //  SAVE
@@ -385,6 +398,7 @@
   let nodes = [], goalY = 0;
   let hero = null, enemies = [], bullets = [], drops = [], props = [], fx = [], texts = [], rings = [], zones = [], anims = [];
   let bcamX = 180, bcamY = 0;   // boss-room camera
+  let freezeT = 0, darkT = 0, shades = [], twisters = [];   // boss signature effects
   let boss = null, arena = null;
   let camY = 0, shake = 0, flash = 0, flashCol = '255,255,255', hitStop = 0, slowMo = 0;
   let t = 0, globalT = 0, beatPulse = 0;
@@ -645,7 +659,7 @@
     closePanel(); deathT = 0;
     genDungeon(di);
     hero = newHero(W / 2, 70);
-    camY = hero.y; boss = null; arena = null; zones = []; combo = 0; runExp = 0; runGold = 0; runKills = 0; runLoot = []; toasts = [];
+    camY = hero.y; boss = null; arena = null; zones = []; freezeT = 0; darkT = 0; shades = []; twisters = []; combo = 0; runExp = 0; runGold = 0; runKills = 0; runLoot = []; toasts = [];
     state = 'play'; paused = false; hint = di === 0 ? 6 : 0;
     banner = { a: D.name, b: D.en, t: 2.4 };
     A.bgm(FARR.dungeon[di]);
@@ -656,7 +670,7 @@
     const B = BOSSES[D.boss];
     state = 'boss';
     arena = { cx: W / 2, cy: 0, R: 300 };   // much wider than the screen; the camera follows the hero
-    enemies = []; bullets = []; drops = []; rings = []; props = []; zones = [];
+    enemies = []; bullets = []; drops = []; rings = []; props = []; zones = []; freezeT = 0; darkT = 0; shades = []; twisters = [];
     hero.x = W / 2; hero.y = -arena.R + 70; hero.vx = 0; hero.vy = 0;
     bcamX = hero.x; bcamY = hero.y + 120;
     boss = { type: D.boss, name: B.name, x: arena.cx, y: arena.cy + 20, vx: 0, vy: 0, r: Math.round(B.r * 1.4), hp: B.hp, maxHp: B.hp, atk: B.atk, def: B.def, col: B.col, wcol: B.wcol, fcol: B.fcol, ocol: B.ocol,
@@ -1012,8 +1026,33 @@
   }
 
   function updateBullets(dt) {
+    if (freezeT > 0) freezeT -= dt;
     for (const b of bullets) {
+      if (freezeT > 0 && !b.noFreeze) continue;   // time stop: shots hang in the air
       b.t += dt; b.life -= dt;
+      if (b.delay && b.t < b.delay) continue;   // lined up, waiting for the telegraph to finish
+      if (b.wait != null) {   // parked until b.wait, then flies at the hero
+        if (b.t < b.wait) continue;
+        const a = Math.atan2(hero.y - b.y, hero.x - b.x); b.vx = Math.cos(a) * b.aim; b.vy = Math.sin(a) * b.aim; b.wait = null;
+      }
+      if (b.dest) {           // lobbed: fly to a spot, then go off there
+        const dx = b.dest.x - b.x, dy = b.dest.y - b.y, d = hyp(dx, dy), st = b.spd * dt;
+        if (d <= st) { b.life = 0; if (b.onLand) b.onLand(b); continue; }
+        b.x += dx / d * st; b.y += dy / d * st; b.z = Math.sin(clamp(1 - d / b.d0, 0, 1) * Math.PI) * 40;
+        continue;
+      }
+      if (b.orbit) {          // circles a fixed point on a widening radius
+        const o = b.orbit; o.a += o.w * dt; o.r += o.dr * dt;
+        b.x = o.cx + Math.cos(o.a) * o.r; b.y = o.cy + Math.sin(o.a) * o.r;
+        if (hyp(b.x - hero.x, b.y - hero.y) < b.r + hero.r * 0.6 && hero.inv <= 0) hurtHero(b.dmg, b.x, b.y, 260, 'shot:' + b.kind);
+        if (o.r > arena.R) b.life = 0;
+        continue;
+      }
+      if (b.ret != null && b.t > b.ret && boss) {   // boomerang: home back to the boss
+        const dx = boss.x - b.x, dy = boss.y - b.y, d = hyp(dx, dy) || 1, sp0 = hyp(b.vx, b.vy);
+        b.vx = lerp(b.vx, dx / d * Math.max(sp0, 380), 1 - Math.exp(-dt * 6)); b.vy = lerp(b.vy, dy / d * Math.max(sp0, 380), 1 - Math.exp(-dt * 6));
+        if (d < boss.r) { b.life = 0; continue; }
+      }
       if (b.kind === 'big' && b.t > (b.fuse || 1.1)) { b.life = 0; explodeBig(b); continue; }
       if (b.kind === 'homing' && b.t < 3.2) {   // turn toward the hero at a limited rate
         const cur = Math.atan2(b.vy, b.vx), want = Math.atan2(hero.y - b.y, hero.x - b.x);
@@ -1022,11 +1061,18 @@
       }
       b.x += b.vx * dt; b.y += b.vy * dt;
       if (b.kind === 'flame') { b.vx *= 0.985; b.vy *= 0.985; }
-      if (state === 'boss') { if (hyp(b.x - arena.cx, b.y - arena.cy) > arena.R + 30) { if (b.kind === 'big') explodeBig(b); b.life = 0; } }
+      if (state === 'boss') {
+        const ax = b.x - arena.cx, ay = b.y - arena.cy, ad = hyp(ax, ay);
+        if (b.bounce > 0 && ad > arena.R - b.r) {   // bounce off the round wall
+          const nx = ax / ad, ny = ay / ad, vn = b.vx * nx + b.vy * ny;
+          if (vn > 0) { b.vx -= 2 * vn * nx; b.vy -= 2 * vn * ny; b.bounce--; shake = Math.max(shake, 6); A.sfx('quake'); }
+          b.x = arena.cx + nx * (arena.R - b.r); b.y = arena.cy + ny * (arena.R - b.r);
+        } else if (ad > arena.R + 30 && b.ret == null) { if (b.kind === 'big') explodeBig(b); b.life = 0; }
+      }
       else { const tn = tunnelAt(b.y); if (Math.abs(b.x - tn.cx) > tn.w / 2 + 4) { b.life = 0; burst(b.x, b.y, 4, '#ccc', 60, 0.3); } }
-      if (hyp(b.x - hero.x, b.y - hero.y) < b.r + hero.r * 0.6 && hero.inv <= 0) {
+      if (!b.harmless && hyp(b.x - hero.x, b.y - hero.y) < b.r + hero.r * 0.6 && hero.inv <= 0) {
         if (b.kind === 'web') { hero.slow = 1.8; popText(hero.x, hero.y + 30, 'クモの糸！', '#dfe8ff', 13, 0.9); }
-        hurtHero(b.dmg, b.x - b.vx * 0.05, b.y - b.vy * 0.05, 220, 'shot:' + b.kind); b.life = 0;
+        hurtHero(b.dmg, b.x - b.vx * 0.05, b.y - b.vy * 0.05, b.pierce ? 420 : 220, 'shot:' + b.kind); if (!b.pierce) b.life = 0;
       }
     }
     bullets = bullets.filter(b => b.life > 0);
@@ -1247,7 +1293,7 @@
     // home drift (back to its spot unless it is charging / jumping / walking)
     if (B.homeT > 0) B.homeT -= dt; else { B.hx = arena.cx; B.hy = arena.cy + 20; }
     const mvn = B.mv ? B.mv.name : '';
-    if (!['charge', 'jump', 'dash3', 'stalk'].includes(mvn)) {
+    if (!['charge', 'jump', 'dash3', 'stalk', 'split', 'firetrail'].includes(mvn)) {
       const hx = B.hx + Math.sin(globalT * 0.7) * 16, hy = B.hy + Math.cos(globalT * 0.9) * 10;
       B.x = lerp(B.x, hx, 1 - Math.exp(-dt * 2.2)); B.y = lerp(B.y, hy, 1 - Math.exp(-dt * 2.2));
     }
@@ -1257,13 +1303,44 @@
         const list = B.phase === 2 ? B.moves2 : B.moves;
         let m; do { m = pick(list); } while (m === B.last && list.length > 1);
         B.last = m; B.mv = { name: m, t: 0, a0: ang, n: 0, acc: 0 }; B.mt = 0;
+        if (SIG[B.type] && m === SIG[B.type][0]) { B.callout = { s: `${B.name}の「${SIG[B.type][1]}」！`, t: 2 }; A.sfx('magic2'); }
       }
     } else runMove(B, dt * sp, ang, sp);
+    if (B.callout) { B.callout.t -= dt; if (B.callout.t <= 0) B.callout = null; }
+    if (darkT > 0) darkT -= dt;
+    if (B.regen) {   // hydra: heals unless you keep hitting it
+      B.regen.t -= dt; B.regen.acc += dt;
+      while (B.regen.acc > 0.25) { B.regen.acc -= 0.25; const hh = Math.round(B.maxHp * 0.004); B.hp = Math.min(B.maxHp, B.hp + hh); popText(B.x + rnd(-20, 20), B.y + B.r + 20, '+' + hh, '#8af07a', 13, 0.6); }
+      if (B.regen.t <= 0) B.regen = null;
+    }
+    if (B.decoys) {  // illusions: popping one costs nothing, only the real one takes damage
+      for (const d of B.decoys) {
+        d.t += dt; d.x = lerp(d.x, d.hx + Math.sin(globalT * 0.7 + d.ph) * 16, 1 - Math.exp(-dt * 2.2)); d.y = lerp(d.y, d.hy + Math.cos(globalT * 0.9 + d.ph) * 10, 1 - Math.exp(-dt * 2.2));
+        if (!d.shot && d.t > 1.1) { d.shot = true; const a = Math.atan2(h.y - d.y, h.x - d.x); for (const o of [-0.25, 0, 0.25]) shoot(d.x, d.y, Math.cos(a + o), Math.sin(a + o), 190, B.atk * 0.8, 'orb'); }
+        if (hyp(h.x - d.x, h.y - d.y) < B.r + h.r && h.hp > 0) { d.gone = true; burst(d.x, d.y, 30, '#c8b8ff', 240); popText(d.x, d.y + 30, 'まぼろし！', '#c8b8ff', 15, 0.9); A.sfx('warp'); const dx2 = h.x - d.x, dy2 = h.y - d.y, l2 = hyp(dx2, dy2) || 1; h.vx = dx2 / l2 * 420; h.vy = dy2 / l2 * 420; h.recoil = 0.3; }
+        if (d.t > 7) d.gone = true;
+      }
+      B.decoys = B.decoys.filter(d => !d.gone); if (!B.decoys.length) B.decoys = null;
+    }
+    for (const sd of shades) {   // the shadow copies the hero, mirrored through the middle of the room
+      sd.t += dt; sd.x = arena.cx * 2 - h.x; sd.y = arena.cy * 2 - h.y;
+      if (sd.t > 0.6 && hyp(sd.x - h.x, sd.y - h.y) < h.r * 1.7) hurtHero(B.atk * 0.8, sd.x, sd.y, 420, 'shade');
+    }
+    shades = shades.filter(sd => sd.t < sd.life);
+    for (const tw of twisters) {   // tornadoes drift after the hero, pull a little and fling on contact
+      tw.t += dt; const dx2 = h.x - tw.x, dy2 = h.y - tw.y, d2 = hyp(dx2, dy2) || 1;
+      tw.vx = lerp(tw.vx, dx2 / d2 * tw.spd, 1 - Math.exp(-dt * 0.9)); tw.vy = lerp(tw.vy, dy2 / d2 * tw.spd, 1 - Math.exp(-dt * 0.9));
+      tw.x += tw.vx * dt; tw.y += tw.vy * dt; confine(tw, 0.8);
+      if (d2 < 150 && h.recoil <= 0) { h.vx -= dx2 / d2 * 140 * dt; h.vy -= dy2 / d2 * 140 * dt; }
+      if (d2 < tw.r + h.r * 0.6) hurtHero(B.atk * 0.8, tw.x, tw.y, 520, 'tornado');
+    }
+    twisters = twisters.filter(tw => tw.t < tw.life);
     // sweeping weapons
     for (const s of B.sweeps) {
       s.t += dt * sp;
       if (s.t < s.tele) continue;
       s.ang += s.vel * dt * sp; s.left -= Math.abs(s.vel * dt * sp);
+      if (s.grow) s.len = Math.min(s.lmax, s.len + s.grow * dt * sp);
       const ex = B.x + Math.cos(s.ang) * s.len, ey = B.y + Math.sin(s.ang) * s.len;
       const dd = segDist(h.x, h.y, B.x + Math.cos(s.ang) * B.r * 0.6, B.y + Math.sin(s.ang) * B.r * 0.6, ex, ey);
       if (dd < s.w + h.r * 0.7) hurtHero(B.atk * 0.9, B.x, B.y, 420, 'sweep');
@@ -1275,6 +1352,7 @@
     if (res) {
       if (res.kind === 'ram' && B.hitCD <= 0) {
         const { dmg, crit, tag } = ramDamage(B, res.imp, true);
+        if (B.regen) { B.regen = null; popText(B.x, B.y + B.r + 44, 'さいせいを とめた！', '#fff', 15, 1); }
         B.hp -= dmg; B.hurt = 0.15; B.hitCD = 0.2; combo += comboStep(); comboT = 2.2 + (h.s.fx.chain || 0);
         if (tag) popText(B.x, B.y + B.r + 32, tag + '！', '#9fe8ff', 13, 0.6);
         if (h.s.fx.drain) h.hp = Math.min(h.s.maxHp, h.hp + h.s.maxHp * h.s.fx.drain / 3);
@@ -1316,6 +1394,31 @@
     const h = hero;
     for (const z of zones) {
       z.t += dt;
+      if (z.type === 'patch') {   // lingers on the floor: webs, ice, poison, fire, quicksand
+        const d = hyp(h.x - z.x, h.y - z.y);
+        if (d < z.r + h.r * 0.3 && h.hp > 0) {
+          if (z.kind === 'web') h.slow = Math.max(h.slow, 0.15);
+          if (z.kind === 'ice') { h.gnd = h.gnd || {}; h.gnd.ice = 1; }
+          if (z.dmg && (z.kind !== 'sand' || d < z.core)) hurtHero(z.dmg, z.x, z.y, 160, 'patch:' + z.kind);
+        }
+        if (z.pull && d < z.pr && d > 4 && h.recoil <= 0) { h.vx += (z.x - h.x) / d * z.pull * dt; h.vy += (z.y - h.y) / d * z.pull * dt; }
+        z.dead = z.t > z.life;
+        continue;
+      }
+      if (z.type === 'seg') {
+        if (z.t >= z.tele && !z.fired) { z.fired = true; if (z.dmg) A.sfx('boom'); shake = Math.max(shake, 4); }
+        if (z.fired && z.dmg && z.t < z.tele + z.act && segDist(h.x, h.y, z.x, z.y, z.x2, z.y2) < z.w + h.r * 0.55) hurtHero(z.dmg, h.x, h.y - 10, 380, 'zone:' + z.kind);
+        z.dead = z.t > z.tele + z.act;
+        continue;
+      }
+      if (z.type === 'doom') {   // everything outside the safe circles goes off
+        if (z.t >= z.tele && !z.fired) {
+          z.fired = true; flash = 0.7; flashCol = '255,60,140'; shake = 22; A.sfx('boom');
+          if (!z.safe.some(s2 => hyp(h.x - s2.x, h.y - s2.y) < s2.r)) hurtHero(z.dmg, arena.cx, arena.cy, 500, 'zone:doom');
+        }
+        z.dead = z.t > z.tele + 0.4;
+        continue;
+      }
       if (z.type === 'circle') {
         if (!z.fired && z.t >= z.tele) {
           z.fired = true;
@@ -1326,6 +1429,10 @@
         z.dead = z.t > z.tele + 0.3;
       } else {
         if (z.boss) { z.x = z.boss.x; z.y = z.boss.y; }
+        if (z.track) {   // a gaze that turns after the hero at a limited speed
+          const want = Math.atan2(h.y - z.y, h.x - z.x); let da = ((want - z.ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+          z.ang += clamp(da, -z.track * dt, z.track * dt);
+        }
         if (z.t >= z.tele) {
           z.ang += z.vel * dt;
           const ex = z.x + Math.cos(z.ang) * z.len, ey = z.y + Math.sin(z.ang) * z.len;
@@ -1475,13 +1582,14 @@
         if (!mv.n) { mv.n = 1; const v = (Math.random() < 0.5 ? 1 : -1) * 2.2; for (const o of [0, Math.PI]) addSweep(B, { ang: ang + o, vel: v, len: 200, w: 10, left: Math.PI * 2, col: B.wcol || '#ff5aa0', kind: 'blade' }); }
         if (mv.t > 3.6) done(1.1);
         break;
-      case 'charge': case 'dash3': {   // rush to the wall (dash3 = three times in a row)
-        const total = name === 'dash3' ? 3 : 1;
+      case 'charge': case 'dash3': case 'firetrail': {   // rush to the wall (dash3 = three times in a row; firetrail leaves burning ground)
+        const total = name === 'charge' ? 1 : 3;
         if (mv.ph == null) { mv.ph = 'aim'; mv.pt = 0; mv.k = 0; }
         mv.pt += dt;
         if (mv.ph === 'aim') { mv.a0 = Math.atan2(hero.y - B.y, hero.x - B.x); B.tele = mv.a0; if (mv.pt > (mv.k ? 0.42 : 0.7)) { mv.ph = 'go'; mv.pt = 0; B.tele = null; B.vx = Math.cos(mv.a0) * 520; B.vy = Math.sin(mv.a0) * 520; A.sfx('magic'); } }
         else if (mv.ph === 'go') {
           B.x += B.vx * dt; B.y += B.vy * dt;
+          if (name === 'firetrail') { mv.acc += dt; if (mv.acc > 0.07) { mv.acc = 0; zones.push({ type: 'patch', kind: 'burn', x: B.x, y: B.y, r: 26, life: p2 ? 5 : 4, dmg: B.atk * 0.5, t: 0 }); } }
           const ddx = B.x - arena.cx, ddy = B.y - arena.cy, d = hyp(ddx, ddy);
           if (d > arena.R - B.r) {
             B.x = arena.cx + ddx / d * (arena.R - B.r); B.y = arena.cy + ddy / d * (arena.R - B.r); B.vx = B.vy = 0;
@@ -1530,6 +1638,209 @@
         if (!mv.n) { mv.n = 1; minionWave(B, 2); }
         if (mv.t > 1) done(1.2);
         break;
+      // ================= signature techniques =================
+      case 'split':        // king slime: leap onto you and burst into little slimes
+        if (mv.n === 0) { B.z = Math.min(1, mv.t / 0.35); mv.tx = lerp(mv.tx || hero.x, hero.x, 0.15); mv.ty = lerp(mv.ty || hero.y, hero.y, 0.15); if (mv.t > 1.0) { mv.n = 1; mv.t1 = mv.t; } }
+        else if (mv.n === 1) {
+          const k = Math.min(1, (mv.t - mv.t1) / 0.3); B.x = lerp(B.x, mv.tx, k); B.y = lerp(B.y, mv.ty, k); B.z = 1 - k;
+          if (k >= 1) {
+            mv.n = 2; B.z = 0; rings.push({ x: B.x, y: B.y, r: B.r * 0.6, max: 150, spd: 300, dmg: B.atk, w: 12 }); shake = 18; A.sfx('quake'); burst(B.x, B.y, 30, bc, 280);
+            const n = Math.min(p2 ? 4 : 3, 7 - enemies.filter(e => !e.dead).length);
+            for (let i = 0; i < n; i++) { const a = i / Math.max(1, n) * 6.28 + rnd(0, 1); const e = spawnEnemy('slime', B.x + Math.cos(a) * 70, B.y + Math.sin(a) * 70, true); e.exp = Math.round(e.exp * 0.5); e.gold = Math.round(e.gold * 0.5); e.vx = Math.cos(a) * 200; e.vy = Math.sin(a) * 200; }
+          }
+        } else if (mv.t - mv.t1 > 1.1) { B.hx = B.x; B.hy = B.y; B.homeT = 1.5; done(1); }
+        break;
+      case 'roots': {      // treant: roots burst out of the floor in lines toward you; caught = slowed
+        const lines = p2 ? [-0.5, 0, 0.5] : [0];
+        if (mv.t > 0.35 && mv.n < 9 && mv.t > 0.35 + mv.n * 0.11) {
+          mv.n++;
+          for (const o of lines) { const a = mv.a0 + o, x = B.x + Math.cos(a) * (B.r + mv.n * 38), y = B.y + Math.sin(a) * (B.r + mv.n * 38); if (hyp(x - arena.cx, y - arena.cy) < arena.R - 20) addCircle(x, y, 30, 0.55, B.atk, 'thorn', z => { if (hyp(hero.x - z.x, hero.y - z.y) < z.r + hero.r * 0.4) hero.slow = 1.6; }); }
+        }
+        if (mv.t > 2.4) done(1.1);
+        break;
+      }
+      case 'bombs':        // goblin king: lobbed bombs; the landing spot is marked
+        if (mv.t > 0.4 && mv.n < (p2 ? 5 : 3) && mv.t > 0.4 + mv.n * 0.28) {
+          mv.n++; const tx = hero.x + hero.vx * 0.5 + rnd(-60, 60), ty = hero.y + hero.vy * 0.5 + rnd(-60, 60), d0 = hyp(tx - B.x, ty - B.y) || 1, spd = 300;
+          addCircle(tx, ty, 54, d0 / spd + 0.7, B.atk, 'mine', z => { for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; shoot(z.x, z.y, Math.cos(a), Math.sin(a), 150, B.atk, 'fire', 1.4); } A.sfx('boom'); });
+          bullets.push({ x: B.x, y: B.y, vx: 0, vy: 0, r: 8, dmg: 0, kind: 'bomb', life: 9, t: 0, dest: { x: tx, y: ty }, spd, d0, harmless: true, onLand: () => {} });
+          A.sfx('magic');
+        }
+        if (mv.t > 2.6) done(1.1);
+        break;
+      case 'webnet':       // spider queen: web bombs that leave sticky patches on the floor
+        if (mv.t > 0.4 && mv.n < (p2 ? 5 : 3) && mv.t > 0.4 + mv.n * 0.3) {
+          mv.n++; const tx = hero.x + rnd(-70, 70), ty = hero.y + rnd(-70, 70), d0 = hyp(tx - B.x, ty - B.y) || 1;
+          bullets.push({ x: B.x, y: B.y, vx: 0, vy: 0, r: 9, dmg: 0, kind: 'web', life: 9, t: 0, dest: { x: tx, y: ty }, spd: 320, d0, harmless: true, onLand: b => { zones.push({ type: 'patch', kind: 'web', x: b.x, y: b.y, r: 58, life: 7, t: 0 }); burst(b.x, b.y, 14, '#e8f0ff', 160); } });
+          A.sfx('magic2');
+        }
+        if (mv.t > 1.6 && mv.n2 == null) { mv.n2 = 1; for (const o of [-0.2, 0, 0.2]) shoot(B.x, B.y, Math.cos(ang + o), Math.sin(ang + o), 230, B.atk, 'orb'); }
+        if (mv.t > 2.4) done(1.1);
+        break;
+      case 'soulstorm': {  // lich: souls pour in from the walls toward it; find the gap
+        const waves = p2 ? 2 : 1;
+        if (mv.t > 0.5 + mv.n * 1.1 && mv.n < waves) {
+          const n = 30, gap = rnd(0, n), sw = mv.n % 2 ? 0.5 : -0.5; mv.n++;
+          for (let i = 0; i < n; i++) {
+            const di = Math.abs(((i - gap + n * 1.5) % n) - n / 2); if (di < 2.2) continue;
+            const a = i / n * Math.PI * 2, x = arena.cx + Math.cos(a) * (arena.R - 12), y = arena.cy + Math.sin(a) * (arena.R - 12);
+            const ia = a + Math.PI + sw * 0.25; bullets.push({ x, y, vx: Math.cos(ia) * 115, vy: Math.sin(ia) * 115, r: 8, dmg: B.atk, kind: 'orb', life: (arena.R - 40) / 115, t: 0 });
+          }
+          A.sfx('summon');
+        }
+        if (mv.t > 1.4 + waves * 1.1) done(1.1);
+        break;
+      }
+      case 'firestorm':    // dragon: spiral arms of fire that circle outward
+        if (!mv.n && mv.t > 0.5) {
+          mv.n = 1; const arms = p2 ? 5 : 4, dir = Math.random() < 0.5 ? 1 : -1;
+          for (let k = 0; k < arms; k++) for (let j = 0; j < 4; j++) bullets.push({ x: B.x, y: B.y, vx: 0, vy: 0, r: 8, dmg: B.atk, kind: 'flame', life: 4.2, t: 0, orbit: { cx: B.x, cy: B.y, a: k / arms * Math.PI * 2 + j * 0.16, r: 30 + j * 14, w: 1.5 * dir, dr: 62 } });
+          A.sfx('boom');
+        }
+        if (mv.t > 3.2) done(1.1);
+        break;
+      case 'icecage':      // ice queen: pillars ring you in, leave by the gap before the centre freezes
+        if (!mv.n) {
+          mv.n = 1; const cx = hero.x, cy = hero.y, n = 12, gap = Math.floor(rnd(0, n)); mv.cx = cx; mv.cy = cy;
+          for (let i = 0; i < n; i++) { if (i === gap || i === (gap + 1) % n) continue; const a = i / n * Math.PI * 2; addCircle(cx + Math.cos(a) * 120, cy + Math.sin(a) * 120, 32, 0.9, B.atk, 'ice'); }
+          addCircle(cx, cy, 95, 1.6, B.atk * 1.2, 'ice');
+          if (p2) for (let i = 0; i < 3; i++) { const pt = arenaSpot(120); zones.push({ type: 'patch', kind: 'ice', x: pt.x, y: pt.y, r: 70, life: 7, t: 0 }); }
+        }
+        if (mv.t > 2.2) done(1.1);
+        break;
+      case 'thunderlines': {   // thunderbird: lightning strikes along lines across the room
+        const sets = p2 ? 3 : 2;
+        if (mv.t > 0.3 + mv.n * 0.9 && mv.n < sets) {
+          mv.n++;
+          for (let i = 0; i < 4; i++) {
+            const a1 = i === 0 ? Math.atan2(hero.y - arena.cy, hero.x - arena.cx) + rnd(0.3, 0.8) : rnd(0, 6.28), a2 = i === 0 ? a1 + Math.PI - rnd(0.3, 0.9) : a1 + rnd(1.6, 3.1);
+            zones.push({ type: 'seg', kind: 'bolt', x: arena.cx + Math.cos(a1) * arena.R, y: arena.cy + Math.sin(a1) * arena.R, x2: arena.cx + Math.cos(a2) * arena.R, y2: arena.cy + Math.sin(a2) * arena.R, w: 12, tele: 0.95, act: 0.3, dmg: B.atk, t: 0 });
+          }
+        }
+        if (mv.t > 0.6 + sets * 0.9) done(1.1);
+        break;
+      }
+      case 'darkwave':     // death knight: crescent slashes that fly and pierce
+        if (mv.t > 0.5 + mv.n * 0.6 && mv.n < (p2 ? 3 : 2)) {
+          mv.n++; const a = Math.atan2(hero.y - B.y, hero.x - B.x);
+          for (const o of [-0.4, 0, 0.4]) bullets.push({ x: B.x + Math.cos(a + o) * B.r, y: B.y + Math.sin(a + o) * B.r, vx: Math.cos(a + o) * 240, vy: Math.sin(a + o) * 240, r: 22, dmg: B.atk, kind: 'crescent', life: 3, t: 0, pierce: true });
+          A.sfx('crit');
+        }
+        if (mv.t > 2.2) done(1.1);
+        break;
+      case 'ink':          // kraken: ink blacks out the room, then the tentacles come
+        if (!mv.n) { mv.n = 1; darkT = p2 ? 5 : 4; burst(B.x, B.y, 40, '#2a1440', 300, 1); A.sfx('magic2'); }
+        if (mv.t > 0.8 && mv.n === 1) { mv.n = 2; const v = (Math.random() < 0.5 ? 1 : -1) * 1.5; for (let k = 0; k < 2; k++) addSweep(B, { ang: mv.a0 + k * Math.PI, vel: v, len: 200, w: 14, left: Math.PI * 1.5, col: B.wcol || '#a85ad8', kind: 'tentacle', tele: 0.9 }); }
+        if (mv.t > 2.0 && mv.n === 2) { mv.n = 3; for (const o of [-0.3, 0, 0.3]) shoot(B.x, B.y, Math.cos(ang + o), Math.sin(ang + o), 200, B.atk, 'orb'); }
+        if (mv.t > 3.6) done(1.1);
+        break;
+      case 'quicksand':    // pharaoh: a sand pit that drags you to its deadly centre
+        if (!mv.n) { mv.n = 1; const pt = arenaSpot(150); zones.push({ type: 'patch', kind: 'sand', x: pt.x, y: pt.y, r: 80, core: 26, pr: 230, pull: p2 ? 420 : 330, life: 5, dmg: B.atk * 0.7, t: 0 }); A.sfx('quake'); }
+        if (mv.t > 1.2 && mv.n === 1) { mv.n = 2; for (let i = 0; i < (p2 ? 5 : 3); i++) addCircle(hero.x + rnd(-80, 80), hero.y + rnd(-80, 80), 40, 0.9 + i * 0.15, B.atk, 'sand'); }
+        if (mv.t > 3) done(1.1);
+        break;
+      case 'timestop':     // clock machine: time stops; knives appear around you and fly when it starts again
+        if (!mv.n) {
+          mv.n = 1; freezeT = 1.4; flash = 0.5; flashCol = '220,220,255'; A.sfx('warp');
+          for (const R0 of p2 ? [140, 210] : [150]) { const n = R0 > 160 ? 20 : 14, off = rnd(0, 1); for (let i = 0; i < n; i++) { const a = (i + off) / n * Math.PI * 2; bullets.push({ x: hero.x + Math.cos(a) * R0, y: hero.y + Math.sin(a) * R0, vx: 0, vy: 0, r: 7, dmg: B.atk, kind: 'knife', life: 4, t: 0, wait: 1.45 + (R0 > 160 ? 0.25 : 0), aim: 230, noFreeze: true }); } }
+        }
+        if (mv.t > 2.6) done(1.2);
+        break;
+      case 'gaze':         // void eye: a beam that follows you
+        if (!mv.n) { mv.n = 1; addBeam(B, ang, { tele: 0.9, act: 3.2, w: 13, track: p2 ? 0.95 : 0.7, boss: B }); if (p2) addBeam(B, ang + Math.PI, { tele: 0.9, act: 3.2, w: 13, track: 0.6, boss: B }); }
+        if (mv.t > 4.3) done(1.1);
+        break;
+      case 'regen':        // hydra: the heads drop venom pools, then it regrows its wounds unless you hit it
+        if (!mv.n) { mv.n = 1; for (let i = 0; i < (p2 ? 4 : 3); i++) { const tx = hero.x + rnd(-110, 110), ty = hero.y + rnd(-110, 110), d0 = hyp(tx - B.x, ty - B.y) || 1; bullets.push({ x: B.x, y: B.y, vx: 0, vy: 0, r: 9, dmg: 0, kind: 'spore', life: 9, t: 0, dest: { x: tx, y: ty }, spd: 300, d0, harmless: true, onLand: b => zones.push({ type: 'patch', kind: 'poison', x: b.x, y: b.y, r: 50, life: 6, dmg: B.atk * 0.5, t: 0 }) }); } A.sfx('magic2'); }
+        if (mv.t > 0.8 && mv.n === 1) { mv.n = 2; B.regen = { t: 3.5, acc: 0 }; }
+        if (mv.t > 1.4) done(1.4);
+        break;
+      case 'cannons': {    // ghost captain: cannonballs sweep the room in lanes; stand in a safe lane
+        const vol = p2 ? 2 : 1;
+        if (mv.t > 0.2 + mv.n * 1.6 && mv.n < vol) {
+          const a = (mv.n ? mv.dir + Math.PI / 2 : (mv.dir = rnd(0, 6.28))), ux = Math.cos(a), uy = Math.sin(a), px = -uy, py = ux; mv.n++;
+          const lanes = [], safe = Math.floor(rnd(1, 5));
+          for (let o = -250; o <= 250; o += 72) lanes.push(o);
+          lanes.forEach((o, i) => {
+            if (i === safe || i === safe + 1) return;
+            const half = Math.sqrt(Math.max(0, arena.R * arena.R - o * o)), x0 = arena.cx + px * o - ux * half, y0 = arena.cy + py * o - uy * half;
+            zones.push({ type: 'seg', kind: 'meteor', x: x0, y: y0, x2: x0 + ux * half * 2, y2: y0 + uy * half * 2, w: 14, tele: 1.0, act: 0.05, dmg: 0, t: 0 });
+            bullets.push({ x: x0, y: y0, vx: ux * 420, vy: uy * 420, r: 15, dmg: B.atk, kind: 'cannon', life: 3, t: 0, wait: null, delay: 1.0, pierce: true });
+          });
+          A.sfx('door');
+        }
+        if (mv.t > 0.6 + vol * 1.6) done(1.1);
+        break;
+      }
+      case 'boulders':     // cyclops: hurls boulders that bounce off the walls
+        if (mv.t > 0.6 + mv.n * 0.5 && mv.n < (p2 ? 3 : 2)) { mv.n++; const a = Math.atan2(hero.y - B.y, hero.x - B.x) + rnd(-0.15, 0.15); bullets.push({ x: B.x, y: B.y, vx: Math.cos(a) * 270, vy: Math.sin(a) * 270, r: 20, dmg: B.atk, kind: 'boulder', life: 6, t: 0, bounce: p2 ? 3 : 2, pierce: true }); A.sfx('boom'); shake = 8; }
+        if (mv.t > 2.2) done(1.1);
+        break;
+      case 'illusion':     // archmage: three copies appear; only the real one can be hurt
+        if (!mv.n && mv.t > 0.3) {
+          mv.n = 1; const spots = [arenaSpot(150), arenaSpot(150), arenaSpot(150), arenaSpot(150)], real = Math.floor(rnd(0, 4));
+          burst(B.x, B.y, 30, '#c8b8ff', 260); A.sfx('warp');
+          B.x = B.hx = spots[real].x; B.y = B.hy = spots[real].y; B.homeT = 6;
+          B.decoys = spots.filter((_, i) => i !== real).slice(0, p2 ? 3 : 2).map(pt => ({ x: pt.x, y: pt.y, hx: pt.x, hy: pt.y, t: 0, ph: rnd(0, 6) }));
+          for (const pt of spots) burst(pt.x, pt.y, 16, '#c8b8ff', 180);
+        }
+        if (mv.t > 1.4 && mv.n === 1) { mv.n = 2; for (const o of [-0.25, 0, 0.25]) shoot(B.x, B.y, Math.cos(ang + o), Math.sin(ang + o), 190, B.atk, 'orb'); }
+        if (mv.t > 2) done(1.2);
+        break;
+      case 'tornado':      // quetzalcoatl: tornadoes that wander after you
+        if (!mv.n && mv.t > 0.4) { mv.n = 1; for (let i = 0; i < (p2 ? 3 : 2); i++) { const pt = arenaSpot(170); twisters.push({ x: pt.x, y: pt.y, vx: 0, vy: 0, r: 24, spd: p2 ? 95 : 75, t: 0, life: p2 ? 7 : 6, ph: rnd(0, 6) }); burst(pt.x, pt.y, 20, '#c8ffe8', 200); } A.sfx('summon'); }
+        if (mv.t > 1.4) done(1.4);
+        break;
+      case 'rocketfist':   // colossus: its fists fly out and come back
+        if (mv.t > 0.6 && mv.n < (p2 ? 2 : 1) && mv.t > 0.6 + mv.n * 1.1) {
+          mv.n++; const a = Math.atan2(hero.y - B.y, hero.x - B.x);
+          for (const o of [-0.28, 0.28]) bullets.push({ x: B.x + Math.cos(a + o * 3) * B.r, y: B.y + Math.sin(a + o * 3) * B.r, vx: Math.cos(a + o) * 420, vy: Math.sin(a + o) * 420, r: 18, dmg: B.atk, kind: 'fist', life: 5, t: 0, ret: 0.8, pierce: true });
+          A.sfx('boom'); shake = 8;
+        }
+        if (mv.t > (p2 ? 3.4 : 2.4)) done(1.1);
+        break;
+      case 'mirror':       // shadow hero: your own shadow, mirrored through the room's centre
+        if (!mv.n) { mv.n = 1; shades.push({ x: arena.cx * 2 - hero.x, y: arena.cy * 2 - hero.y, t: 0, life: p2 ? 7 : 5 }); A.sfx('warp'); flash = 0.3; flashCol = '120,80,200'; }
+        if (mv.t > 1.0 && mv.n === 1) { mv.n = 2; for (const o of [-0.2, 0.2]) shoot(B.x, B.y, Math.cos(ang + o), Math.sin(ang + o), 230, B.atk, 'orb'); }
+        if (mv.t > 1.5) done(1.4);
+        break;
+      case 'tsunami': {    // leviathan: a wall of water crosses the room with one gap
+        const waves = p2 ? 2 : 1;
+        if (mv.t > 0.2 + mv.n * 1.7 && mv.n < waves) {
+          const a = mv.n ? mv.dir + Math.PI : (mv.dir = rnd(0, 6.28)), ux = Math.cos(a), uy = Math.sin(a), px = -uy, py = ux, gap = rnd(-170, 170); mv.n++;
+          zones.push({ type: 'seg', kind: 'water', x: arena.cx - ux * arena.R + px * arena.R, y: arena.cy - uy * arena.R + py * arena.R, x2: arena.cx - ux * arena.R - px * arena.R, y2: arena.cy - uy * arena.R - py * arena.R, w: 14, tele: 0.8, act: 0.05, dmg: 0, t: 0 });
+          for (let o = -arena.R + 14; o <= arena.R - 14; o += 24) { if (Math.abs(o - gap) < 64) continue; const half = Math.sqrt(arena.R * arena.R - o * o); bullets.push({ x: arena.cx - ux * half + px * o, y: arena.cy - uy * half + py * o, vx: ux * 170, vy: uy * 170, r: 13, dmg: B.atk, kind: 'wave', life: 0.8 + (half * 2) / 170, t: 0, delay: 0.8 }); }
+          A.sfx('quake');
+        }
+        if (mv.t > 1 + waves * 1.7) done(1.1);
+        break;
+      }
+      case 'raisedead':    // bone dragon: skeletons climb out of the ground around you
+        if (!mv.n) {
+          mv.n = 1; const n = Math.min(p2 ? 6 : 4, 8 - enemies.filter(e => !e.dead).length), off = rnd(0, 6.28);
+          for (let i = 0; i < Math.max(2, n); i++) {
+            const a = off + i / Math.max(2, n) * Math.PI * 2; let x = hero.x + Math.cos(a) * 110, y = hero.y + Math.sin(a) * 110;
+            const ax = x - arena.cx, ay = y - arena.cy, ad = hyp(ax, ay); if (ad > arena.R - 40) { x = arena.cx + ax / ad * (arena.R - 40); y = arena.cy + ay / ad * (arena.R - 40); }
+            addCircle(x, y, 34, 1.0, B.atk * 0.7, 'curse', z => { if (i < n) { const e = spawnEnemy('skeleton', z.x, z.y, true); e.exp = Math.round(e.exp * 0.5); e.gold = Math.round(e.gold * 0.5); } });
+          }
+          A.sfx('summon');
+        }
+        if (mv.t > 1.8) done(1.2);
+        break;
+      case 'whirlblade':   // demon general: steps to the centre and spins, the blades growing longer
+        if (!mv.n) { mv.n = 1; B.hx = arena.cx; B.hy = arena.cy; B.homeT = 4; }
+        if (mv.t > 0.6 && mv.n === 1) { mv.n = 2; const k = p2 ? 3 : 2, v = (Math.random() < 0.5 ? 1 : -1) * 2.0; for (let i = 0; i < k; i++) addSweep(B, { ang: mv.a0 + i / k * Math.PI * 2, vel: v, len: 60, grow: 80, lmax: 260, w: 11, left: Math.PI * 4.2, col: B.wcol || '#ff4a3a', kind: 'blade', tele: 0.7 }); }
+        if (mv.t > 4.6) done(1.2);
+        break;
+      case 'despair': {    // demon king: the whole room is about to explode except a few circles
+        if (!mv.n) {
+          mv.n = 1; const safe = []; for (let i = 0; i < (p2 ? 2 : 3); i++) { let pt; for (let k = 0; k < 20; k++) { pt = arenaSpot(150); if (safe.every(q2 => hyp(q2.x - pt.x, q2.y - pt.y) > 140)) break; } safe.push({ x: pt.x, y: pt.y, r: 56 }); }
+          zones.push({ type: 'doom', safe, tele: p2 ? 1.9 : 2.2, dmg: B.atk * 1.3, t: 0 }); A.sfx('roar');
+        }
+        if (mv.t > 2.6 && mv.n === 1) { mv.n = 2; const n = p2 ? 7 : 5; for (let i = 0; i < n; i++) { const a = ang + Math.PI + (i - (n - 1) / 2) * 0.5; bullets.push({ x: B.x, y: B.y, vx: Math.cos(a) * 150, vy: Math.sin(a) * 150, r: 9, dmg: B.atk, kind: 'homing', life: 4.6, t: 0 }); } }
+        if (mv.t > 3.2) done(1.2);
+        break;
+      }
       default: done(1);
     }
   }
@@ -1894,7 +2205,7 @@
     if (B.dead > 0.6) return;
     const y = by - z;
     ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, by + r * 0.7, r * (1 - B.z * 0.4), r * 0.4 * (1 - B.z * 0.4), 0, 0, 7); ctx.fill();
-    if (B.mv && B.mv.name === 'jump' && B.mv.n === 0) { ctx.strokeStyle = 'rgba(255,60,60,.7)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(B.mv.tx, sy(B.mv.ty), r, 0, 7); ctx.stroke(); }
+    if (B.mv && (B.mv.name === 'jump' || B.mv.name === 'split') && B.mv.n === 0) { ctx.strokeStyle = 'rgba(255,60,60,.7)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(B.mv.tx, sy(B.mv.ty), r, 0, 7); ctx.stroke(); }
     if (B.tele != null) { ctx.strokeStyle = 'rgba(255,60,60,.55)'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(B.tele) * 300, y - Math.sin(B.tele) * 300); ctx.stroke(); ctx.setLineDash([]); }
     // weapons
     for (const s of B.sweeps) {
@@ -1925,6 +2236,8 @@
     const hov = FLOAT[B.type] ? 12 + Math.sin(globalT * 2.2) * 4 : 0;
     const lk = Math.round((((-look) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / (Math.PI / 4)) % 8;
     const spr = SPR.boss(B.type, { f: Math.floor(globalT * (B.type === 'thunderbird' ? 8 : 4)), act: B.mv && B.mv.t < 0.7 ? 1 : 0, p2: B.phase === 2, look: lk, air: (B.z || 0) > 0.05, flash: hurt });
+    for (const d of B.decoys || []) SPR.draw(ctx, spr, d.x, sy(d.y) + r * 0.7 - hov, 0.92);   // illusions (no shadow)
+    if (B.regen) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(120,255,100,${0.18 + 0.12 * Math.sin(globalT * 9)})`; ctx.beginPath(); ctx.arc(x, y, r * 1.5, 0, 7); ctx.fill(); ctx.restore(); }
     SPR.draw(ctx, spr, x, by + r * 0.7 - z - hov);
     if (B.type === 'thunderbird' && Math.sin(globalT * 13) > 0.6) { ctx.strokeStyle = '#fff6a0'; ctx.lineWidth = 2; ctx.beginPath(); let px = x + rnd(-r, r), py = y - r * 1.2; ctx.moveTo(px, py); for (let k = 0; k < 4; k++) { px += rnd(-12, 12); py += 12; ctx.lineTo(px, py); } ctx.stroke(); }
     ctx.restore();
@@ -1939,9 +2252,63 @@
     if (!p || p.ctx !== ctx) { p = { pat: ctx.createPattern(SPR.dither(col, Math.round(a * 10) / 10), 'repeat'), ctx }; ditherPats.set(k, p); }
     patShift(p.pat, 0, 0); return p.pat;
   }
+  const PATCH = { web: ['230,236,255', 0.35], ice: ['190,230,255', 0.5], poison: ['150,230,60', 0.45], burn: ['255,110,40', 0.5], sand: ['220,180,110', 0.45] };
+  // ---- boss signature effects: the hero's shadow, tornadoes, darkness ----
+  function drawSigFx() {
+    for (const sd of shades) {
+      const x = sd.x, y = sy(sd.y), a = Math.min(1, sd.t / 0.5, (sd.life - sd.t) / 0.5);
+      ctx.fillStyle = 'rgba(40,0,60,.4)'; ctx.beginPath(); ctx.ellipse(x, y + hero.r * 0.75, hero.r, hero.r * 0.4, 0, 0, 7); ctx.fill();
+      SPR.draw(ctx, SPR.shadeOf(heroSprite(hero)), x, y + hero.r * 0.75, a * (sd.t < 0.6 ? 0.5 : 1));
+      ctx.fillStyle = '#ff3a5a'; ctx.fillRect(q(x - 4.5), q(y - 25.5), 3, 3); ctx.fillRect(q(x + 3), q(y - 25.5), 3, 3);
+    }
+    for (const tw of twisters) {
+      const x = tw.x, y = sy(tw.y), a = Math.min(1, tw.t / 0.4, (tw.life - tw.t) / 0.4);
+      ctx.globalAlpha = a; ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x, y + 6, tw.r, tw.r * 0.4, 0, 0, 7); ctx.fill();
+      for (let i = 0; i < 7; i++) {
+        const k = i / 6, rw = tw.r * (0.35 + k * 0.9), off = Math.sin(globalT * 9 + i * 0.9 + tw.ph) * 6 * k;
+        ctx.fillStyle = i % 2 ? 'rgba(200,255,232,.85)' : 'rgba(140,220,190,.85)'; ctx.fillRect(q(x - rw + off), q(y - i * 9), q(rw * 2), 6);
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+  function drawDark() {   // kraken's ink: only a small circle around the hero stays lit
+    const a = Math.min(1, darkT / 0.5) * 0.86;
+    ctx.beginPath(); ctx.rect(-W, -H, W * 4, H * 3); ctx.moveTo(hero.x + 115, sy(hero.y)); ctx.arc(hero.x, sy(hero.y), 115, 0, 7, true);
+    ctx.fillStyle = `rgba(14,6,24,${a})`; ctx.fill('evenodd');
+  }
+
   function drawZones() {
     for (const z of zones) {
       const col = ZCOL[z.kind] || '255,80,80';
+      if (z.type === 'patch') {
+        const x = z.x, y = sy(z.y), P = PATCH[z.kind] || ['255,80,80', 0.4], fade = Math.min(1, (z.life - z.t) / 0.6, z.t / 0.25);
+        ctx.globalAlpha = fade;
+        ctx.fillStyle = ditherFill(P[0], P[1]); ctx.beginPath(); ctx.arc(x, y, z.r, 0, 7); ctx.fill();
+        if (z.kind === 'web') { ctx.strokeStyle = 'rgba(240,244,255,.8)'; ctx.lineWidth = 1.5; for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI; ctx.beginPath(); ctx.moveTo(x - Math.cos(a) * z.r, y - Math.sin(a) * z.r); ctx.lineTo(x + Math.cos(a) * z.r, y + Math.sin(a) * z.r); ctx.stroke(); } for (const k of [0.35, 0.7]) { ctx.beginPath(); ctx.arc(x, y, z.r * k, 0, 7); ctx.stroke(); } }
+        else if (z.kind === 'sand') { for (let i = 0; i < 3; i++) { ctx.strokeStyle = `rgba(160,120,60,${0.8 - i * 0.2})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, z.r * (0.3 + i * 0.25), globalT * 3 + i, globalT * 3 + i + 3.5); ctx.stroke(); } ctx.fillStyle = '#3a2810'; ctx.beginPath(); ctx.arc(x, y, z.core, 0, 7); ctx.fill(); ctx.strokeStyle = 'rgba(220,180,110,.5)'; ctx.lineWidth = 1.5; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.arc(x, y, z.pr, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
+        else if (z.kind === 'burn') { const f = Math.floor(globalT * 10 + z.x); SPR.draw(ctx, SPR.ENV.flame(f, false), x, y - 3); }
+        else if (z.kind === 'poison') { for (let i = 0; i < 3; i++) { const k = (globalT * 0.8 + i / 3 + z.x * 0.01) % 1; ctx.fillStyle = `rgba(200,255,120,${1 - k})`; ctx.fillRect(q(x + Math.sin(i * 2.3) * z.r * 0.5), q(y - k * 20), 3, 3); } }
+        ctx.globalAlpha = 1; continue;
+      }
+      if (z.type === 'seg') {
+        const x1 = z.x, y1 = sy(z.y), x2 = z.x2, y2 = sy(z.y2);
+        if (z.t < z.tele) { const k = z.t / z.tele; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.strokeStyle = `rgba(20,10,30,${0.35 + k * 0.3})`; ctx.lineWidth = z.w * 2 + 3; ctx.stroke(); ctx.strokeStyle = `rgba(${col},${0.55 + k * 0.45})`; ctx.lineWidth = 3 + Math.round(k * 2) * 1.5; ctx.setLineDash([9, 9]); ctx.stroke(); ctx.setLineDash([]); }
+        else if (z.dmg) {
+          ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(${col},.5)`; ctx.lineWidth = z.w * 2.6; ctx.beginPath();
+          ctx.moveTo(x1, y1); const n = 7; for (let i = 1; i <= n; i++) { const k = i / n; ctx.lineTo(lerp(x1, x2, k) + (i < n ? rnd(-8, 8) : 0), lerp(y1, y2, k) + (i < n ? rnd(-8, 8) : 0)); } ctx.stroke();
+          ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+        }
+        continue;
+      }
+      if (z.type === 'doom') {
+        const k = clamp(z.t / z.tele, 0, 1);
+        if (!z.fired) {
+          ctx.beginPath(); ctx.arc(arena.cx, sy(arena.cy), arena.R, 0, 7); for (const s2 of z.safe) { ctx.moveTo(s2.x + s2.r, sy(s2.y)); ctx.arc(s2.x, sy(s2.y), s2.r, 0, 7, true); }
+          ctx.fillStyle = ditherFill('200,40,140', 0.25 + k * 0.45); ctx.fill('evenodd');
+          for (const s2 of z.safe) { ctx.strokeStyle = `rgba(255,255,255,${0.6 + 0.4 * Math.sin(globalT * 10)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(s2.x, sy(s2.y), s2.r, 0, 7); ctx.stroke(); }
+        } else { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(255,80,180,${0.6 * (1 - (z.t - z.tele) / 0.4)})`; ctx.beginPath(); ctx.arc(arena.cx, sy(arena.cy), arena.R, 0, 7); ctx.fill(); ctx.restore(); }
+        continue;
+      }
       if (z.type === 'circle') {
         const x = z.x, y = sy(z.y);
         if (!z.fired) {
@@ -1977,7 +2344,17 @@
     const f = Math.floor(globalT * 12);
     for (const b of bullets) {
       const x = b.x, y = sy(b.y), R = Math.max(2, Math.round(b.r / 1.5));
-      if (b.kind === 'web') { SPR.draw(ctx, SPR.ENV.web(), x, y); continue; }
+      if (b.delay && b.t < b.delay) continue;
+      const lift = b.z || 0;
+      if (b.kind === 'web') { SPR.draw(ctx, SPR.ENV.web(), x, y - lift); continue; }
+      if (b.kind === 'bomb') { ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(q(x - 6), q(y + 4), 12, 3); SPR.draw(ctx, SPR.ENV.barrel(true, f), x, y + 8 - lift); continue; }
+      if (b.kind === 'knife') { const a = b.vx || b.vy ? Math.atan2(-b.vy, b.vx) : Math.atan2(-(hero.y - b.y), hero.x - b.x); ctx.strokeStyle = '#e8ecf4'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x - Math.cos(a) * 9, y + Math.sin(a) * 9); ctx.lineTo(x + Math.cos(a) * 7, y - Math.sin(a) * 7); ctx.stroke(); ctx.fillStyle = '#f2c14e'; ctx.fillRect(q(x - Math.cos(a) * 9) - 1.5, q(y + Math.sin(a) * 9) - 1.5, 3, 3); continue; }
+      if (b.kind === 'crescent') { const a = Math.atan2(-b.vy, b.vx); ctx.strokeStyle = 'rgba(160,90,255,.55)'; ctx.lineWidth = 12; ctx.beginPath(); ctx.arc(x - Math.cos(a) * 10, y + Math.sin(a) * 10, b.r, -a - 1.1, -a + 1.1); ctx.stroke(); ctx.strokeStyle = '#e8d8ff'; ctx.lineWidth = 4.5; ctx.stroke(); continue; }
+      if (b.kind === 'cannon') { SPR.draw(ctx, SPR.ENV.orb('40,40,50', 10), x, y); ctx.fillStyle = '#9a9aa8'; ctx.fillRect(q(x - 4.5), q(y - 6), 4.5, 3); continue; }
+      if (b.kind === 'boulder') { ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(q(x - b.r), q(y + b.r * 0.6), q(b.r * 2), 4.5); SPR.draw(ctx, SPR.ENV.rock('#9a7a58', Math.floor(b.t * 8) % 3, 14), x, y + b.r * 0.3); continue; }
+      if (b.kind === 'fist') { ctx.fillStyle = '#22262e'; ctx.fillRect(q(x - 15), q(y - 13.5), 30, 27); ctx.fillStyle = '#7a8696'; ctx.fillRect(q(x - 12), q(y - 10.5), 24, 21); ctx.fillStyle = '#b8c4d4'; ctx.fillRect(q(x - 12), q(y - 10.5), 24, 3); ctx.fillStyle = '#ffa23a'; ctx.fillRect(q(x - 3), q(y + 3), 6, 4.5); continue; }
+      if (b.kind === 'wave') { ctx.fillStyle = 'rgba(60,140,230,.85)'; ctx.fillRect(q(x - 12), q(y - 12), 24, 24); ctx.fillStyle = '#c8f0ff'; ctx.fillRect(q(x - 12), q(y - 12), 24, 4.5); ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fillRect(q(x - 6 + Math.sin(globalT * 9 + b.x) * 4), q(y - 3), 6, 3); continue; }
+      if (b.kind === 'spore' && b.dest) { SPR.draw(ctx, SPR.ENV.spore(), x, y - lift); continue; }
       if (b.kind === 'spore') { SPR.draw(ctx, SPR.ENV.spore(), x, y, Math.min(1, b.life) * 0.9); continue; }
       if (b.kind === 'homing') { SPR.draw(ctx, SPR.ENV.orb('255,110,210', R), x, y); continue; }
       if (b.kind === 'arrow') { const a = Math.atan2(-b.vy, b.vx); ctx.strokeStyle = '#d8c8a0'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x - Math.cos(a) * 12, y - Math.sin(a) * 12); ctx.lineTo(x + Math.cos(a) * 4, y + Math.sin(a) * 4); ctx.stroke(); ctx.fillStyle = '#e8e8f0'; ctx.fillRect(q(x + Math.cos(a) * 5) - 1.5, q(y + Math.sin(a) * 5) - 1.5, 4.5, 4.5); ctx.fillStyle = '#c84040'; ctx.fillRect(q(x - Math.cos(a) * 12) - 1.5, q(y - Math.sin(a) * 12) - 1.5, 3, 3); continue; }
@@ -2077,7 +2454,11 @@
       const bw = W - 40, by = top + 76;
       txt(boss.name, W / 2, by - 4, 14, '#fff', 'center');
       bar(20, by, bw, 10, boss.hp / boss.maxHp, boss.phase === 2 ? '#ff3b6a' : '#e5483c');
+      if (boss.callout) { ctx.globalAlpha = Math.min(1, boss.callout.t * 2); txt(boss.callout.s, W / 2, by + 30, 16, '#ffd24a', 'center'); ctx.globalAlpha = 1; }
+      else if (boss.regen) txt('さいせい中！ たいあたりで とめろ', W / 2, by + 30, 13, '#8af07a', 'center');
+      else if (boss.decoys) txt('ほんものは ひとりだけ', W / 2, by + 30, 13, '#c8b8ff', 'center');
     }
+    if (freezeT > 0) { ctx.fillStyle = `rgba(200,205,255,${0.16 * Math.min(1, freezeT * 3)})`; ctx.fillRect(0, 0, W, H); txt('TIME STOP', W / 2, H * 0.4, 22, '#e8ecff', 'center'); }
     toasts.forEach((q2, i) => {   // equipment found: short notices under the status bar
       ctx.globalAlpha = Math.min(1, q2.t * 2); const y2 = top + 92 + i * 22;
       ctx.fillStyle = 'rgba(10,8,24,.75)'; ctx.fillRect(16, y2 - 15, W - 50, 20);
@@ -2375,7 +2756,9 @@
     list.sort((a, b) => b.y - a.y);
     for (const e of list) drawEnemy(e);
     if (boss) drawBoss();
+    if (boss) drawSigFx();
     if (hero.hp > 0 || slowMo > 0) drawHero();
+    if (darkT > 0) drawDark();
     drawZones();
     drawBullets();
     drawFx();

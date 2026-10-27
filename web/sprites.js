@@ -379,6 +379,11 @@ const SPR = (() => {
     if (!s.flip) s.flip = { c: flipX(s.c), ax: s.c.width - s.ax, ay: s.ay };
     return s.flip;
   }
+  // a dark, purple-tinted copy (the shadow that mirrors the hero)
+  function shadeOf(s) {
+    if (!s.shade) { const [c, x] = canvas(s.c.width, s.c.height); x.drawImage(s.c, 0, 0); x.globalCompositeOperation = 'source-atop'; x.fillStyle = 'rgba(40,16,70,0.78)'; x.fillRect(0, 0, c.width, c.height); s.shade = { c, ax: s.ax, ay: s.ay }; }
+    return s.shade;
+  }
   function white(s) {
     if (!s.white) s.white = { c: whiten(s.c), ax: s.ax, ay: s.ay };
     return s.white;
@@ -1739,5 +1744,5 @@ const SPR = (() => {
   };
   function x0ring(g) { g.x.strokeStyle = '#e8f0ff'; g.x.lineWidth = 1; g.x.beginPath(); g.x.arc(8, 8, 4, 0, 7); g.x.stroke(); }
 
-  return { SCALE, hero: heroS, enemy, boss, draw, skeletonParts, ENV, floorTile, wallTile, dither, tileCanvas, shade: sh, seeded, cacheSize: () => cache.size, types: () => ({ enemies: Object.keys(EN), bosses: Object.keys(BOSS) }) };
+  return { SCALE, shadeOf, hero: heroS, enemy, boss, draw, skeletonParts, ENV, floorTile, wallTile, dither, tileCanvas, shade: sh, seeded, cacheSize: () => cache.size, types: () => ({ enemies: Object.keys(EN), bosses: Object.keys(BOSS) }) };
 })();
