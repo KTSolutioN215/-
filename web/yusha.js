@@ -198,6 +198,44 @@
     archdemon: { name: 'アークデーモン', hp: 90, atk: 17, def: 5, r: 22, mass: 4, spd: 32, exp: 30, gold: 28, ai: 'slam', col: '#8a2a4a' },
   };
 
+  // colour variants of existing monsters: tougher, worth more, and each with a twist on its attack
+  // [base, name, stat factors, attack twist]
+  const VARIANTS = {
+    fireslime: ['slime', 'ほのおスライム', { hp: 1.3, atk: 1.2, xp: 1.6 }, { burst: 4 }],          // lands and sprays fire
+    iceslime: ['slime', 'こおりスライム', { hp: 1.5, atk: 1.1, xp: 1.6 }, { chill: 1.4 }],        // touching it slows you
+    vampbat: ['bat', 'ちすいコウモリ', { hp: 1.4, atk: 1.2, spd: 1.15, xp: 1.7 }, { shot: 1 }],   // spits blood orbs
+    hobgoblin: ['goblin', 'ホブゴブリン', { hp: 1.7, atk: 1.3, r: 1.15, mass: 1.5, xp: 1.8 }, { twice: 1 }],   // lunges twice
+    firearcher: ['archer', 'ほのおの弓兵', { hp: 1.3, atk: 1.2, xp: 1.6 }, { spread: 1 }],      // three arrows
+    generalskel: ['skeleton', 'ガイコツ将軍', { hp: 1.6, atk: 1.25, xp: 1.8 }, { double: 1 }],   // two slashes
+    wraith: ['ghost', 'レイス', { hp: 1.4, atk: 1.2, xp: 1.6 }, { fan: 1 }],                    // three orbs
+    frostmage: ['mage', 'こおりのまどうし', { hp: 1.3, atk: 1.1, xp: 1.6 }, { ice: 1 }],         // freezing bolts slow you
+    frostlizard: ['lizard', 'フロストリザード', { hp: 1.3, atk: 1.1, xp: 1.6 }, { ice: 1 }],     // frost breath
+    lavagolem: ['golem', 'マグマゴーレム', { hp: 1.3, atk: 1.2, xp: 1.6 }, { fire: 1 }],         // stomp also throws fire
+    crimsonknight: ['knight', 'あかの騎士', { hp: 1.3, atk: 1.25, xp: 1.6 }, { twice: 1 }],     // charges twice
+    snowwolf: ['wolf', 'ゆきオオカミ', { hp: 1.4, atk: 1.15, spd: 1.1, xp: 1.6 }, { twice: 1 }],
+    sleepshroom: ['mushroom', 'ねむりダケ', { hp: 1.3, atk: 1.1, xp: 1.5 }, { sleep: 1 }],        // spores slow you
+    poisonspider: ['spider', 'どくグモ', { hp: 1.3, atk: 1.2, xp: 1.6 }, { poison: 1 }],         // venom spit instead of webs
+    deepfishman: ['fishman', 'ディープサハギン', { hp: 1.4, atk: 1.2, xp: 1.6 }, { double: 1 }],
+    goldscorpion: ['scorpion', 'ゴールドスコーピオン', { hp: 1.3, atk: 1.2, xp: 1.5, gp: 2.2 }, { twice: 1 }],
+    cursemummy: ['mummy', 'のろいのミイラ', { hp: 1.3, atk: 1.2, xp: 1.6 }, { curse: 1 }],          // curse orbs
+    iceimp: ['imp', 'アイスインプ', { hp: 1.3, atk: 1.1, xp: 1.5 }, { spread: 1, ice: 1 }],
+    icewyvern: ['wyvern', 'アイスワイバーン', { hp: 1.3, atk: 1.15, xp: 1.6 }, { ice: 1 }],
+    shadowarmor: ['armor', 'やみのよろい', { hp: 1.4, atk: 1.25, xp: 1.6 }, { double: 1 }],
+  };
+  for (const id in VARIANTS) {
+    const [b, name, M, mod] = VARIANTS[id], B = EN[b];
+    EN[id] = Object.assign({}, B, { name, base: b, mod, hp: Math.round(B.hp * (M.hp || 1)), atk: Math.round(B.atk * (M.atk || 1)), spd: Math.round(B.spd * (M.spd || 1)), r: Math.round(B.r * (M.r || 1)), mass: B.mass * (M.mass || 1), exp: Math.round(B.exp * (M.xp || 1)), gold: Math.round(B.gold * (M.gp || M.xp || 1)) });
+  }
+  // where the variants turn up (added to each dungeon's pool)
+  const VAR_POOL = [
+    {}, { sleepshroom: 0.6 }, { hobgoblin: 0.7 }, { iceslime: 0.8 }, { wraith: 0.6 },
+    { fireslime: 1, lavagolem: 0.4 }, { snowwolf: 1, frostmage: 0.6, iceslime: 0.5, frostlizard: 0.5 }, { firearcher: 0.7, vampbat: 0.6 }, { crimsonknight: 0.6, generalskel: 0.5 }, { deepfishman: 0.8, poisonspider: 0.4 },
+    { goldscorpion: 0.6, cursemummy: 0.6 }, { crimsonknight: 0.5, firearcher: 0.5 }, { wraith: 0.8, frostmage: 0.5 }, { lavagolem: 0.8, fireslime: 0.6 },
+    { poisonspider: 0.8, sleepshroom: 0.6 }, { generalskel: 0.6, wraith: 0.6, deepfishman: 0.5 }, { snowwolf: 1, icewyvern: 0.8, frostlizard: 0.5 }, { frostmage: 0.8, shadowarmor: 0.5 }, { poisonspider: 0.6, goldscorpion: 0.5 },
+    { lavagolem: 0.8, shadowarmor: 0.6 }, { crimsonknight: 0.6, shadowarmor: 0.6, wraith: 0.5 }, { deepfishman: 1 }, { generalskel: 1, cursemummy: 0.6, icewyvern: 0.5 }, { lavagolem: 0.6, iceimp: 0.8, vampbat: 0.6 },
+    { crimsonknight: 0.6, generalskel: 0.5, shadowarmor: 0.5, wraith: 0.5 },
+  ];
+
   // 25 dungeons. m = monster HP multiplier, a = monster attack multiplier.
   // xp / gp = EXP and gold one full run is worth (monsters + boss + boxes); the numbers are set so that
   // stages 1-5 clear first time, and from 6 on: clear + about 3 more runs of the newest stage = ready for the next.
@@ -253,6 +291,8 @@
     { name: '魔王城', en: "DEMON KING'S CASTLE", rec: 88, len: 4100, w: [0.62, 0.9], pool: { knight: 1.6, mage: 1, ghost: 0.8, golem: 0.6, imp: 1.2, archdemon: 0.8, armor: 1, hellhound: 0.8, book: 0.6 }, groups: 17, rocks: 5, spikes: 9, chests: 2, crates: 3,
       pal: { wall: '#170d22', wallHi: '#35214c', floor: '#54406a', floorLn: '#3f2f52', light: '220,120,255', fog: 0.56 }, song: 'c3', key: 2, bpm: 152, boss: 'maou', m: 40.15, a: 16.31, xp: 26295, gp: 165833 },
   ];
+
+  DUNGEONS.forEach((d, i) => Object.assign(d.pool, VAR_POOL[i] || {}));
 
   // field gimmicks per dungeon. Floor patches (mud / poison / ice / belt / stream / crumble / vent) are few, never span the
   // whole corridor, and are spaced apart, so there is always a plain way through.
@@ -525,7 +565,7 @@
       type, name: b.name, x, y, vx: 0, vy: 0, r: Math.round(b.r * CS), mass: b.mass, spd: b.spd, ai: b.ai, col: b.col, fly: !!b.fly,
       hp: Math.round(b.hp * m), maxHp: Math.round(b.hp * m), atk: Math.round(b.atk * a), def: Math.round(b.def * a),
       exp: Math.max(1, Math.round(b.exp * (D.xk || 1))), gold: Math.max(1, Math.round(b.gold * (D.gk || 1))),
-      st: 'idle', t: rnd(0, 1), cd: rnd(0.5, 1.5), face: -Math.PI / 2, hurt: 0, hitCD: 0, active: !!arenaSpawn, alpha: 1, guard: false, phase: rnd(0, 6),
+      mod: b.mod || {}, st: 'idle', t: rnd(0, 1), cd: rnd(0.5, 1.5), face: -Math.PI / 2, hurt: 0, hitCD: 0, active: !!arenaSpawn, alpha: 1, guard: false, phase: rnd(0, 6),
     };
     if (e.ai === 'guard') e.guard = true;
     e.dashSpd = b.dash || 360; e.windT = b.wind || 0.45;
@@ -906,7 +946,7 @@
       e.cd -= dt;
       switch (e.ai) {
         case 'hop':
-          if (e.st === 'hop') { if (e.t > 0.38) { e.st = 'idle'; e.cd = rnd(0.7, 1.3); } }
+          if (e.st === 'hop') { if (e.t > 0.38) { e.st = 'idle'; e.cd = rnd(0.7, 1.3); if (e.mod.burst) { for (let k = 0; k < e.mod.burst; k++) shootFx(e, k / e.mod.burst * Math.PI * 2 + e.phase, 150, 'fire'); } } }
           else if (e.cd <= 0 && d < 240) { e.st = 'hop'; e.t = 0; e.vx = ux * 230 + rnd(-30, 30); e.vy = uy * 230 + rnd(-30, 30); }
           else { want = 0.3; wx = Math.cos(e.phase + e.t * 0.7); wy = Math.sin(e.phase + e.t * 0.9); }
           break;
@@ -914,36 +954,38 @@
           const wob = Math.sin(e.t * 6 + e.phase);
           if (e.st === 'retreat') { want = 1; wx = -ux; wy = -uy; if (e.t > 0.6) { e.st = 'idle'; e.t = 0; } }
           else { want = 1; wx = ux - uy * wob * 0.9; wy = uy + ux * wob * 0.9; }
-          if (e.ai === 'imp' && e.cd <= 0 && d < 300) { e.cd = rnd(1.6, 2.2); shoot(e.x, e.y, ux, uy, 180, e.atk, 'fire'); }
+          if (e.ai === 'imp' && e.cd <= 0 && d < 300) { e.cd = rnd(1.6, 2.2); const a0 = Math.atan2(uy, ux); for (const o of e.mod.spread ? [-0.22, 0.22] : [0]) shootFx(e, a0 + o, 180, e.mod.ice ? 'orb' : 'fire', e.mod.ice ? 'ice' : null); }
+          if (e.mod.shot && e.cd <= 0 && d < 260) { e.cd = rnd(2, 2.6); shootFx(e, Math.atan2(uy, ux), 170, 'orb', 'blood'); }
           break;
         }
         case 'lunge':
           if (e.st === 'wind') { want = 0; if (e.t > e.windT) { e.st = 'dash'; e.t = 0; e.vx = e.lx * e.dashSpd; e.vy = e.ly * e.dashSpd; } }
-          else if (e.st === 'dash') { if (e.t > 0.32) { e.st = 'idle'; e.cd = rnd(1, 1.5); } }
+          else if (e.st === 'dash') { if (e.t > 0.32) { if (e.mod.twice && !e.again) { e.again = 1; e.st = 'wind'; e.t = e.windT * 0.45; e.lx = ux; e.ly = uy; } else { e.again = 0; e.st = 'idle'; e.cd = rnd(1, 1.5); } } }
           else { want = d > 90 ? 1 : 0.2; wx = ux; wy = uy; if (d < 135 && e.cd <= 0) { e.st = 'wind'; e.t = 0; e.lx = ux; e.ly = uy; } }
           break;
         case 'shooter':
-          if (e.st === 'aim') { want = 0; e.face = Math.atan2(dy, dx); if (e.t > 0.55) { e.st = 'idle'; e.cd = rnd(1.8, 2.4); shoot(e.x, e.y, ux, uy, 260, e.atk, 'arrow'); } }
+          if (e.st === 'aim') { want = 0; e.face = Math.atan2(dy, dx); if (e.t > 0.55) { e.st = 'idle'; e.cd = rnd(1.8, 2.4); const a0 = Math.atan2(uy, ux); for (const o of e.mod.spread ? [-0.2, 0, 0.2] : [0]) shootFx(e, a0 + o, 260, 'arrow'); } }
           else { want = 0.8; const s2 = d < 130 ? -1 : d > 210 ? 1 : 0; wx = ux * s2 + -uy * 0.4 * Math.sin(e.t); wy = uy * s2 + ux * 0.4 * Math.sin(e.t); if (e.cd <= 0 && d < 320) { e.st = 'aim'; e.t = 0; } }
           break;
         case 'swing':
           if (e.st === 'wind') { want = 0; if (e.t > 0.5) { e.st = 'slash'; e.t = 0; } }
           else if (e.st === 'slash') {
             if (e.t < 0.2) { const ang = Math.atan2(dy, dx), da = Math.abs(((ang - e.face + Math.PI * 3) % (Math.PI * 2)) - Math.PI); if (d < 72 + h.r && da < 1.25) hurtHero(e.atk, e.x, e.y, 360, 'slash'); }
-            else { e.st = 'idle'; e.cd = rnd(1, 1.4); }
+            else if (e.mod.double && !e.again) { e.again = 1; e.st = 'wind'; e.t = 0.28; e.face = Math.atan2(dy, dx); }
+            else { e.again = 0; e.st = 'idle'; e.cd = rnd(1, 1.4); }
           } else { want = d > 58 ? 1 : 0; wx = ux; wy = uy; e.face = Math.atan2(dy, dx); if (d < 84 && e.cd <= 0) { e.st = 'wind'; e.t = 0; } }
           break;
         case 'phase': {
           const cyc = (e.t + e.phase) % 4; e.alpha = cyc < 2.8 ? Math.min(1, (e.alpha || 0) + dt * 3) : Math.max(0.12, e.alpha - dt * 3);
           want = 0.6; wx = ux + Math.sin(e.t * 2) * 0.5; wy = uy;
-          if (e.alpha > 0.8 && e.cd <= 0 && d < 300) { e.cd = rnd(2.2, 2.8); shoot(e.x, e.y, ux, uy, 120, e.atk, 'orb'); }
+          if (e.alpha > 0.8 && e.cd <= 0 && d < 300) { e.cd = rnd(2.2, 2.8); const a0 = Math.atan2(uy, ux); for (const o of e.mod.fan ? [-0.3, 0, 0.3] : [0]) shootFx(e, a0 + o, 120, 'orb', e.mod.fan ? 'curse' : null); }
           break;
         }
         case 'caster':
           if (e.st === 'cast') {
             if (e.t > 0.6) {
               e.st = 'idle'; e.cd = rnd(2.2, 2.8); e.casts = (e.casts || 0) + 1;
-              const a0 = Math.atan2(dy, dx); for (const o of [-0.3, 0, 0.3]) shoot(e.x, e.y, Math.cos(a0 + o), Math.sin(a0 + o), 170, e.atk, 'fire');
+              const a0 = Math.atan2(dy, dx); for (const o of [-0.3, 0, 0.3]) shootFx(e, a0 + o, 170, e.mod.ice ? 'orb' : 'fire', e.mod.ice ? 'ice' : null);
               if (e.casts % 3 === 0) blink(e);
             }
           } else if (e.cd <= 0 && d < 330) { e.st = 'cast'; e.t = 0; }
@@ -952,24 +994,24 @@
         case 'breath':
           if (e.st === 'wind') { want = 0; e.face = Math.atan2(dy, dx); if (e.t > 0.42) { e.st = 'fire'; e.t = 0; } }
           else if (e.st === 'fire') {
-            if (e.t < 0.65) { e.fireAcc = (e.fireAcc || 0) + dt; while (e.fireAcc > 0.045) { e.fireAcc -= 0.045; const a = e.face + rnd(-0.32, 0.32); shoot(e.x + Math.cos(e.face) * e.r, e.y + Math.sin(e.face) * e.r, Math.cos(a), Math.sin(a), 210, e.atk, 'flame', 0.55); } }
+            if (e.t < 0.65) { e.fireAcc = (e.fireAcc || 0) + dt; while (e.fireAcc > 0.045) { e.fireAcc -= 0.045; const a = e.face + rnd(-0.32, 0.32); const fb = shoot(e.x + Math.cos(e.face) * e.r, e.y + Math.sin(e.face) * e.r, Math.cos(a), Math.sin(a), 210, e.atk, 'flame', 0.55); if (e.mod.ice) { fb.tint = 'water'; fb.slow = 0.8; } } }
             else { e.st = 'idle'; e.cd = rnd(1.4, 1.9); }
           } else { want = d > 110 ? 1 : 0.2; wx = ux; wy = uy; e.face = Math.atan2(dy, dx); if (d < 170 && e.cd <= 0) { e.st = 'wind'; e.t = 0; } }
           break;
         case 'slam':
-          if (e.st === 'wind') { want = 0; if (e.t > 0.7) { e.st = 'idle'; e.cd = rnd(1.8, 2.4); rings.push({ x: e.x, y: e.y, r: e.r, max: 100, spd: 280, dmg: e.atk, w: 12 }); shake = Math.max(shake, 10); A.sfx('quake'); } }
+          if (e.st === 'wind') { want = 0; if (e.t > 0.7) { e.st = 'idle'; e.cd = rnd(1.8, 2.4); rings.push({ x: e.x, y: e.y, r: e.r, max: 100, spd: 280, dmg: e.atk, w: 12 }); shake = Math.max(shake, 10); A.sfx('quake'); if (e.mod.fire) for (let k = 0; k < 8; k++) shootFx(e, k / 8 * Math.PI * 2, 160, 'fire'); } }
           else { want = 1; wx = ux; wy = uy; if (d < 100 && e.cd <= 0) { e.st = 'wind'; e.t = 0; } }
           break;
         case 'spore':   // swells up, then puffs a ring of slow spores
-          if (e.st === 'swell') { want = 0; if (e.t > 0.55) { e.st = 'idle'; e.cd = rnd(2.4, 3.2); for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + e.phase; shoot(e.x, e.y, Math.cos(a), Math.sin(a), 85, e.atk, 'spore', 2.4); } } }
+          if (e.st === 'swell') { want = 0; if (e.t > 0.55) { e.st = 'idle'; e.cd = rnd(2.4, 3.2); for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + e.phase; const sb = shoot(e.x, e.y, Math.cos(a), Math.sin(a), 85, e.atk, 'spore', 2.4); if (e.mod.sleep) sb.slow = 1.6; } } }
           else { want = 0.4; wx = ux + Math.sin(e.t + e.phase); wy = uy; if (e.cd <= 0 && d < 260) { e.st = 'swell'; e.t = 0; } }
           break;
         case 'shamble': // mummy: keeps walking at you, flings bandages that slow you down
           want = 1; wx = ux; wy = uy;
-          if (e.cd <= 0 && d < 240 && d > 70) { e.cd = rnd(2.6, 3.4); shoot(e.x, e.y, ux, uy, 200, Math.round(e.atk * 0.6), 'web', 2.5); }
+          if (e.cd <= 0 && d < 240 && d > 70) { e.cd = rnd(2.6, 3.4); if (e.mod.curse) { const a0 = Math.atan2(uy, ux); for (const o of [-0.25, 0, 0.25]) shootFx(e, a0 + o, 170, 'orb', 'curse'); } else shoot(e.x, e.y, ux, uy, 200, Math.round(e.atk * 0.6), 'web', 2.5); }
           break;
         case 'web':     // keeps its distance and spits webs that slow you down
-          if (e.st === 'aim') { want = 0; e.face = Math.atan2(dy, dx); if (e.t > 0.45) { e.st = 'idle'; e.cd = rnd(2, 2.6); shoot(e.x, e.y, ux, uy, 230, Math.round(e.atk * 0.6), 'web', 3); } }
+          if (e.st === 'aim') { want = 0; e.face = Math.atan2(dy, dx); if (e.t > 0.45) { e.st = 'idle'; e.cd = rnd(2, 2.6); if (e.mod.poison) { const a0 = Math.atan2(uy, ux); for (const o of [-0.2, 0, 0.2]) shootFx(e, a0 + o, 210, 'orb', 'poison'); } else shoot(e.x, e.y, ux, uy, 230, Math.round(e.atk * 0.6), 'web', 3); } }
           else { want = 0.9; const s2 = d < 140 ? -1 : d > 230 ? 1 : 0; wx = ux * s2 - uy * 0.7 * Math.sin(e.t * 1.3 + e.phase); wy = uy * s2 + ux * 0.7 * Math.sin(e.t * 1.3 + e.phase); if (e.cd <= 0 && d < 330) { e.st = 'aim'; e.t = 0; } }
           break;
         case 'guard': {
@@ -977,7 +1019,7 @@
           const ta = Math.atan2(dy, dx); let da = ((ta - e.face + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
           if (e.st !== 'dash') e.face += clamp(da, -2.4 * dt, 2.4 * dt);
           if (e.st === 'wind') { want = 0; e.guard = false; if (e.t > 0.45) { e.st = 'dash'; e.t = 0; e.vx = Math.cos(e.face) * 380; e.vy = Math.sin(e.face) * 380; } }
-          else if (e.st === 'dash') { e.guard = false; if (e.t > 0.3) { e.st = 'tired'; e.t = 0; } }
+          else if (e.st === 'dash') { e.guard = false; if (e.t > 0.3) { if (e.mod.twice && !e.again) { e.again = 1; e.st = 'wind'; e.t = 0.2; e.face = Math.atan2(dy, dx); } else { e.again = 0; e.st = 'tired'; e.t = 0; } } }
           else if (e.st === 'tired') { e.guard = false; want = 0; if (e.t > 0.9) { e.st = 'idle'; e.guard = true; e.cd = rnd(1.4, 2); } }
           else { e.guard = true; want = d > 100 ? 0.8 : 0.1; wx = ux; wy = uy; if (d < 140 && e.cd <= 0) { e.st = 'wind'; e.t = 0; } }
           break;
@@ -997,7 +1039,7 @@
       const res = collide(e, e.mass);
       if (res) {
         if (res.kind === 'ram') hitEnemy(e, res);
-        else if (e.hitCD <= 0 && h.ramSafe <= 0) { hurtHero(e.atk, e.x, e.y, 260, 'touch:' + e.type); if (e.ai === 'flutter' || e.ai === 'imp') { e.st = 'retreat'; e.t = 0; } }
+        else if (e.hitCD <= 0 && h.ramSafe <= 0) { if (e.mod.chill) h.slow = Math.max(h.slow, e.mod.chill); hurtHero(e.atk, e.x, e.y, 260, 'touch:' + e.type); if (e.ai === 'flutter' || e.ai === 'imp') { e.st = 'retreat'; e.t = 0; } }
       }
     }
     // enemies push each other apart
@@ -1022,8 +1064,12 @@
   }
 
   function shoot(x, y, ux, uy, spd, dmg, kind, life = 4) {
-    bullets.push({ x, y, vx: ux * spd, vy: uy * spd, r: ({ orb: 8, flame: 7, big: 14, rock: 9, spore: 8, web: 9, homing: 9 })[kind] || 6, dmg, kind, life, t: 0 });
+    const b = { x, y, vx: ux * spd, vy: uy * spd, r: ({ orb: 8, flame: 7, big: 14, rock: 9, spore: 8, web: 9, homing: 9 })[kind] || 6, dmg, kind, life, t: 0 };
+    bullets.push(b); return b;
   }
+  // tinted shots for the variants: frost (slows), venom, curse, blood
+  const SHOTCOL = { ice: '150,225,255', poison: '150,230,60', curse: '190,120,255', blood: '230,50,70' };
+  function shootFx(e, a, spd, kind, fx) { const b = shoot(e.x, e.y, Math.cos(a), Math.sin(a), spd, e.atk, kind); if (fx) { b.col = SHOTCOL[fx]; if (fx === 'ice') b.slow = 1.2; } return b; }
 
   function updateBullets(dt) {
     if (freezeT > 0) freezeT -= dt;
@@ -1071,6 +1117,7 @@
       }
       else { const tn = tunnelAt(b.y); if (Math.abs(b.x - tn.cx) > tn.w / 2 + 4) { b.life = 0; burst(b.x, b.y, 4, '#ccc', 60, 0.3); } }
       if (!b.harmless && hyp(b.x - hero.x, b.y - hero.y) < b.r + hero.r * 0.6 && hero.inv <= 0) {
+        if (b.slow) hero.slow = Math.max(hero.slow, b.slow);
         if (b.kind === 'web') { hero.slow = 1.8; popText(hero.x, hero.y + 30, 'クモの糸！', '#dfe8ff', 13, 0.9); }
         hurtHero(b.dmg, b.x - b.vx * 0.05, b.y - b.vy * 0.05, b.pierce ? 420 : 220, 'shot:' + b.kind); if (!b.pierce) b.life = 0;
       }
@@ -2359,8 +2406,8 @@
       if (b.kind === 'homing') { SPR.draw(ctx, SPR.ENV.orb('255,110,210', R), x, y); continue; }
       if (b.kind === 'arrow') { const a = Math.atan2(-b.vy, b.vx); ctx.strokeStyle = '#d8c8a0'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x - Math.cos(a) * 12, y - Math.sin(a) * 12); ctx.lineTo(x + Math.cos(a) * 4, y + Math.sin(a) * 4); ctx.stroke(); ctx.fillStyle = '#e8e8f0'; ctx.fillRect(q(x + Math.cos(a) * 5) - 1.5, q(y + Math.sin(a) * 5) - 1.5, 4.5, 4.5); ctx.fillStyle = '#c84040'; ctx.fillRect(q(x - Math.cos(a) * 12) - 1.5, q(y - Math.sin(a) * 12) - 1.5, 3, 3); continue; }
       if (b.kind === 'rock') { SPR.draw(ctx, SPR.ENV.rockShot(), x, y); continue; }
-      if (b.kind === 'flame' || b.kind === 'big') { SPR.draw(ctx, SPR.ENV.flame(f + Math.floor(b.x), b.kind === 'big', state === 'boss' && boss ? boss.fcol : null), x, y, b.kind === 'flame' ? Math.min(1, Math.max(0, b.life / 0.9) + 0.3) : 1); continue; }
-      const col = b.kind === 'orb' ? (state === 'boss' && boss && boss.ocol ? boss.ocol : boss && boss.type === 'lich' ? '180,140,255' : boss && boss.type === 'maou' ? '255,80,160' : '120,220,255') : '255,140,50';
+      if (b.kind === 'flame' || b.kind === 'big') { SPR.draw(ctx, SPR.ENV.flame(f + Math.floor(b.x), b.kind === 'big', b.tint || (state === 'boss' && boss ? boss.fcol : null)), x, y, b.kind === 'flame' ? Math.min(1, Math.max(0, b.life / 0.9) + 0.3) : 1); continue; }
+      const col = b.col ? b.col : b.kind === 'orb' ? (state === 'boss' && boss && boss.ocol ? boss.ocol : boss && boss.type === 'lich' ? '180,140,255' : boss && boss.type === 'maou' ? '255,80,160' : '120,220,255') : '255,140,50';
       SPR.draw(ctx, SPR.ENV.orb(col, R), x, y);
     }
     for (const r of rings) { ctx.strokeStyle = `rgba(255,190,120,${1 - r.r / r.max})`; ctx.lineWidth = Math.max(3, q(r.w)); ctx.beginPath(); ctx.arc(r.x, sy(r.y), r.r, 0, 7); ctx.stroke(); }
