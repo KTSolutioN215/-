@@ -500,7 +500,7 @@
   const PERS = { speed: ['はやて', 'うごきが すばやい'], barrage: ['だんまく', 'わざのあとに たまを ばらまく'], summon: ['しょうかん', 'てしたを よびつづける'], iron: ['てっぺき', 'かたいが こうげきは おそい'], berserk: ['もうしん', 'はげしいが まもりが あまい'] };
   const RAM_MIN = 182, HERO_R = 21, MAXSPD = 950;
   const CS = 1.5;   // character scale (hero / monsters drawn and collided 1.5x)
-  const PAD_R = 52, PAD_MAX = 448;   // floating slide pad: radius (logical px) and full-tilt speed (0.7x of the first version)
+  const PAD_R = 76, PAD_MAX = 448;   // floating slide pad: radius (logical px; bigger = finer control) and full-tilt speed (0.7x of the first version)
 
   // ---------------------------------------------------------------
   //  DUNGEON GENERATION (the old tunnel, made wide)
@@ -3000,8 +3000,13 @@
     // the outer band = charge zone
     ctx.strokeStyle = charge ? 'rgba(255,170,60,.9)' : 'rgba(255,170,60,.35)'; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.arc(drag.ox, drag.oy, PAD_R - 4, 0, 7); ctx.stroke();
+    if (hero) {   // where a charge starts: outside this ring the hero is fast enough to ram
+      const rr = 6 + clamp(RAM_MIN / (PAD_MAX * hero.s.ram), 0, 1) * (PAD_R - 6);
+      ctx.strokeStyle = charge ? 'rgba(255,170,60,.55)' : 'rgba(243,236,218,.28)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 5]);
+      ctx.beginPath(); ctx.arc(drag.ox, drag.oy, rr, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    }
     ctx.fillStyle = charge ? 'rgba(255,170,60,.9)' : `rgba(243,236,218,${0.55 + k * 0.3})`;
-    ctx.beginPath(); ctx.arc(kx, ky, 20, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(kx, ky, 22, 0, 7); ctx.fill();
   }
 
   function drawBanner() {
