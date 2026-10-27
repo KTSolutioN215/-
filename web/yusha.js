@@ -1146,13 +1146,16 @@
   function explodeBarrel(p) {
     p.gone = true; const R = 85;
     for (const e of enemies) if (!e.dead && hyp(e.x - p.x, e.y - p.y) < R + e.r) hazardHit(e, hero.s.atk * 2.5 - e.def * 0.5, p.x, p.y, 420);
-    if (hero.hp > 0 && hyp(hero.x - p.x, hero.y - p.y) < R + hero.r * 0.5) hurtHero(Math.round(7 * D.a), p.x, p.y, 520, 'barrel');
+    if (hero.hp > 0 && hyp(hero.x - p.x, hero.y - p.y) < R + hero.r * 0.5) hurtHero(trapDmg('barrel'), p.x, p.y, 520, 'barrel');
     for (const o of props) if (o.type === 'barrel' && !o.gone && hyp(o.x - p.x, o.y - p.y) < R + 10) o.fuse = o.fuse > 0 ? Math.min(o.fuse, 0.15) : 0.15;
     burst(p.x, p.y, 46, '#ff9a3a', 380, 0.7); burst(p.x, p.y, 20, '#ffe080', 240, 0.5);
     anims.push({ kind: 'poof', x: p.x, y: p.y, t: 0, dur: 0.4, frames: 5 });
     rings.push({ x: p.x, y: p.y, r: 10, max: R, spd: 420, dmg: 0, w: 6, fx: true });
     shake = Math.max(shake, 14); flash = 0.25; flashCol = '255,180,90'; A.sfx('boom');
   }
+  // trap damage scales with the dungeon like monster attacks do (a mid-sized monster's punch), then armour applies as usual
+  const TRAP = { spike: 13, vent: 15, boulder: 15, mace: 14, swing: 16, barrel: 13 };
+  const trapDmg = kind => Math.round(TRAP[kind] * D.a * Math.min(1, 0.6 + dIdx * 0.1));   // gentler in the first few dungeons
   const inRect = (o, p) => Math.abs(o.x - p.x) < p.w / 2 && Math.abs(o.y - p.y) < p.h / 2;
   const inEll = (o, p) => ((o.x - p.x) / p.rx) ** 2 + ((o.y - p.y) / p.ry) ** 2 < 1;
 
@@ -1187,7 +1190,7 @@
         if (st !== 2) p.hit.clear();
         p.st = st;
         if (st === 2) {
-          if (h.hp > 0 && hyp(h.x - p.x, h.y - p.y) < p.r + h.r * 0.4) hurtHero(Math.round(8 * D.a), p.x, p.y, 320, 'vent');
+          if (h.hp > 0 && hyp(h.x - p.x, h.y - p.y) < p.r + h.r * 0.4) hurtHero(trapDmg('vent'), p.x, p.y, 320, 'vent');
           for (const e of enemies) if (!e.dead && !p.hit.has(e) && hyp(e.x - p.x, e.y - p.y) < p.r + e.r * 0.5) { p.hit.add(e); hazardHit(e, e.maxHp * 0.3, p.x, p.y, 200); }
         }
         continue;
@@ -1247,7 +1250,7 @@
             dropCoins(p.x, p.y, Math.max(1, Math.round(D.gp * 0.012))); h.vx = dx / d * 300; h.vy = dy / d * 300; h.recoil = 0.15; continue;
           }
           h.x = p.x + dx / d * (p.r + h.r); h.y = p.y + dy / d * (p.r + h.r);
-          hurtHero(Math.round(9 * D.a), p.x, p.y, 420, 'boulder');
+          hurtHero(trapDmg('boulder'), p.x, p.y, 420, 'boulder');
         }
         for (const e of enemies) if (!e.dead && !e.fly && !p.hit.has(e) && hyp(e.x - p.x, e.y - p.y) < p.r + e.r) { p.hit.add(e); hazardHit(e, e.maxHp * 0.25, p.x, p.y, 260); }
         continue;
@@ -1255,14 +1258,14 @@
       if (p.type === 'mace') {
         p.ang += p.w * dt;
         const bx = p.x + Math.cos(p.ang) * p.len, by = p.y + Math.sin(p.ang) * p.len;
-        if (h.hp > 0 && hyp(h.x - bx, h.y - by) < 12 + h.r * 0.8) hurtHero(Math.round(9 * D.a), bx, by, 450, 'mace');
+        if (h.hp > 0 && hyp(h.x - bx, h.y - by) < 12 + h.r * 0.8) hurtHero(trapDmg('mace'), bx, by, 450, 'mace');
         for (const e of enemies) if (!e.dead && (p.hit.get(e) || 0) < t && hyp(e.x - bx, e.y - by) < 12 + e.r) { p.hit.set(e, t + 1); hazardHit(e, e.maxHp * 0.2, bx, by, 300); }
         continue;
       }
       if (p.type === 'swing') {
         p.a = (p.sd > 0 ? Math.PI : 0) + Math.sin(t * 1.5 + p.ph) * 1.05;
         const ca = Math.cos(p.a), sa = Math.sin(p.a), x1 = p.x + ca * p.len * 0.45, y1 = p.y + sa * p.len * 0.45, x2 = p.x + ca * p.len, y2 = p.y + sa * p.len;
-        if (h.hp > 0 && segDist(h.x, h.y, x1, y1, x2, y2) < 9 + h.r * 0.7) hurtHero(Math.round(10 * D.a), x2, y2, 450, 'swing');
+        if (h.hp > 0 && segDist(h.x, h.y, x1, y1, x2, y2) < 9 + h.r * 0.7) hurtHero(trapDmg('swing'), x2, y2, 450, 'swing');
         for (const e of enemies) if (!e.dead && (p.hit.get(e) || 0) < t && segDist(e.x, e.y, x1, y1, x2, y2) < 9 + e.r) { p.hit.set(e, t + 1); hazardHit(e, e.maxHp * 0.2, x2, y2, 300); }
         continue;
       }
@@ -1291,7 +1294,7 @@
         }
       } else if (p.type === 'spike') {
         const c = ((globalT + p.ph) % 2.2); p.state = c < 1.3 ? 0 : c < 1.65 ? 1 : 2;
-        if (p.state === 2 && Math.abs(h.x - p.x) < p.w / 2 + h.r * 0.3 && Math.abs(h.y - p.y) < p.h / 2 + h.r * 0.3) hurtHero(Math.round(6 * D.a), h.x, h.y - 30, 200, 'spike');
+        if (p.state === 2 && Math.abs(h.x - p.x) < p.w / 2 + h.r * 0.3 && Math.abs(h.y - p.y) < p.h / 2 + h.r * 0.3) hurtHero(trapDmg('spike'), h.x, h.y - 30, 200, 'spike');
       }
     }
     h.gnd = gnd;
