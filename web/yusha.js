@@ -88,7 +88,72 @@
     { id: 'c8', slot: 'charm', name: '竜王のメダル', atk: 40, def: 40, hp: 300, price: 150000 },
     { id: 'c9', slot: 'charm', name: 'ひかりの宝玉', atk: 60, def: 55, hp: 450, price: 400000 },
   ];
+  // ---- equipment that monsters drop (never sold in the shop) ----
+  // special effects. Kept mild, and the same effect on two items does not stack.
+  const FX = {
+    spin: { v: 0.2, name: 'かいてん', note: 'ぐるぐる まわりながら ぶつかると いりょく+20%' },
+    slowcrit: { v: 0.3, name: 'しずかな一撃', note: 'ゆっくり ぶつかるほど かいしんが でやすい（さいだい30%）' },
+    recoil: { v: 0.5, name: 'はねかえり', note: 'ぶつかった ときの はねかえりが 1.5ばい。てきも おおきく ふっとぶ' },
+    double: { v: 1, name: 'れんげき', note: 'ヒットすうが 2ばいで ふえる' },
+    drain: { v: 0.03, name: 'きゅうけつ', note: 'てきを たおすと HPが 3%かいふく（ボスは あてるたび 1%）' },
+    gold: { v: 0.15, name: 'しょうにん', note: 'ひろう ゴールド+15%' },
+    exp: { v: 0.1, name: 'まなび', note: 'もらえる けいけんち+10%' },
+    medic: { v: 2, name: 'くすし', note: 'どうぐの クールタイム-2びょう' },
+    herbal: { v: 0.3, name: 'やくそうし', note: 'かいふくアイテムの かいふくりょう+30%' },
+    brave: { v: 0.15, name: 'ゆうき', note: 'HPが まんたんの とき いりょく+15%' },
+    desperate: { v: 0.25, name: 'はいすい', note: 'HPが 30%いかの とき いりょく+25%' },
+    chain: { v: 1, name: 'れんぞく', note: 'コンボが きれるまでの じかん+1びょう' },
+    bossbane: { v: 0.1, name: 'ボスごろし', note: 'ボスへの いりょく+10%' },
+    guard: { v: 0.3, name: 'みかわし', note: 'こうげきを うけた あとの むてき じかん+0.3びょう' },
+    buff: { v: 0.5, name: 'れんきん', note: 'ちから・まもりの くすりの こうか じかん+50%' },
+  };
+  // the shop tier a player usually has in each dungeon: drops are pinned to it
+  const DROP_WT = [1, 1, 2, 2, 3, 4, 5, 5, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 15];
+  const DROP_AT = [1, 1, 2, 2, 3, 4, 4, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14];
+  // ふるびた (common, a weaker copy of a shop item) and 名工の (rare, a stronger copy)
+  for (const base of EQUIP.filter(e => (e.slot === 'weapon' || e.slot === 'armor') && e.price > 0)) {
+    const k = base.slot === 'weapon' ? 'atk' : 'def';
+    EQUIP.push({ id: base.id + 'lo', slot: base.slot, name: (base.slot === 'weapon' ? 'さびた' : 'ぼろぼろの') + base.name, [k]: Math.max(1, Math.round(base[k] * 0.8)), price: 0, drop: 'lo', vis: base.id, val: Math.round(base.price * 0.2) });
+    EQUIP.push({ id: base.id + 'rr', slot: base.slot, name: '名工の' + base.name, [k]: Math.round(base[k] * 1.3), price: 0, drop: 'rare', vis: base.id, val: Math.round(base.price * 0.5) });
+  }
+  // items with a special effect: [effect, slot, dungeon index, name]. Their stats are a bit below the shop tier of that dungeon.
+  const SPECIALS = [
+    ['herbal', 'charm', 1, 'やくそうのペンダント'], ['recoil', 'boots', 1, 'はずむくつ'],
+    ['spin', 'weapon', 2, 'つむじの剣'], ['gold', 'charm', 2, 'しょうにんのゆびわ'],
+    ['exp', 'charm', 3, 'まなびのおまもり'],
+    ['slowcrit', 'weapon', 4, 'しずかなる刃'], ['medic', 'armor', 4, 'くすしのころも'],
+    ['double', 'charm', 5, 'ふたごのうでわ'], ['chain', 'boots', 5, 'れんげきのくつ'],
+    ['drain', 'weapon', 6, 'きゅうけつの剣'], ['guard', 'armor', 6, 'みかわしのふく'],
+    ['brave', 'weapon', 7, 'ゆうきの剣'],
+    ['desperate', 'armor', 8, 'はいすいのよろい'],
+    ['bossbane', 'weapon', 9, 'かいぶつごろし'],
+    ['buff', 'charm', 10, 'くすりびんのおまもり'],
+    ['recoil', 'boots', 11, 'ばねじかけのくつ'],
+    ['gold', 'charm', 13, 'おうごんのゆびわ'],
+    ['spin', 'weapon', 14, 'たつまきの大剣'],
+    ['herbal', 'charm', 15, 'いのちのペンダント'],
+    ['exp', 'charm', 16, 'けんじゃのおまもり'],
+    ['slowcrit', 'weapon', 17, 'めいきょうの太刀'],
+    ['double', 'charm', 18, 'れんげきのうでわ'], ['chain', 'boots', 18, 'しっぷうのくつ'],
+    ['medic', 'armor', 19, 'せいじょのころも'],
+    ['drain', 'weapon', 20, 'ちのけいやくの剣'], ['guard', 'armor', 20, 'かげのころも'],
+    ['brave', 'weapon', 21, 'えいゆうの剣'], ['buff', 'charm', 21, 'れんきんじゅつしのおまもり'],
+    ['desperate', 'armor', 22, 'しにものぐるいのよろい'],
+    ['bossbane', 'weapon', 23, 'まものほろぼしの剣'],
+  ];
+  SPECIALS.forEach(([fx, slot, d, name], i) => {
+    const w = EQUIP.find(e => e.id === 'w' + DROP_WT[d]), a = EQUIP.find(e => e.id === 'a' + DROP_AT[d]);
+    const e = { id: 'x' + i, slot, name, price: 0, drop: 'fx', fx: { [fx]: FX[fx].v }, from: d };
+    if (slot === 'weapon') Object.assign(e, { atk: Math.round(w.atk * 0.85), vis: w.id, val: Math.round(w.price * 0.35) });
+    else if (slot === 'armor') Object.assign(e, { def: Math.round(a.def * 0.85), vis: a.id, val: Math.round(a.price * 0.35) });
+    else if (slot === 'boots') Object.assign(e, { ram: d < 5 ? 1.06 : d < 8 ? 1.18 : d < 12 ? 1.3 : d < 17 ? 1.44 : d < 21 ? 1.55 : 1.65, val: Math.round(w.price * 0.3) });
+    else Object.assign(e, { hp: 10 + d * 8, val: Math.round(w.price * 0.3) });
+    EQUIP.push(e);
+  });
+  const DROP_RATE = { lo: 0.012, fx: 0.006, rare: 0.002, boss: 0.05 };   // per kill (boss: per clear)
+  const RARITY = { lo: { mark: '', col: '#c8c0b0' }, fx: { mark: '◆', col: '#7ad8ff' }, rare: { mark: '★', col: '#f2c14e' } };
   const EQ = Object.fromEntries(EQUIP.map(e => [e.id, e]));
+  const visOf = id => (EQ[id] && EQ[id].vis) || id;
   const SLOT_NAME = { weapon: 'ぶき', armor: 'よろい', boots: 'くつ', charm: 'そうしょく' };
   // heal = max(fixed amount, share of max HP), so items stay useful late in the game
   const ITEMS = {
@@ -99,7 +164,7 @@
     power: { name: 'ちからのくすり', buff: 'atk', dur: 20, price: 140, note: '20びょう こうげき1.5ばい' },
     guard: { name: 'まもりのくすり', buff: 'def', dur: 20, price: 140, note: '20びょう うけるダメージはんぶん' },
   };
-  const healOf = (id, maxHp) => Math.max(ITEMS[id].heal || 0, Math.round(maxHp * (ITEMS[id].pct || 0)));
+  const healOf = (id, maxHp, fx) => Math.round(Math.max(ITEMS[id].heal || 0, Math.round(maxHp * (ITEMS[id].pct || 0))) * (1 + ((fx && fx.herbal) || 0)));
   const ITEM_MAX = 9;
 
   // monsters: base stats (scaled by the dungeon's multiplier)
@@ -219,27 +284,27 @@
       moves: ['laser3', 'homing', 'spiral3', 'warp', 'rain:void', 'gapring'], moves2: ['cross', 'laser3', 'homing', 'spiral3', 'warp', 'triple', 'rain:void'] },
     cerberus: { name: 'ケルベロス', hp: 13160, atk: 142, def: 34, r: 48, exp: 9600, gold: 10000, col: '#c8402a', song: 'c15', key: 2, bpm: 150,
       moves: ['breath3', 'dash3', 'rain:meteor', 'quake', 'fireball'], moves2: ['breath3', 'dash3', 'rain:meteor', 'mines', 'tail', 'wave'] },
-    hydra: { name: 'ヒュドラ', hp: 17680, atk: 174, def: 40, r: 48, col: '#5aa83a', wcol: '#4a9a3a', fcol: 'poison',
+    hydra: { name: 'ヒュドラ', hp: 19090, atk: 174, def: 40, r: 48, col: '#5aa83a', wcol: '#4a9a3a', fcol: 'poison',
       moves: ['breath3', 'rain:poison', 'tentacles', 'homing', 'gapring'], moves2: ['breath3', 'rain:poison', 'tentacles', 'cross', 'dash3', 'triple'] },
-    ghostcaptain: { name: 'ゆうれいせんちょう', hp: 25120, atk: 222, def: 43, r: 40, col: '#7ad8c8', wcol: '#c8e8ff', ocol: '120,255,200',
+    ghostcaptain: { name: 'ゆうれいせんちょう', hp: 22760, atk: 197, def: 43, r: 40, col: '#7ad8c8', wcol: '#c8e8ff', ocol: '120,255,200',
       moves: ['sweep', 'aimed5', 'rain:curse', 'warp', 'wave', 'summon'], moves2: ['sweep', 'cross', 'rain:curse', 'warp', 'triple', 'aimed5'] },
-    cyclops: { name: 'サイクロプス', hp: 23520, atk: 178, def: 46, r: 50, col: '#c89a6a', wcol: '#8a6a40',
+    cyclops: { name: 'サイクロプス', hp: 25430, atk: 178, def: 46, r: 50, col: '#c89a6a', wcol: '#8a6a40',
       moves: ['sweep', 'rocks', 'quake', 'laser', 'charge', 'jump'], moves2: ['sweep', 'rocks', 'quake', 'laser3', 'dash3', 'jump'] },
-    archmage: { name: 'だいまどうし', hp: 19340, atk: 194, def: 49, r: 36, col: '#5a7aff', ocol: '140,170,255',
+    archmage: { name: 'だいまどうし', hp: 20890, atk: 194, def: 49, r: 36, col: '#5a7aff', ocol: '140,170,255',
       moves: ['spiral3', 'laser3', 'warp', 'homing', 'rain:bolt', 'summon'], moves2: ['spiral3', 'cross', 'warp', 'homing', 'rain:ice', 'triple', 'rain:meteor'] },
-    quetzal: { name: 'ケツァルコアトル', hp: 26840, atk: 210, def: 52, r: 44, col: '#3ad8a0', wcol: '#3ad8a0',
+    quetzal: { name: 'ケツァルコアトル', hp: 28980, atk: 210, def: 52, r: 44, col: '#3ad8a0', wcol: '#3ad8a0',
       moves: ['wave', 'dash3', 'rain:bolt', 'homing', 'tail', 'gapring'], moves2: ['wave', 'dash3', 'rain:bolt', 'cross', 'tail', 'spiral3'] },
-    colossus: { name: 'くろがねの巨兵', hp: 19060, atk: 194, def: 56, r: 50, col: '#8a9aaa', wcol: '#a0a8b8', ocol: '255,170,80',
+    colossus: { name: 'くろがねの巨兵', hp: 20490, atk: 194, def: 56, r: 50, col: '#8a9aaa', wcol: '#a0a8b8', ocol: '255,170,80',
       moves: ['quake', 'laser3', 'rocks', 'mines', 'charge', 'twin'], moves2: ['quake', 'laser3', 'mines', 'dash3', 'clock', 'rocks'] },
-    shadowhero: { name: 'かげの勇者', hp: 21160, atk: 210, def: 58, r: 34, col: '#6a5a9a', wcol: '#8a6aff', ocol: '170,120,255',
+    shadowhero: { name: 'かげの勇者', hp: 22750, atk: 210, def: 58, r: 34, col: '#6a5a9a', wcol: '#8a6aff', ocol: '170,120,255',
       moves: ['dash3', 'twin', 'aimed5', 'warp', 'charge', 'gapring'], moves2: ['dash3', 'twin', 'cross', 'warp', 'triple', 'laser3'] },
-    leviathan: { name: 'リヴァイアサン', hp: 41100, atk: 308, def: 61, r: 50, col: '#3a7ad8', wcol: '#3a8ad8', fcol: 'water', ocol: '120,200,255',
+    leviathan: { name: 'リヴァイアサン', hp: 44330, atk: 308, def: 61, r: 50, col: '#3a7ad8', wcol: '#3a8ad8', fcol: 'water', ocol: '120,200,255',
       moves: ['tentacles', 'breath', 'rain:water', 'wave', 'homing'], moves2: ['tentacles', 'breath3', 'rain:water', 'cross', 'dash3', 'wave'] },
-    bonedragon: { name: 'ボーンドラゴン', hp: 40740, atk: 291, def: 64, r: 48, col: '#e8e2cf', wcol: '#d8d0b8', fcol: 'ghost', ocol: '140,255,200',
+    bonedragon: { name: 'ボーンドラゴン', hp: 44000, atk: 291, def: 64, r: 48, col: '#e8e2cf', wcol: '#d8d0b8', fcol: 'ghost', ocol: '140,255,200',
       moves: ['breath', 'tail', 'rain:curse', 'quake', 'homing', 'fireball'], moves2: ['breath3', 'tail', 'rain:curse', 'cross', 'dash3', 'fireball'] },
-    demongeneral: { name: 'まぐんしょうぐん', hp: 27130, atk: 284, def: 67, r: 44, col: '#c83a3a', wcol: '#ff4a3a',
+    demongeneral: { name: 'まぐんしょうぐん', hp: 29300, atk: 284, def: 67, r: 44, col: '#c83a3a', wcol: '#ff4a3a',
       moves: ['twin', 'dash3', 'rain:meteor', 'laser3', 'sweep', 'summon'], moves2: ['twin', 'dash3', 'rain:meteor', 'cross', 'mines', 'laser3', 'triple'] },
-    maou: { name: 'まおう', hp: 23290, atk: 251, def: 72, r: 42, exp: 15000, gold: 15000, col: '#c04cff', song: 'M', key: 2, bpm: 150, rage: 1.45,
+    maou: { name: 'まおう', hp: 25290, atk: 251, def: 72, r: 42, exp: 15000, gold: 15000, col: '#c04cff', song: 'M', key: 2, bpm: 150, rage: 1.45,
       moves: ['twin', 'spiral3', 'rain:meteor', 'warp', 'homing', 'laser3', 'gapring', 'clock'], moves2: ['cross', 'triple', 'rain:void', 'warp', 'dash3', 'mines', 'laser3', 'twin', 'spiral3', 'breath3'] },
   };
 
@@ -278,10 +343,11 @@
 
   function stats() {
     const L = save.lv;
-    const s = { maxHp: 60 + (L - 1) * 10, atk: 8 + (L - 1) * 2, def: 2 + (L - 1), ram: 1 };
+    const s = { maxHp: 60 + (L - 1) * 10, atk: 8 + (L - 1) * 2, def: 2 + (L - 1), ram: 1, fx: {} };
     for (const slot in save.eq) {
       const e = EQ[save.eq[slot]]; if (!e) continue;
       if (e.atk) s.atk += e.atk; if (e.def) s.def += e.def; if (e.hp) s.maxHp += e.hp; if (e.ram) s.ram = e.ram;
+      if (e.fx) for (const k in e.fx) s.fx[k] = Math.max(s.fx[k] || 0, e.fx[k]);
     }
     return s;
   }
@@ -399,6 +465,7 @@
   function heroSpeed() { return hyp(hero.vx, hero.vy); }
 
   function gainExp(n) {
+    if (hero && hero.s.fx.exp) n = Math.round(n * (1 + hero.s.fx.exp));
     runExp += n; save.exp += n;
     let up = 0;
     while (save.exp >= expNeed(save.lv)) { save.exp -= expNeed(save.lv); save.lv++; up++; }
@@ -413,7 +480,7 @@
       burst(hero.x, hero.y, 26, '#f2c14e', 260);
     }
   }
-  function gainGold(n) { runGold += n; save.gold += n; }
+  function gainGold(n) { if (hero && hero.s.fx.gold) n = Math.round(n * (1 + hero.s.fx.gold)); runGold += n; save.gold += n; }
 
   const hurtLog = {};
   function hurtHero(dmg, fromX, fromY, power = 300, cause = '?') {
@@ -421,7 +488,7 @@
     let d = Math.max(1, Math.round(dmg - hero.s.def * 0.5));
     hurtLog[cause] = (hurtLog[cause] || 0) + d;
     if (hero.buff.def > 0) d = Math.max(1, Math.round(d * 0.5));
-    hero.hp -= d; hero.inv = 0.85;
+    hero.hp -= d; hero.inv = 0.85 + (hero.s.fx.guard || 0);
     const dx = hero.x - fromX, dy = hero.y - fromY, l = hyp(dx, dy) || 1;
     hero.vx += dx / l * power; hero.vy += dy / l * power;
     popText(hero.x, hero.y + 20, '-' + d, '#ff5a4a', 18, 0.9);
@@ -440,25 +507,25 @@
     if (!id) {
       if (miss <= 0) return false;
       const order = HEALS.filter(k => it[k] > 0);
-      id = order.find(k => healOf(k, hero.s.maxHp) >= miss) || order[order.length - 1];
+      id = order.find(k => healOf(k, hero.s.maxHp, hero.s.fx) >= miss) || order[order.length - 1];
       if (!id) { popText(hero.x, hero.y + 26, 'かいふくアイテムがない', '#ff9a8a', 13, 0.9); return false; }
     }
     if (!it[id]) return false;
     if (hero.itemCD > 0) { popText(hero.x, hero.y + 26, `あと ${Math.ceil(hero.itemCD)}びょう`, '#ff9a8a', 13, 0.8); A.sfx('block'); return false; }
     const I = ITEMS[id];
     if (I.buff) {
-      it[id]--; hero.buff[I.buff] = I.dur;
+      it[id]--; hero.buff[I.buff] = I.dur * (1 + (hero.s.fx.buff || 0));
       popText(hero.x, hero.y + 26, I.name + '！', I.buff === 'atk' ? '#ff9a5a' : '#9fd0ff', 16, 1.1);
       burst(hero.x, hero.y, 18, I.buff === 'atk' ? '#ff9a5a' : '#9fd0ff', 180); A.sfx('buff');
     } else {
       if (miss <= 0) { popText(hero.x, hero.y + 26, 'HPは まんたん', '#fff', 13, 0.8); return false; }
       it[id]--;
-      const h = Math.min(miss, healOf(id, hero.s.maxHp));
+      const h = Math.min(miss, healOf(id, hero.s.maxHp, hero.s.fx));
       hero.hp += h;
       popText(hero.x, hero.y + 26, `${I.name}  +${h}`, '#6fd38a', 16, 1.1);
       burst(hero.x, hero.y, 16, '#6fd38a', 160); A.sfx('heal');
     }
-    hero.itemCD = ITEM_CD;
+    hero.itemCD = ITEM_CD - (hero.s.fx.medic || 0);
     updateHudButtons(); return true;
   }
 
@@ -471,6 +538,37 @@
     for (let i = 0; i < n; i++) { const a = rnd(0, 6.283), v = rnd(0.3, 1) * spd; fx.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rnd(0.5, 1) * life, max: life, col, r: rnd(1.5, 3.5) }); }
     if (fx.length > 400) fx.splice(0, fx.length - 400);
   }
+  // ---- equipment drops ----
+  let runLoot = [], toasts = [];
+  function toast(s, col) { toasts.push({ s, col, t: 2.6 }); if (toasts.length > 3) toasts.shift(); }
+  function dropPool(kind) {
+    if (kind === 'fx') return EQUIP.filter(e => e.drop === 'fx' && Math.abs(e.from - dIdx) <= 1);
+    return [EQ['w' + DROP_WT[dIdx] + (kind === 'rare' ? 'rr' : 'lo')], EQ['a' + DROP_AT[dIdx] + (kind === 'rare' ? 'rr' : 'lo')]].filter(Boolean);
+  }
+  function rollLoot(x, y) {
+    const r = Math.random();
+    const kind = r < DROP_RATE.rare ? 'rare' : r < DROP_RATE.rare + DROP_RATE.fx ? 'fx' : r < DROP_RATE.rare + DROP_RATE.fx + DROP_RATE.lo ? 'lo' : null;
+    if (!kind) return;
+    const pool = dropPool(kind); if (pool.length) giveLoot(pick(pool), x, y);
+  }
+  // equipment goes straight into the bag (so nothing is lost on the way to the boss room); a copy you already own turns into gold
+  function giveLoot(e, x, y) {
+    const R = RARITY[e.drop];
+    if (save.owned.includes(e.id)) {
+      const g = e.val || 10; save.gold += g; runGold += g;   // not counted twice by the gold bonus
+      toast(`${e.name}（もっている）→ +${g} G`, '#f2c14e');
+      A.sfx('coin', 6);
+    } else {
+      save.owned.push(e.id); runLoot.push(e.id);
+      toast(`${R.mark}${e.name} を てにいれた！`, R.col);
+      A.sfx(e.drop === 'rare' ? 'levelup' : 'chest');
+      burst(x, y, e.drop === 'rare' ? 40 : 20, R.col, 260, 0.8);
+      if (e.drop === 'rare') { flash = 0.35; flashCol = '255,230,140'; }
+    }
+    anims.push({ kind: 'loot', x, y, t: 0, dur: 1.2, frames: 1, slot: e.slot, rar: e.drop });
+    persist();
+  }
+
   function dropCoins(x, y, gold) {
     const n = Math.min(8, Math.max(1, Math.round(gold / 4)));
     for (let i = 0; i < n; i++) { const a = rnd(0, 6.283), v = rnd(60, 170); drops.push({ type: 'gold', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, val: Math.round(gold / n) || 1, t: 0 }); }
@@ -483,7 +581,7 @@
     closePanel(); deathT = 0;
     genDungeon(di);
     hero = newHero(W / 2, 70);
-    camY = hero.y; boss = null; arena = null; zones = []; combo = 0; runExp = 0; runGold = 0; runKills = 0;
+    camY = hero.y; boss = null; arena = null; zones = []; combo = 0; runExp = 0; runGold = 0; runKills = 0; runLoot = []; toasts = [];
     state = 'play'; paused = false; hint = di === 0 ? 6 : 0;
     banner = { a: D.name, b: D.en, t: 2.4 };
     A.bgm(FARR.dungeon[di]);
@@ -525,6 +623,7 @@
           <dt>おとした（はんぶん）</dt><dd class="hpc">-${lost} G</dd>
           <dt>のこりの ゴールド</dt><dd class="gold">${save.gold} G</dd>
         </dl>
+        ${lootHtml()}
         <p style="color:var(--muted);font-size:14px;margin-top:8px">レベルと けいけんちは そのまま。<br>そうびを ととのえて もう一度いどもう。</p>`,
         [['街へもどる', () => goTown(), true]]);
     }
@@ -541,6 +640,7 @@
     const B = boss;
     {
       gainExp(B.exp); gainGold(B.gold);
+      if (Math.random() < DROP_RATE.boss) giveLoot(pick(dropPool('rare')), B.x, B.y);
       const first = !save.cleared[dIdx];
       save.cleared[dIdx] = true; save.hp = null; persist();
       A.jingle('clear');
@@ -553,6 +653,7 @@
           <dt>たおした数</dt><dd>${runKills + 1}</dd>
           <dt>レベル</dt><dd>Lv ${save.lv}</dd>
         </dl>
+        ${lootHtml()}
         ${first && dIdx < DUNGEONS.length - 1 ? `<p style="margin-top:10px" class="gold">あたらしいダンジョン「${DUNGEONS[dIdx + 1].name}」に いけるようになった！</p>` : ''}
         ${first && dIdx === DUNGEONS.length - 1 ? `<p style="margin-top:10px" class="gold">まおうを たおし、せかいに へいわが もどった！<br>（ダンジョンには なんどでも いどめます）</p>` : ''}`,
         [['街へもどる', () => goTown(), true]]);
@@ -590,6 +691,11 @@
     if (sp > 30) h.face = Math.atan2(h.vy, h.vx);
     h.walk = (h.walk || 0) + sp * dt;   // drives the walk cycle of the sprite
     if (h.inv > 0) h.inv -= dt;
+    {   // how hard the hero is turning (decaying sum of heading changes); bounces off targets are ignored
+      const sp = hyp(h.vx, h.vy);
+      if (sp > 120) { const a = Math.atan2(h.vy, h.vx); if (h.lastA != null) { const d = ((a - h.lastA + Math.PI * 3) % (Math.PI * 2)) - Math.PI; if (Math.abs(d) < 1.2) h.spin = (h.spin || 0) * Math.exp(-dt / 0.8) + d; } h.lastA = a; }
+      else { h.spin = (h.spin || 0) * Math.exp(-dt / 0.3); h.lastA = null; }
+    }
     if (h.itemCD > 0) { h.itemCD -= dt; if (h.itemCD <= 0) { h.itemCD = 0; updateHudButtons(); } else itemCdShow(h.itemCD); }
     if (h.ramSafe > 0) h.ramSafe -= dt;
     if (h.slow > 0) h.slow -= dt;
@@ -637,11 +743,11 @@
     if (rel > 0) {
       const imp = rel;
       // hero bounces back (反動)
-      const e = 0.55;
-      h.vx -= (1 + e) * rel * nx * wH * 1.6; h.vy -= (1 + e) * rel * ny * wH * 1.6;
+      const e = 0.55, R = heroIn >= RAM_MIN ? 1 + (h.s.fx.recoil || 0) : 1;
+      h.vx -= (1 + e) * rel * nx * wH * 1.6 * R; h.vy -= (1 + e) * rel * ny * wH * 1.6 * R;
       const outV = h.vx * -nx + h.vy * -ny;
       if (outV < 160) { h.vx += -nx * (160 - outV); h.vy += -ny * (160 - outV); }
-      if (mass < 50 && o.vx != null) { o.vx += nx * imp * 0.9 / Math.max(0.5, mass); o.vy += ny * imp * 0.9 / Math.max(0.5, mass); }
+      if (mass < 50 && o.vx != null) { o.vx += nx * imp * 0.9 * R / Math.max(0.5, mass); o.vy += ny * imp * 0.9 * R / Math.max(0.5, mass); }
       // only the hero's OWN speed into the target counts as an attack (a charging enemy can't hurt itself)
       const ram = heroIn >= RAM_MIN;
       if (ram) { h.recoil = 0.2; h.ramSafe = 0.5; }
@@ -650,13 +756,25 @@
     return { kind: 'bump', imp: 0, nx, ny };
   }
 
-  function ramDamage(target, imp) {
-    const s = hero.s, k = Math.min(imp / (PAD_MAX * s.ram), 1.5);
+  // combo: from the 5th hit in a row, every hit adds 2% (up to +50%)
+  const comboStep = () => hero && hero.s.fx.double ? 2 : 1;
+  const comboBonus = n => clamp((n - 4) * 0.02, 0, 0.5);
+  const SPIN_MIN = 3.2;   // radians of turning (decaying) that count as "spinning"
+  function ramDamage(target, imp, isBoss) {
+    const s = hero.s, F = s.fx, k = Math.min(imp / (PAD_MAX * s.ram), 1.5);
     let dmg = s.atk * (0.8 + 1.0 * k) * rnd(0.9, 1.1) - target.def * 0.5;
-    const crit = imp > PAD_MAX * s.ram * 0.88 && Math.random() < 0.35;   // full-tilt charges can land かいしん
+    let critP = imp > PAD_MAX * s.ram * 0.88 ? 0.35 : 0;   // full-tilt charges can land かいしん
+    if (F.slowcrit) critP = Math.max(critP, Math.min(F.slowcrit, F.slowcrit * (1 - k) / 0.6));
+    const crit = Math.random() < critP;
     if (crit) dmg *= 1.5;
     if (hero.buff.atk > 0) dmg *= 1.5;
-    return { dmg: Math.max(1, Math.round(dmg)), crit };
+    let mul = 1 + comboBonus(combo + comboStep()), tag = '';
+    if (F.spin && Math.abs(hero.spin || 0) > SPIN_MIN) { mul += F.spin; tag = 'かいてん'; }
+    if (F.brave && hero.hp >= s.maxHp * 0.99) mul += F.brave;
+    if (F.desperate && hero.hp <= s.maxHp * 0.3) mul += F.desperate;
+    if (F.bossbane && isBoss) mul += F.bossbane;
+    dmg *= mul;
+    return { dmg: Math.max(1, Math.round(dmg)), crit, tag };
   }
 
   function hitEnemy(e, res) {
@@ -671,11 +789,12 @@
         return;
       }
     }
-    const { dmg, crit } = ramDamage(e, res.imp);
+    const { dmg, crit, tag } = ramDamage(e, res.imp, false);
     e.hp -= dmg; e.hurt = 0.18; e.hitCD = 0.12;
     if (e.st === 'wind' || e.st === 'aim') { e.st = 'idle'; e.cd = 0.6; }   // a hit interrupts the attack
-    combo++; comboT = 1.6;
+    combo += comboStep(); comboT = 1.6 + (hero.s.fx.chain || 0);
     popText(e.x, e.y + 20, (crit ? 'かいしん！ ' : '') + dmg, crit ? '#f2c14e' : '#fff', crit ? 22 : 17, 0.8);
+    if (tag) popText(e.x, e.y + 40, tag + '！', '#9fe8ff', 12, 0.6);
     burst(e.x - res.nx * e.r, e.y - res.ny * e.r, crit ? 22 : 12, crit ? '#f2c14e' : '#fff', crit ? 330 : 220, 0.45);
     anims.push({ kind: 'spark', x: e.x - res.nx * e.r, y: e.y - res.ny * e.r, t: 0, dur: 0.24, frames: 4, big: crit });
     hitStop = Math.max(hitStop, crit ? 0.1 : 0.05); shake = Math.max(shake, crit ? 12 : 6);
@@ -689,6 +808,8 @@
     burst(e.x, e.y, 24, e.col, 260, 0.7);
     gainExp(e.exp);
     popText(e.x, e.y + 36, `+${e.exp} EXP`, '#9fd0ff', 12, 0.9);
+    if (hero.s.fx.drain && hero.hp > 0) { const hh = Math.min(hero.s.maxHp - hero.hp, Math.round(hero.s.maxHp * hero.s.fx.drain)); if (hh > 0) { hero.hp += hh; popText(hero.x, hero.y + 30, '+' + hh, '#6fd38a', 12, 0.6); } }
+    rollLoot(e.x, e.y);
     dropCoins(e.x, e.y, e.gold);
     if (Math.random() < 0.06) drops.push({ type: 'herb', x: e.x, y: e.y, vx: 0, vy: 0, t: 0 });
     A.sfx('kill');
@@ -957,14 +1078,16 @@
     const res = collide(B, 999);
     if (res) {
       if (res.kind === 'ram' && B.hitCD <= 0) {
-        const { dmg, crit } = ramDamage(B, res.imp);
-        B.hp -= dmg; B.hurt = 0.15; B.hitCD = 0.2; combo++; comboT = 2.2;
+        const { dmg, crit, tag } = ramDamage(B, res.imp, true);
+        B.hp -= dmg; B.hurt = 0.15; B.hitCD = 0.2; combo += comboStep(); comboT = 2.2 + (h.s.fx.chain || 0);
+        if (tag) popText(B.x, B.y + B.r + 32, tag + '！', '#9fe8ff', 13, 0.6);
+        if (h.s.fx.drain) h.hp = Math.min(h.s.maxHp, h.hp + h.s.maxHp * h.s.fx.drain / 3);
         popText(B.x + rnd(-14, 14), B.y + B.r + 10, (crit ? 'かいしん！ ' : '') + dmg, crit ? '#f2c14e' : '#fff', crit ? 26 : 20, 0.9);
         burst(B.x - res.nx * B.r, B.y - res.ny * B.r, crit ? 28 : 14, crit ? '#f2c14e' : '#fff', crit ? 360 : 240, 0.5);
         anims.push({ kind: 'spark', x: B.x - res.nx * B.r, y: B.y - res.ny * B.r, t: 0, dur: 0.28, frames: 4, big: true });
         hitStop = Math.max(hitStop, crit ? 0.12 : 0.06); shake = Math.max(shake, crit ? 16 : 10);
         // big recoil: the hero is flung far back and has to come in again
-        h.vx = -res.nx * 640; h.vy = -res.ny * 640; h.recoil = 0.45; h.ramSafe = 0.75;
+        const fl = 640 * (1 + (h.s.fx.recoil || 0) * 0.4); h.vx = -res.nx * fl; h.vy = -res.ny * fl; h.recoil = 0.45; h.ramSafe = 0.75;
         A.sfx(crit ? 'crit' : 'bosshit');
         if (B.hp <= 0) { B.hp = 0; bossDefeated(); }
       } else if (res.kind === 'bump' && h.ramSafe <= 0) hurtHero(B.atk * 0.7, B.x, B.y, 380, 'boss');
@@ -1227,6 +1350,7 @@
     for (const p of fx) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.92; p.vy *= 0.92; p.life -= dt; }
     fx = fx.filter(p => p.life > 0);
     for (const a of anims) a.t += dt;
+    if (!paused) { for (const q2 of toasts) q2.t -= dt; toasts = toasts.filter(q2 => q2.t > 0); }
     anims = anims.filter(a => a.t < a.dur);
     for (const s of texts) { s.y += 30 * dt; s.life -= dt; }
     texts = texts.filter(s => s.life > 0);
@@ -1437,7 +1561,7 @@
     const dir = Math.abs(c) > Math.abs(s) * 1.1 ? (c > 0 ? 'right' : 'left') : (s > 0 ? 'up' : 'down');
     const moving = sp > 30, ph = (h.walk || 0) * 0.07;
     const step = moving ? (Math.sin(ph) > 0.3 ? 1 : Math.sin(ph) < -0.3 ? -1 : 0) : 0;
-    return SPR.hero({ dir, step, dash: ram && dir !== 'down', hurt: h.inv > 0.55, blink: !moving && (globalT % 3.1) < 0.12, bob: !moving && (globalT % 1.1) < 0.55 ? 1 : 0, wave: Math.floor(globalT * 10) % 2, w: save.eq.weapon, a: save.eq.armor });
+    return SPR.hero({ dir, step, dash: ram && dir !== 'down', hurt: h.inv > 0.55, blink: !moving && (globalT % 3.1) < 0.12, bob: !moving && (globalT % 1.1) < 0.55 ? 1 : 0, wave: Math.floor(globalT * 10) % 2, w: visOf(save.eq.weapon), a: visOf(save.eq.armor) });
   }
 
   function drawHero() {
@@ -1574,6 +1698,7 @@
     // hit sparks / defeat puffs (pixel animations)
     for (const a of anims) {
       const f = Math.min(a.frames - 1, Math.floor(a.t / a.dur * a.frames));
+      if (a.kind === 'loot') { const k = a.t / a.dur; SPR.draw(ctx, SPR.ENV.gear(a.slot, a.rar, Math.floor(a.t * 8)), a.x, sy(a.y + 20 + k * 40), 1 - Math.max(0, k - 0.7) / 0.3); continue; }
       const s = a.kind === 'spark' ? SPR.ENV.spark(f, a.big) : SPR.ENV.poof(f);
       SPR.draw(ctx, s, a.x, sy(a.y));
     }
@@ -1648,9 +1773,15 @@
       txt(boss.name, W / 2, by - 4, 14, '#fff', 'center');
       bar(20, by, bw, 10, boss.hp / boss.maxHp, boss.phase === 2 ? '#ff3b6a' : '#e5483c');
     }
+    toasts.forEach((q2, i) => {   // equipment found: short notices under the status bar
+      ctx.globalAlpha = Math.min(1, q2.t * 2); const y2 = top + 92 + i * 22;
+      ctx.fillStyle = 'rgba(10,8,24,.75)'; ctx.fillRect(16, y2 - 15, W - 50, 20);
+      txt(q2.s, W / 2 - 9, y2, 13, q2.col, 'center'); ctx.globalAlpha = 1;
+    });
     if (combo >= 2) {
       const k = Math.min(1, comboT);
-      ctx.globalAlpha = k; txt(`${combo} HIT!`, W - 16, top + (state === 'boss' ? 112 : 240), 18 + Math.min(combo, 20) * 0.6, combo >= 10 ? '#ff6ad0' : '#f2c14e', 'right'); ctx.globalAlpha = 1;
+      ctx.globalAlpha = k; const cy2 = top + (state === 'boss' ? 112 : 240); txt(`${combo} HIT!`, W - 16, cy2, 18 + Math.min(combo, 20) * 0.6, combo >= 10 ? '#ff6ad0' : '#f2c14e', 'right');
+      const cb = comboBonus(combo); if (cb > 0) txt(`いりょく +${Math.round(cb * 100)}%`, W - 16, cy2 + 20, 12, '#fff', 'right'); ctx.globalAlpha = 1;
     }
     if (hint > 0 && state === 'play') {
       ctx.globalAlpha = Math.min(1, hint);
@@ -2010,7 +2141,7 @@
     trayOpen = true; paused = true;
     const s = hero.s;
     $('tray').innerHTML = Object.entries(ITEMS).map(([id, I]) => {
-      const n = save.items[id] || 0, eff = I.buff ? (I.buff === 'atk' ? 'こうげき×1.5' : 'ダメージ半分') : `+${Math.min(healOf(id, s.maxHp), s.maxHp)}`;
+      const n = save.items[id] || 0, eff = I.buff ? (I.buff === 'atk' ? 'こうげき×1.5' : 'ダメージ半分') : `+${Math.min(healOf(id, s.maxHp, s.fx), s.maxHp)}`;
       return `<button data-use="${id}" ${n ? '' : 'disabled'}><span>${I.name}</span><span class="tn">${eff}</span><b>×${n}</b></button>`;
     }).join('') + `<button data-use="" class="tclose">とじる</button>`;
     $('tray').hidden = false;
@@ -2026,8 +2157,54 @@
     showHud(false); persist();
   }
 
+  // ---- equipment names / descriptions ----
+  const eqName = e => { const R = e.drop && RARITY[e.drop]; return R ? `<span style="color:${R.col}">${R.mark}${e.name}</span>` : e.name; };
+  const eqStats = e => [e.atk && `こうげき +${e.atk}`, e.def && `ぼうぎょ +${e.def}`, e.hp && `さいだいHP +${e.hp}`, e.ram && e.ram > 1 && `とっしん力 ×${e.ram}`].filter(Boolean).join('・');
+  const eqNote = e => [eqStats(e), e.fx && Object.keys(e.fx).map(k => `<span style="color:#7ad8ff">${FX[k].note}</span>`).join('・'),
+    e.drop === 'lo' && 'ショップの ものより すこし よわい', e.drop === 'rare' && '<span class="gold">ショップの ものより つよい</span>'].filter(Boolean).join('<br>') || 'ふつうの そうび';
+  function lootHtml() {
+    if (!runLoot.length) return '';
+    return `<p style="margin-top:10px">てにいれた そうび</p><p style="font-size:14px;line-height:1.7">${runLoot.map(id => eqName(EQ[id])).join('<br>')}</p>`;
+  }
+  function fxHtml(s) {
+    const ks = Object.keys(s.fx); if (!ks.length) return '';
+    return `<p style="margin-top:6px;font-size:13px;color:#7ad8ff;line-height:1.6">${ks.map(k => '◆' + FX[k].note).join('<br>')}</p>`;
+  }
+  // change equipment (house and pause menu). In a dungeon the new stats apply at once.
+  let eqTab = 'weapon';
+  function equip(id, slot) {
+    const before = stats().maxHp;
+    save.eq[slot] = id;
+    const after = stats();
+    if (hero && (state === 'play' || state === 'boss')) {
+      hero.s = after; hero.hp = Math.min(after.maxHp, hero.hp + Math.max(0, after.maxHp - before));
+    } else if (save.hp != null) save.hp = Math.min(after.maxHp, save.hp + Math.max(0, after.maxHp - before));
+    persist(); A.sfx('equip');
+  }
+  function openEquip(back) {
+    const room = state === 'town' ? 'house' : null;
+    const render2 = () => {
+      const s = hero && (state === 'play' || state === 'boss') ? hero.s : stats();
+      const list = EQUIP.filter(e => e.slot === eqTab && save.owned.includes(e.id))
+        .sort((a, b) => (b.atk || b.def || b.ram || b.hp || 0) - (a.atk || a.def || a.ram || a.hp || 0));
+      const rows = list.map(e => {
+        const on = save.eq[e.slot] === e.id;
+        return `<div class="row"><span class="nm">${eqName(e)}</span><span class="sub">${eqNote(e)}</span>
+          <span class="act">${on ? '<span class="tag">そうびちゅう</span>' : `<button class="sbtn" data-eq="${e.id}">そうびする</button>`}</span></div>`;
+      });
+      if (eqTab === 'charm' && save.eq.charm) rows.push(`<div class="row"><span class="nm">はずす</span><span class="sub">そうしょくを つけない</span><span class="act"><button class="sbtn" data-eq="">はずす</button></span></div>`);
+      openPanel('そうび', `<div class="tabs">${['weapon', 'armor', 'boots', 'charm'].map(sl => `<button data-tab="${sl}" aria-pressed="${sl === eqTab}">${SLOT_NAME[sl]}</button>`).join('')}</div>
+        <p style="font-size:14px;color:var(--muted)">こうげき ${s.atk}・ぼうぎょ ${s.def}・HP ${s.maxHp}・とっしん ×${s.ram}</p>` +
+        (rows.join('') || '<p style="color:var(--muted)">もっていない</p>') + fxHtml(s),
+        [['もどる', back, true]], room);
+      panelBody.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { eqTab = b.dataset.tab; A.sfx('select'); render2(); }));
+      panelBody.querySelectorAll('[data-eq]').forEach(b => b.addEventListener('click', () => { equip(b.dataset.eq || null, eqTab); render2(); }));
+    };
+    render2();
+  }
+
   function statusHtml() {
-    const s = stats();
+    const s = hero && (state === 'play' || state === 'boss') ? hero.s : stats();
     return `<dl class="stat">
       <dt>レベル</dt><dd>${save.lv}</dd>
       <dt>HP</dt><dd>${hero && (state === 'play' || state === 'boss') ? Math.ceil(hero.hp) : s.maxHp} / ${s.maxHp}</dd>
@@ -2038,7 +2215,7 @@
       <dt>ゴールド</dt><dd class="gold">${save.gold} G</dd>
       <dt>たおした数</dt><dd>${save.kills}</dd>
     </dl>
-    <div style="margin-top:10px;font-size:14px;line-height:1.7">${['weapon', 'armor', 'boots', 'charm'].map(sl => `${SLOT_NAME[sl]}：${save.eq[sl] ? EQ[save.eq[sl]].name : 'なし'}`).join('<br>')}</div>`;
+    <div style="margin-top:10px;font-size:14px;line-height:1.7">${['weapon', 'armor', 'boots', 'charm'].map(sl => `${SLOT_NAME[sl]}：${save.eq[sl] ? eqName(EQ[save.eq[sl]]) : 'なし'}`).join('<br>')}</div>${fxHtml(s)}`;
   }
 
   function openItemShop() {
@@ -2060,7 +2237,7 @@
   function openEquipShop() {
     const render2 = () => {
       const s = stats();
-      const list = EQUIP.filter(e => e.slot === equipTab && e.price > 0 || (e.slot === equipTab && save.owned.includes(e.id)));
+      const list = EQUIP.filter(e => e.slot === equipTab && !e.drop && (e.price > 0 || save.owned.includes(e.id)));
       const statOf = e => [e.atk && `こうげき +${e.atk}`, e.def && `ぼうぎょ +${e.def}`, e.hp && `さいだいHP +${e.hp}`, e.ram && e.ram > 1 && `とっしん力 ×${e.ram}`].filter(Boolean).join('・');
       openPanel('かじや', `<div class="tabs">${['weapon', 'armor', 'boots', 'charm'].map(sl => `<button data-tab="${sl}" aria-pressed="${sl === equipTab}">${SLOT_NAME[sl]}</button>`).join('')}</div>
         <p style="font-size:14px;color:var(--muted)">こうげき ${s.atk}・ぼうぎょ ${s.def}・<span class="gold">${save.gold} G</span></p>` +
@@ -2128,7 +2305,7 @@
   }
 
   function openHouse() {
-    openPanel('勇者の家', statusHtml(), [['おんがくしつ', openMusicRoom], ['せってい', openOptions], ['あそびかた', openHelp], ['いえを でる', closePanel, true]], 'house');
+    openPanel('勇者の家', statusHtml(), [['そうび', () => openEquip(openHouse)], ['おんがくしつ', openMusicRoom], ['せってい', openOptions], ['あそびかた', openHelp], ['いえを でる', closePanel, true]], 'house');
   }
   function openOptions() {
     openPanel('せってい', `<label class="sl" for="optBgm">BGM<input id="optBgm" type="range" min="0" max="1" step="0.1" value="${save.settings.bgm}"></label>
@@ -2148,13 +2325,16 @@
       <p>・ダンジョンの おくには ボスが いる。まるい へやで 弾幕を よけながら たいあたり！</p>
       <p>・盾を もつ騎士は 正面からの こうげきを ふせぐ。よこに まわりこもう。</p>
       <p>・右下の どうぐボタンで アイテムを えらんで つかう（えらんでいる あいだは ゲームが とまる）。ちから・まもりの くすりは 20びょう こうかが つづく。つかったあとは 6びょう まつと つぎの どうぐが つかえる。</p>
+      <p>・おなじ てきに つづけて あてると ヒットすうが ふえる。5ヒットめから 1ヒットごとに いりょくが 2%ずつ あがる（さいだい+50%）。こうげきを うけたり、しばらく あてないと 0に もどる。</p>
+      <p>・てきは ときどき そうびを おとす。<span style="color:#c8c0b0">さびた・ぼろぼろの</span>（ショップより すこし よわい）、<span style="color:#7ad8ff">◆とくしゅこうか つき</span>、<span class="gold">★名工の</span>（ショップより つよい・まれ）。ボスも たまに ★を おとす。もっている ものは ゴールドに かわる。</p>
+      <p>・そうびは 勇者の家と ポーズがめんの「そうび」で かえられる。</p>
       <p>・街に もどると HPは ぜんかいふく。やられると その ぼうけんで ひろった ゴールドの はんぶんを おとす。</p>
       <p>・街は 左右に スワイプして たてものを えらび、タップで 中に はいる。</p>`, [['もどる', openHouse, true]], 'house');
   }
 
   function openPause() {
     paused = true;
-    openPanel('ポーズ', statusHtml() + '<p style="font-size:13px;color:var(--muted);margin-top:8px">街へ かえっても ひろった ゴールドは なくならない。</p>', [['つづける', () => { paused = false; closePanel(); }, true], ['街へかえる', () => { paused = false; retreat(); }]]);
+    openPanel('ポーズ', statusHtml() + '<p style="font-size:13px;color:var(--muted);margin-top:8px">街へ かえっても ひろった ゴールドは なくならない。</p>', [['つづける', () => { paused = false; closePanel(); }, true], ['そうび', () => openEquip(openPause)], ['街へかえる', () => { paused = false; retreat(); }]]);
   }
 
   $('navL').addEventListener('click', () => { if (state === 'town' && !panelOpen) townSwipeTo(townPage - 1); });

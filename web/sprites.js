@@ -1601,6 +1601,18 @@ const SPR = (() => {
   const FLAME = { fire: ['#c83a10', '#ff8a2a', '#ffe060', '#3a0a04'], poison: ['#3a8a10', '#8ae02a', '#e8ff90', '#0e2a04'],
     water: ['#1a5ac8', '#4ab0ff', '#d0f4ff', '#04142a'], ghost: ['#1a8a6a', '#4affc0', '#e0fff4', '#04261c'] };
   const ENV = {
+    // a piece of dropped equipment, ringed by a glow in its rarity colour
+    gear(slot, rar, f) {
+      const C = { lo: ['#c8c0b0', '#8a8478'], fx: ['#7ad8ff', '#2a7ab0'], rare: ['#ffe14a', '#c08a2a'] }[rar] || ['#fff', '#888'], tw = f % 2;
+      return mk('gear' + slot + rar + tw, 22, 22, 11, 11, g => {
+        g.ell(11, 11, 9 + tw * 0.6, 9 + tw * 0.6, C[1]); g.ell(11, 11, 7.6, 7.6, '#1e1830');
+        if (slot === 'weapon') { g.line(6, 16, 15, 7, 2.4, '#dfe6f2'); g.line(6, 16, 14, 8, 1, '#ffffff'); g.line(5, 12, 10, 17, 2, '#f2c14e'); g.r(4, 16, 3, 3, '#6a4020'); }
+        else if (slot === 'armor') { g.poly([[6, 7], [16, 7], [17, 16], [11, 18], [5, 16]], '#9aa4b8'); g.r(9, 7, 4, 2, '#1e1830'); g.r(10, 10, 2, 5, '#f2c14e'); g.r(6, 8, 2, 7, '#c8d0dc'); }
+        else if (slot === 'boots') { g.r(8, 6, 5, 8, '#8a5a2a'); g.r(8, 13, 9, 4, '#8a5a2a'); g.r(8, 16, 10, 1, '#4a2a10'); g.r(9, 6, 2, 7, '#b07a46'); }
+        else { g.ell(11, 12, 5, 5, '#f2c14e'); g.ell(11, 12, 3, 3, '#1e1830'); g.ell(11, 7, 2.4, 2.4, '#e04050'); g.p(10, 6, '#ffffff'); }
+        g.p(4 + tw * 13, 4, C[0]); g.p(17 - tw * 12, 18, C[0]);
+      }, '#1a1420');
+    },
     torch(light, f) {
       return mk('torch' + light + (f % 3), 10, 20, 5, 16, g => {
         const L = `rgb(${light})`;
