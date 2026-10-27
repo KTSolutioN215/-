@@ -159,7 +159,7 @@
     else Object.assign(e, { hp: 10 + d * 8, val: Math.round(w.price * 0.3) });
     EQUIP.push(e);
   });
-  const DROP_RATE = { lo: 0.03, fx: 0.004, rare: 0.0005, boss: 0.05 };   // per kill (boss: per clear)
+  const DROP_RATE = { lo: 0.012, fx: 0.002, rare: 0.0003, boss: 0.05 };   // per kill (boss: per clear)
   const RARITY = { lo: { mark: '', col: '#c8c0b0' }, fx: { mark: '◆', col: '#7ad8ff' }, rare: { mark: '★', col: '#f2c14e' } };
   const EQ = Object.fromEntries(EQUIP.map(e => [e.id, e]));
   const visOf = id => (EQ[id] && EQ[id].vis) || id;
@@ -498,9 +498,9 @@
   const QB_KEYS = Object.keys(QB);
   // a boss's temper when it gets angry (phase 2): [name, what it means]
   const PERS = { speed: ['はやて', 'うごきが すばやい'], barrage: ['だんまく', 'わざのあとに たまを ばらまく'], summon: ['しょうかん', 'てしたを よびつづける'], iron: ['てっぺき', 'かたいが こうげきは おそい'], berserk: ['もうしん', 'はげしいが まもりが あまい'] };
-  const RAM_MIN = 182, HERO_R = 21, MAXSPD = 950;
+  const RAM_MIN = 127, HERO_R = 21, MAXSPD = 760;
   const CS = 1.5;   // character scale (hero / monsters drawn and collided 1.5x)
-  const PAD_R = 76, PAD_MAX = 448;   // floating slide pad: radius (logical px; bigger = finer control) and full-tilt speed (0.7x of the first version)
+  const PAD_R = 76, PAD_MAX = 314;   // floating slide pad: radius (logical px; bigger = finer control) and full-tilt speed (0.49x of the first version)
 
   // ---------------------------------------------------------------
   //  DUNGEON GENERATION (the old tunnel, made wide)
@@ -572,7 +572,7 @@
       } else if (kind === 'belt' || kind === 'stream') {
         const y = claim(80); if (y == null) continue; const tn = tunnelAt(y), w2 = tn.w * 0.44, sd = side();
         const dir = kind === 'stream' ? (r() < 0.55 ? 1 : -1) : (r() < 0.5 ? 1 : -1);
-        props.push({ type: kind, x: tn.cx + sd * (tn.w / 2 - w2 / 2 - 10), y, w: w2, h: 150, dir, spd: kind === 'belt' ? 230 : 200 });
+        props.push({ type: kind, x: tn.cx + sd * (tn.w / 2 - w2 / 2 - 10), y, w: w2, h: 150, dir, spd: kind === 'belt' ? 170 : 150 });
       } else if (kind === 'crumble') {
         const y = claim(45); if (y == null) continue; const tn = tunnelAt(y), w2 = tn.w * R(0.36, 0.44);
         props.push({ type: 'crumble', x: tn.cx + R(-0.22, 0.22) * tn.w, y, w: w2, h: 72, st: 0, t: 0 }); hazards++;
@@ -610,7 +610,7 @@
     evs = []; ev = {};
     for (let i = 0, nq = r() < 0.5 ? 1 : 2; i < nq; i++) { const y = claim(22); if (y == null) continue; const tn = tunnelAt(y); evs.push({ type: 'qbox', x: tn.cx + R(-0.25, 0.25) * tn.w, y, t: r() * 3 }); }
     if (di >= 2 && r() < 0.15) { const y = claim(40); if (y != null) { const tn = tunnelAt(y), sd = r() < 0.5 ? -1 : 1; evs.push({ type: 'merchant', x: tn.cx + sd * (tn.w / 2 - 34), y, r: 18, t: 0 }); } }
-    if (r() < 0.3) ev.starY = R(D.len * 0.25, D.len * 0.75);
+    if (r() < 0.2) ev.starY = R(D.len * 0.25, D.len * 0.75);
     if (di >= 1 && r() < 0.25) ev.paradeY = R(D.len * 0.35, D.len * 0.7);
     if (r() < 0.22) { const gy = R(D.len * 0.3, D.len * 0.75), tn = tunnelAt(gy), e = spawnEnemy('goldslime', tn.cx, gy); e.exp = Math.round(D.xp * 0.05); e.gold = Math.round(D.gp * 0.12); }
     // warp pads point at each other by index, so link them before sorting
@@ -1332,7 +1332,7 @@
         if (p.lit > 0) p.lit -= dt;
         const dx = h.x - p.x, dy = h.y - p.y, d = hyp(dx, dy), rr = p.r + h.r;
         if (d < rr && d > 0) {
-          const nx = dx / d, ny = dy / d, sp = Math.max(640, hyp(h.vx, h.vy) * 1.05);
+          const nx = dx / d, ny = dy / d, sp = Math.max(480, hyp(h.vx, h.vy) * 1.05);
           h.x = p.x + nx * rr; h.y = p.y + ny * rr; h.vx = nx * sp; h.vy = ny * sp; h.recoil = 0.24; p.lit = 0.2;
           anims.push({ kind: 'spark', x: p.x + nx * p.r, y: p.y + ny * p.r, t: 0, dur: 0.2, frames: 4, big: false }); A.sfx('block');
         }
@@ -1692,7 +1692,7 @@
         anims.push({ kind: 'spark', x: B.x - res.nx * B.r, y: B.y - res.ny * B.r, t: 0, dur: 0.28, frames: 4, big: true });
         hitStop = Math.max(hitStop, crit ? 0.12 : 0.06); shake = Math.max(shake, crit ? 16 : 10);
         // big recoil: the hero is flung far back and has to come in again
-        const fl = 640 * (1 + (h.s.fx.recoil || 0) * 0.4); h.vx = -res.nx * fl; h.vy = -res.ny * fl; h.recoil = 0.45; h.ramSafe = 0.75;
+        const fl = 480 * (1 + (h.s.fx.recoil || 0) * 0.4); h.vx = -res.nx * fl; h.vy = -res.ny * fl; h.recoil = 0.45; h.ramSafe = 0.75;
         A.sfx(crit ? 'crit' : 'bosshit');
         if (B.hp <= 0) { B.hp = 0; bossDefeated(); }
       } else if (res.kind === 'bump' && h.ramSafe <= 0) hurtHero(B.atk * 0.7, B.x, B.y, 380, 'boss');
@@ -2634,7 +2634,7 @@
     shadow(x, y, h.r);
     // charge aura: shows the hit will count
     if (ram) {
-      const k = Math.min(1, (sp - RAM_MIN) / 500);
+      const k = Math.min(1, (sp - RAM_MIN) / 350);
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = `rgba(255,${180 - k * 80},60,${0.22 + k * 0.25})`; ctx.beginPath(); ctx.ellipse(x, y, h.r * (1.4 + k * 0.5), h.r * (1.6 + k * 0.5), 0, 0, 7); ctx.fill();
       ctx.restore();
