@@ -173,6 +173,22 @@
     power: { name: 'ちからのくすり', buff: 'atk', dur: 20, price: 140, note: '20びょう こうげき1.5ばい' },
     guard: { name: 'まもりのくすり', buff: 'def', dur: 20, price: 140, note: '20びょう うけるダメージはんぶん' },
   };
+  // skills: bought at the item shop, one is set at the hero's house, used in a dungeon by tapping the screen twice quickly.
+  // dmg = multiple of こうげき (minus half the target's ぼうぎょ), like a weak-to-medium ram; every one has its own cooldown.
+  const SKILLS = {
+    dash: { name: 'ステップ', ch: '速', cd: 6, price: 300, col: '#9fe8ff', note: 'パッドの ほうこうへ すばやく ふみこむ。0.45びょう むてき（ぶつかれば こうげき）' },
+    shock: { name: 'しょうげきは', ch: '波', cd: 10, price: 1200, col: '#ffd27a', note: 'まわりの てきに こうげき×1.3 の ダメージ＋ふきとばす' },
+    guard: { name: 'てっぺきのかまえ', ch: '盾', cd: 16, price: 4500, col: '#9fd0ff', note: '3びょう うける ダメージ -60%・ふきとばされにくい' },
+    cry: { name: 'ときのこえ', ch: '吼', cd: 28, price: 15000, col: '#ff9a5a', note: '10びょう こうげき +25%' },
+    heal: { name: 'いやしのいのり', ch: '癒', cd: 35, price: 30000, col: '#6fd38a', note: 'HPを 20% かいふく' },
+    thunder: { name: 'いかずち', ch: '雷', cd: 12, price: 70000, col: '#ffe14a', note: 'ちかくの てき3たい（ボスも）に こうげき×1.6' },
+    whirl: { name: 'つむじかぜ', ch: '旋', cd: 15, price: 130000, col: '#b8f0d8', note: '1.8びょう まわりを きりきざむ（0.3びょうごとに こうげき×0.45）' },
+    barrier: { name: 'バリア', ch: '護', cd: 20, price: 250000, col: '#c8b0ff', note: '8びょう いない、つぎの こうげきを 1かい ふせぐ' },
+    frost: { name: 'いてつくはどう', ch: '氷', cd: 20, price: 450000, col: '#a8e8ff', note: 'まわりに こうげき×0.8・てきを 2.5びょう こおらせ、ちかくの 弾を けす' },
+    meteor: { name: 'メテオ', ch: '星', cd: 22, price: 900000, col: '#ff7a4a', note: 'ちかくの てき（ボス）に いんせき。0.9びょう後 はんい こうげき×3' },
+    sand: { name: 'じかんのすな', ch: '時', cd: 40, price: 1500000, col: '#e8ecff', note: '2びょう てきの 弾が とまる' },
+    holy: { name: 'せいなるいちげき', ch: '聖', cd: 24, price: 2000000, col: '#fff2a0', note: '10びょう いない、つぎの たいあたり3かいが いりょく +60%' },
+  };
   const healOf = (id, maxHp, fx) => Math.round(Math.max(ITEMS[id].heal || 0, Math.round(maxHp * (ITEMS[id].pct || 0))) * (1 + ((fx && fx.herbal) || 0)));
   const ITEM_MAX = 9;
 
@@ -418,7 +434,7 @@
   // ---------------------------------------------------------------
   const DEF_SAVE = () => ({ v: 1, lv: 1, exp: 0, gold: 40, hp: null, items: { herb: 3, potion: 0, hipotion: 0, elixir: 0, power: 0, guard: 0 },
     eq: { weapon: 'w0', armor: 'a0', boots: 'b0', charm: null }, owned: ['w0', 'a0', 'b0'], cleared: Array(30).fill(false), layout10: true, layout15: true, layout25: true,
-    kills: 0, settings: { bgm: 0.8, sfx: 0.8 } });
+    kills: 0, skills: [], skill: null, settings: { bgm: 0.8, sfx: 0.8 } });
   let save = DEF_SAVE();
   function loadSave() {
     try {
@@ -674,6 +690,8 @@
     let d = Math.max(1, Math.round(dmg - hero.s.def * 0.5));
     hurtLog[cause] = (hurtLog[cause] || 0) + d;
     if (hero.buff.def > 0) d = Math.max(1, Math.round(d * 0.5));
+    if (hero.barrierT > 0) { hero.barrierT = 0; hero.inv = 0.6; popText(hero.x, hero.y + 30, 'バリア！', '#c8b0ff', 16, 0.9); burst(hero.x, hero.y, 24, '#c8b0ff', 240, 0.5); A.sfx('block'); return; }
+    if (hero.guardT > 0) { d = Math.max(1, Math.round(d * 0.4)); power *= 0.3; }
     hero.hp -= d; hero.inv = 0.85 + (hero.s.fx.guard || 0);
     const dx = hero.x - fromX, dy = hero.y - fromY, l = hyp(dx, dy) || 1;
     hero.vx += dx / l * power; hero.vy += dy / l * power;
@@ -894,6 +912,7 @@
     if (h.warpCD > 0) h.warpCD -= dt;
     if (h.slow > 0) h.slow -= dt;
     if (h.buff.atk > 0) h.buff.atk -= dt; if (h.buff.def > 0) h.buff.def -= dt;
+    updateSkill(dt);
     if (h.lvFlash > 0) h.lvFlash -= dt;
     if (sp > RAM_MIN) { h.trail.push({ x: h.x, y: h.y, a: 1 }); if (h.trail.length > 8) h.trail.shift(); }
     for (const p of h.trail) p.a -= dt * 4;
@@ -962,6 +981,8 @@
     const crit = Math.random() < critP;
     if (crit) dmg *= 1.5;
     if (hero.buff.atk > 0) dmg *= 1.5;
+    if (hero.cryT > 0) dmg *= 1.25;
+    if (hero.holy && hero.holy.n > 0) dmg *= 1.6;
     let mul = 1 + comboBonus(combo + comboStep()), tag = '';
     if (F.spin && Math.abs(hero.spin || 0) > SPIN_MIN) { mul += F.spin; tag = 'かいてん'; }
     if (F.brave && hero.hp >= s.maxHp * 0.99) mul += F.brave;
@@ -996,6 +1017,7 @@
     hitStop = Math.max(hitStop, crit ? 0.1 : 0.05); shake = Math.max(shake, crit ? 12 : 6);
     A.sfx(crit ? 'crit' : 'hit');
     if (hero.pw && hero.pw.kind === 'bomb') heroBomb(e.x - res.nx * e.r, e.y - res.ny * e.r, e);
+    if (hero.holy && hero.holy.n > 0 && --hero.holy.n <= 0) hero.holy = null;
     if (e.hp <= 0) killEnemy(e);
   }
 
@@ -1441,6 +1463,91 @@
   }
 
   // ---------------------------------------------------------------
+  //  SKILLS (double tap)
+  // ---------------------------------------------------------------
+  function skillDmg(t, mult) {
+    const isB = t === boss;
+    let d = hero.s.atk * mult * (hero.buff.atk > 0 ? 1.5 : 1) * (hero.cryT > 0 ? 1.25 : 1) - t.def * 0.5;
+    return Math.max(1, Math.round(d * (isB ? (boss.dmgTake || 1) : 1)));
+  }
+  function skillHit(t, mult, fx, fy, power = 260, col = '#fff') {
+    const dmg = skillDmg(t, mult);
+    if (t === boss) {
+      if (boss.dead || (boss.alpha != null && boss.alpha < 0.5)) return;
+      boss.hp -= dmg; boss.hurt = 0.15; popText(boss.x + rnd(-14, 14), boss.y + boss.r + 10, '' + dmg, col, 20, 0.9);
+      if (boss.hp <= 0) { boss.hp = 0; bossDefeated(); }
+      return;
+    }
+    if (t.dead) return;
+    if (t.mod.stone && !t.awake) wakeStatue(t);
+    t.hp -= dmg; t.hurt = 0.18; popText(t.x, t.y + 20, '' + dmg, col, 16, 0.8);
+    const dx = t.x - fx, dy = t.y - fy, l = hyp(dx, dy) || 1; t.vx += dx / l * power / Math.max(0.6, t.mass); t.vy += dy / l * power / Math.max(0.6, t.mass);
+    if (t.hp <= 0) killEnemy(t);
+  }
+  const targetsNear = (x, y, R) => { const L = enemies.filter(e => !e.dead && e.active && hyp(e.x - x, e.y - y) < R + e.r); if (boss && !boss.dead && hyp(boss.x - x, boss.y - y) < R + boss.r) L.push(boss); return L; };
+  function useSkill() {
+    const h = hero, id = save.skill, S = SKILLS[id];
+    if (!S || !h || h.hp <= 0 || paused || (state !== 'play' && state !== 'boss') || transition) return;
+    if (h.skCD > 0) { popText(h.x, h.y + 30, `${S.name} あと ${Math.ceil(h.skCD)}びょう`, '#ff9a8a', 13, 0.8); A.sfx('block'); return; }
+    h.skCD = S.cd; h.skFlash = 0.5;
+    popText(h.x, h.y + 46, S.name + '！', S.col, 17, 1);
+    switch (id) {
+      case 'dash': {
+        const dx = drag.px - drag.ox, dy = drag.py - drag.oy, d = hyp(dx, dy);
+        const a = drag.down && d > 6 ? Math.atan2(-dy, dx) : h.face, v = PAD_MAX * h.s.ram * 1.9;
+        h.vx = Math.cos(a) * v; h.vy = Math.sin(a) * v; h.recoil = 0.22; h.inv = Math.max(h.inv, 0.45);
+        burst(h.x, h.y, 16, S.col, 200, 0.4); A.sfx('magic'); break;
+      }
+      case 'shock':
+        rings.push({ x: h.x, y: h.y, r: 10, max: 120, spd: 520, dmg: 0, w: 8, fx: true }); burst(h.x, h.y, 30, S.col, 300, 0.5); shake = Math.max(shake, 10); A.sfx('quake');
+        for (const t of targetsNear(h.x, h.y, 110)) skillHit(t, 1.3, h.x, h.y, 420, S.col);
+        break;
+      case 'guard': h.guardT = 3; A.sfx('block'); break;
+      case 'cry': h.cryT = 10; flash = 0.3; flashCol = '255,150,90'; A.sfx('buff'); break;
+      case 'heal': { const hh = Math.min(h.s.maxHp - h.hp, Math.round(h.s.maxHp * 0.2)); h.hp += hh; popText(h.x, h.y + 26, '+' + hh, '#6fd38a', 16, 1); burst(h.x, h.y, 20, S.col, 180); A.sfx('heal'); break; }
+      case 'thunder': {
+        const L = enemies.filter(e => !e.dead && e.active && hyp(e.x - h.x, e.y - h.y) < 280); if (boss && !boss.dead && hyp(boss.x - h.x, boss.y - h.y) < 280 + boss.r) L.push(boss);
+        L.sort((a, b) => hyp(a.x - h.x, a.y - h.y) - hyp(b.x - h.x, b.y - h.y));
+        for (const t of L.slice(0, 3)) { anims.push({ kind: 'bolt', x: t.x, y: t.y, t: 0, dur: 0.4, frames: 1 }); skillHit(t, 1.6, t.x, t.y + 10, 0, S.col); if (t !== boss && !t.dead) t.zap = Math.max(t.zap || 0, 0.6); }
+        flash = 0.3; flashCol = '255,250,200'; A.sfx('boom'); break;
+      }
+      case 'whirl': h.whirlT = 1.8; h.whirlAcc = 0.3; A.sfx('magic2'); break;
+      case 'barrier': h.barrierT = 8; A.sfx('magic2'); break;
+      case 'frost':
+        rings.push({ x: h.x, y: h.y, r: 10, max: 160, spd: 480, dmg: 0, w: 8, fx: true }); burst(h.x, h.y, 34, S.col, 320, 0.6); A.sfx('magic');
+        for (const t of targetsNear(h.x, h.y, 150)) { skillHit(t, 0.8, h.x, h.y, 200, S.col); if (t !== boss && !t.dead) t.zap = Math.max(t.zap || 0, 2.5); }
+        for (const b of bullets) if (!b.pierce && hyp(b.x - h.x, b.y - h.y) < 150) { b.life = 0; burst(b.x, b.y, 4, S.col, 80, 0.3); }
+        break;
+      case 'meteor': {
+        let tx = h.x + Math.cos(h.face) * 160, ty = h.y + Math.sin(h.face) * 160;
+        if (boss && !boss.dead) { tx = boss.x; ty = boss.y; }
+        else { const L = enemies.filter(e => !e.dead && e.active && hyp(e.x - h.x, e.y - h.y) < 360).sort((a, b) => hyp(a.x - h.x, a.y - h.y) - hyp(b.x - h.x, b.y - h.y)); if (L.length) { tx = L[0].x; ty = L[0].y; } }
+        h.meteor = { x: tx, y: ty, t: 0 }; A.sfx('magic2'); break;
+      }
+      case 'sand': freezeT = Math.max(freezeT, 2); flash = 0.3; flashCol = '220,220,255'; A.sfx('warp'); break;
+      case 'holy': h.holy = { n: 3, t: 10 }; flash = 0.3; flashCol = '255,240,170'; A.sfx('buff'); break;
+    }
+  }
+  function updateSkill(dt) {
+    const h = hero;
+    if (h.skCD > 0) h.skCD -= dt; if (h.skFlash > 0) h.skFlash -= dt;
+    if (h.guardT > 0) h.guardT -= dt; if (h.cryT > 0) h.cryT -= dt; if (h.barrierT > 0) h.barrierT -= dt;
+    if (h.holy) { h.holy.t -= dt; if (h.holy.t <= 0) h.holy = null; }
+    if (h.whirlT > 0) {
+      h.whirlT -= dt; h.whirlAcc += dt;
+      if (h.whirlAcc >= 0.3) { h.whirlAcc -= 0.3; for (const t of targetsNear(h.x, h.y, 85)) skillHit(t, 0.45, h.x, h.y, 160, '#b8f0d8'); A.sfx('hit'); }
+    }
+    if (h.meteor) {
+      const M = h.meteor; M.t += dt;
+      if (M.t >= 0.9) {
+        h.meteor = null; burst(M.x, M.y, 50, '#ff8a3a', 420, 0.8); burst(M.x, M.y, 20, '#ffe080', 260, 0.6); anims.push({ kind: 'poof', x: M.x, y: M.y, t: 0, dur: 0.4, frames: 5 });
+        rings.push({ x: M.x, y: M.y, r: 10, max: 130, spd: 520, dmg: 0, w: 10, fx: true }); shake = Math.max(shake, 18); A.sfx('boom');
+        for (const t of targetsNear(M.x, M.y, 120)) skillHit(t, 3, M.x, M.y, 420, '#ff9a5a');
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------
   //  SURPRISE EVENTS
   // ---------------------------------------------------------------
   function updateEvents(dt) {
@@ -1685,6 +1792,7 @@
         if (B.regen) { B.regen = null; popText(B.x, B.y + B.r + 44, 'さいせいを とめた！', '#fff', 15, 1); }
         B.hp -= dmg; B.hurt = 0.15; B.hitCD = 0.2; combo += comboStep(); comboT = 2.2 + (h.s.fx.chain || 0);
         if (h.pw && h.pw.kind === 'bomb') heroBomb(B.x - res.nx * B.r, B.y - res.ny * B.r, B);
+        if (h.holy && h.holy.n > 0 && --h.holy.n <= 0) h.holy = null;
         if (tag) popText(B.x, B.y + B.r + 32, tag + '！', '#9fe8ff', 13, 0.6);
         if (h.s.fx.drain) h.hp = Math.min(h.s.maxHp, h.hp + h.s.maxHp * h.s.fx.drain / 3);
         popText(B.x + rnd(-14, 14), B.y + B.r + 10, (crit ? 'かいしん！ ' : '') + dmg, crit ? '#f2c14e' : '#fff', crit ? 26 : 20, 0.9);
@@ -2650,6 +2758,17 @@
       for (let k = 0; k < 3; k++) { const kk = (globalT * 0.9 + k / 3) % 1, zx = q(x + 8 + kk * 14), zy = q(y - h.r - 10 - kk * 26), s3 = k === 1 ? 3 : 1.5; ctx.fillStyle = `rgba(232,200,255,${1 - kk})`; ctx.fillRect(zx, zy, s3 * 3, s3); ctx.fillRect(zx + s3 * 2, zy + s3, s3, s3); ctx.fillRect(zx + s3, zy + s3 * 2, s3, s3); ctx.fillRect(zx, zy + s3 * 3, s3 * 3, s3); }
     }
     if (h.stun > 0 && h.stunKind === 'stone') { ctx.fillStyle = 'rgba(40,36,30,.55)'; for (const [a, b] of [[-6, -18], [3, -10], [-2, -2]]) ctx.fillRect(q(x + a), q(y + b), 4.5, 1.5); }
+    if (h.guardT > 0) { ctx.strokeStyle = `rgba(160,210,255,${0.55 + 0.3 * Math.sin(globalT * 12)})`; ctx.lineWidth = 4.5; ctx.beginPath(); ctx.arc(x, y, h.r + 9, 0, 7); ctx.stroke(); }
+    if (h.barrierT > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(170,140,255,.16)'; ctx.beginPath(); ctx.arc(x, y - 4, h.r + 14, 0, 7); ctx.fill(); ctx.restore(); ctx.strokeStyle = 'rgba(210,190,255,.85)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y - 4, h.r + 14, 0, 7); ctx.stroke(); }
+    if (h.cryT > 0) for (let k = 0; k < 3; k++) { const kk = (globalT * 1.6 + k / 3) % 1; ctx.fillStyle = `rgba(255,140,80,${0.9 * (1 - kk)})`; ctx.fillRect(q(x - 12 + k * 12), q(y + 8 - kk * 34), 3, 4.5); }
+    if (h.holy) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(255,240,160,${0.2 + 0.1 * Math.sin(globalT * 10)})`; ctx.beginPath(); ctx.arc(x, y - 6, h.r + 8, 0, 7); ctx.fill(); ctx.restore(); }
+    if (h.whirlT > 0) { ctx.strokeStyle = 'rgba(200,255,230,.8)'; ctx.lineWidth = 3; for (let k = 0; k < 3; k++) { const a = globalT * 14 + k * 2.09; ctx.beginPath(); ctx.arc(x, y, 70, a, a + 1.1); ctx.stroke(); } }
+    if (h.meteor) {   // the target ring, and the rock coming down
+      const M = h.meteor, mx = M.x, my = sy(M.y), k = M.t / 0.9;
+      ctx.fillStyle = ditherFill('255,120,60', 0.25 + k * 0.35); ctx.beginPath(); ctx.arc(mx, my, 120, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,150,80,.9)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(mx, my, 120 * k, 0, 7); ctx.stroke();
+      SPR.draw(ctx, SPR.ENV.flame(Math.floor(globalT * 12), true), mx + (1 - k) * 90, my - (1 - k) * 380);
+    }
     if (h.lvFlash > 0) { ctx.strokeStyle = `rgba(242,193,78,${h.lvFlash / 1.6})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, h.r + 8 + (1.6 - h.lvFlash) * 30, 0, 7); ctx.stroke(); }
     if (h.poisonT > 0) { ctx.fillStyle = '#b4f05a'; for (let k = 0; k < 3; k++) { const kk = (globalT * 1.5 + k / 3) % 1; ctx.fillRect(q(x - 9 + k * 9), q(y - h.r - kk * 22), 3, 3); } }
     if (h.slow > 0) { ctx.strokeStyle = 'rgba(235,240,255,.8)'; ctx.lineWidth = 1.5; for (let k = 0; k < 3; k++) { const a = k * 1.05 + 0.3; ctx.beginPath(); ctx.moveTo(x - Math.cos(a) * h.r * 1.3, y - Math.sin(a) * h.r * 1.3); ctx.lineTo(x + Math.cos(a) * h.r * 1.3, y + Math.sin(a) * h.r * 1.3); ctx.stroke(); } }
@@ -2937,6 +3056,15 @@
       const Q = QB[h.pw.kind], lab = h.pw.kind === 'bomb' ? `ばくだん ×${h.pw.n}` : `${Q.name.replace('ハズレ…', '')} ${Math.ceil(h.pw.t)}s`, bw = 22 + lab.length * 12;
       ctx.fillStyle = 'rgba(19,24,58,.86)'; roundRect(bx, top + 54, bw, 20, 5); ctx.fill(); ctx.strokeStyle = Q.col; ctx.lineWidth = 1.5; roundRect(bx, top + 54, bw, 20, 5); ctx.stroke();
       txt(lab, bx + bw / 2, top + 69, 12, Q.col, 'center', false);
+    }
+    if (save.skill && SKILLS[save.skill]) {   // the set skill: double tap to use; the dark sweep is its cooldown
+      const S = SKILLS[save.skill], cx = 40, cy = H - 52, cd = Math.max(0, h.skCD || 0), ready = cd <= 0;
+      ctx.fillStyle = 'rgba(19,24,58,.86)'; ctx.beginPath(); ctx.arc(cx, cy, 26, 0, 7); ctx.fill();
+      ctx.strokeStyle = ready ? S.col : 'rgba(243,236,218,.4)'; ctx.lineWidth = ready ? 3 : 2; ctx.beginPath(); ctx.arc(cx, cy, 26, 0, 7); ctx.stroke();
+      txt(S.ch, cx, cy + 8, 22, ready ? S.col : 'rgba(243,236,218,.5)', 'center', false);
+      if (!ready) { ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * cd / S.cd); ctx.fill(); txt('' + Math.ceil(cd), cx, cy + 6, 16, '#fff', 'center'); }
+      if ((h.skFlash || 0) > 0) { ctx.strokeStyle = `rgba(255,255,255,${h.skFlash * 2})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(cx, cy, 26 + (0.5 - h.skFlash) * 30, 0, 7); ctx.stroke(); }
+      txt(ready ? '2かいタップ' : S.name, cx, cy + 40, 10, ready ? '#f3ecda' : 'rgba(243,236,218,.6)', 'center');
     }
     if (h.roul) {   // the box's roulette: spins fast, slows, then stops on the prize
       const R = h.roul, cx = W / 2, cy = top + (state === 'boss' ? 196 : 150), stop = R.t > 0.95;
@@ -3422,12 +3550,15 @@
       <dt>ゴールド</dt><dd class="gold">${save.gold} G</dd>
       <dt>たおした数</dt><dd>${save.kills}</dd>
     </dl>
-    <div style="margin-top:10px;font-size:14px;line-height:1.7">${['weapon', 'armor', 'boots', 'charm'].map(sl => `${SLOT_NAME[sl]}：${save.eq[sl] ? eqName(EQ[save.eq[sl]]) : 'なし'}`).join('<br>')}</div>${fxHtml(s)}`;
+    <div style="margin-top:10px;font-size:14px;line-height:1.7">${['weapon', 'armor', 'boots', 'charm'].map(sl => `${SLOT_NAME[sl]}：${save.eq[sl] ? eqName(EQ[save.eq[sl]]) : 'なし'}`).join('<br>')}<br>スキル：${save.skill ? SKILLS[save.skill].name : 'なし'}</div>${fxHtml(s)}`;
   }
 
+  let shopTab = 'item';
   function openItemShop() {
+    if (shopTab === 'skill') return openSkillShop();
+    const tabs = `<div class="tabs"><button data-st="item" aria-pressed="true">どうぐ</button><button data-st="skill" aria-pressed="false">スキルのしょ</button></div>`;
     const render2 = () => {
-      openPanel('どうぐや', `<p style="font-size:14px;color:var(--muted);margin-bottom:4px">もちもの：<span class="gold">${save.gold} G</span></p>` +
+      openPanel('どうぐや', tabs + `<p style="font-size:14px;color:var(--muted);margin-bottom:4px">もちもの：<span class="gold">${save.gold} G</span></p>` +
         Object.entries(ITEMS).map(([id, it]) => `<div class="row"><span class="nm">${it.name} <span style="color:var(--muted);font-size:13px">×${save.items[id]}</span></span>
           <span class="sub">${it.note}（${ITEM_MAX}こまで）</span>
           <span class="act"><span class="price">${it.price} G</span><button class="sbtn" data-buy="${id}" ${save.gold < it.price || save.items[id] >= ITEM_MAX ? 'disabled' : ''}>かう</button></span></div>`).join(''),
@@ -3436,8 +3567,29 @@
         const id = b.dataset.buy, it = ITEMS[id]; if (save.gold < it.price || save.items[id] >= ITEM_MAX) return;
         save.gold -= it.price; save.items[id]++; persist(); A.sfx('buy'); render2();
       }));
+      panelBody.querySelectorAll('[data-st]').forEach(b => b.addEventListener('click', () => { shopTab = b.dataset.st; A.sfx('select'); openItemShop(); }));
     };
     render2();
+  }
+  const skillRow = (id, act) => { const S = SKILLS[id]; return `<div class="row"><span class="nm"><span style="color:${S.col}">【${S.ch}】</span>${S.name}</span><span class="sub">${S.note}<br>クールタイム ${S.cd}びょう</span><span class="act">${act}</span></div>`; };
+  function openSkillShop() {
+    openPanel('どうぐや', `<div class="tabs"><button data-st="item" aria-pressed="false">どうぐ</button><button data-st="skill" aria-pressed="true">スキルのしょ</button></div>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:4px">もちもの：<span class="gold">${save.gold} G</span>・おぼえた スキルは 勇者の家で セットする。ダンジョンで 画面を すばやく 2かい タップすると つかえる。</p>` +
+      Object.keys(SKILLS).map(id => skillRow(id, save.skills.includes(id) ? `<span class="tag">${save.skill === id ? 'セットちゅう' : 'おぼえた'}</span>` : `<span class="price">${SKILLS[id].price} G</span><button class="sbtn" data-sk="${id}" ${save.gold < SKILLS[id].price ? 'disabled' : ''}>かう</button>`)).join(''),
+      [['みせを でる', closePanel]], 'item');
+    panelBody.querySelectorAll('[data-st]').forEach(b => b.addEventListener('click', () => { shopTab = b.dataset.st; A.sfx('select'); openItemShop(); }));
+    panelBody.querySelectorAll('[data-sk]').forEach(b => b.addEventListener('click', () => {
+      const id = b.dataset.sk, S = SKILLS[id]; if (save.gold < S.price || save.skills.includes(id)) return;
+      save.gold -= S.price; save.skills.push(id); if (!save.skill) save.skill = id;
+      persist(); A.sfx('buy'); toast && toast(`スキル「${S.name}」を おぼえた！`, S.col); const top = panelBody.scrollTop; openSkillShop(); panelBody.scrollTop = top;
+    }));
+  }
+  function openSkills() {
+    const html = save.skills.length ? save.skills.map(id => skillRow(id, save.skill === id ? '<span class="tag">セットちゅう</span>' : `<button class="sbtn" data-set="${id}">セットする</button>`)).join('')
+      : '<p style="color:var(--muted)">まだ スキルを おぼえていない。どうぐやの「スキルのしょ」で かえる。</p>';
+    openPanel('スキル', `<p style="font-size:14px;color:var(--muted);margin-bottom:4px">セットした スキルを ダンジョンで 画面を すばやく 2かい タップして つかう（左下に クールタイム）。</p>` + html,
+      [['もどる', openHouse, true]], 'house');
+    panelBody.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', () => { save.skill = b.dataset.set; persist(); A.sfx('equip'); openSkills(); }));
   }
 
   let equipTab = 'weapon';
@@ -3512,7 +3664,7 @@
   }
 
   function openHouse() {
-    openPanel('勇者の家', statusHtml(), [['そうび', () => openEquip(openHouse)], ['おんがくしつ', openMusicRoom], ['せってい', openOptions], ['あそびかた', openHelp], ['いえを でる', closePanel, true]], 'house');
+    openPanel('勇者の家', statusHtml(), [['そうび', () => openEquip(openHouse)], ['スキル', openSkills], ['おんがくしつ', openMusicRoom], ['せってい', openOptions], ['あそびかた', openHelp], ['いえを でる', closePanel, true]], 'house');
   }
   function openOptions() {
     openPanel('せってい', `<label class="sl" for="optBgm">BGM<input id="optBgm" type="range" min="0" max="1" step="0.1" value="${save.settings.bgm}"></label>
@@ -3536,6 +3688,7 @@
       <p>・おなじ てきに つづけて あてると ヒットすうが ふえる。5ヒットめから 1ヒットごとに いりょくが 2%ずつ あがる（さいだい+50%）。こうげきを うけたり、しばらく あてないと 0に もどる。</p>
       <p>・てきは ときどき そうびを おとす。<span style="color:#c8c0b0">さびた・ぼろぼろの</span>（ショップより すこし よわい）、<span style="color:#7ad8ff">◆とくしゅこうか つき</span>、<span class="gold">★名工の</span>（ショップより つよい・まれ）。ボスも たまに ★を おとす。もっている ものは ゴールドに かわる。</p>
       <p>・そうびは 勇者の家と ポーズがめんの「そうび」で かえられる。</p>
+      <p>・<b class="gold">スキル</b>：どうぐやの「スキルのしょ」で おぼえ、勇者の家で 1つ セットする。ダンジョンで 画面を すばやく 2かい タップすると つかえる。つかったあとは スキルごとの クールタイムを まつ。</p>
       <p>・街に もどると HPは ぜんかいふく。やられると その ぼうけんで ひろった ゴールドの はんぶんを おとす。</p>
       <p>・街は 左右に スワイプして たてものを えらび、タップで 中に はいる。</p>`, [['もどる', openHouse, true]], 'house');
   }
@@ -3554,6 +3707,7 @@
     $('title').hidden = true; goTown();
   });
   document.addEventListener('keydown', e => {
+    if ((state === 'play' || state === 'boss') && (e.key === ' ' || e.key === 'Shift')) { e.preventDefault(); useSkill(); return; }
     if (state !== 'town') return;
     if (e.key === 'Escape' && panelOpen) closePanel();
     else if (!panelOpen && e.key === 'ArrowLeft') townSwipeTo(townPage - 1);
@@ -3572,9 +3726,10 @@
       return;
     }
     if ((state !== 'play' && state !== 'boss') || paused) return;
+    const r = cv.getBoundingClientRect(), now = performance.now(), tx = (e.clientX - r.left) / S, ty = (e.clientY - r.top) / S;
+    if (now - lastTap.t < 320 && hyp(tx - lastTap.x, ty - lastTap.y) < 70) { lastTap.t = 0; useSkill(); }   // double tap = skill
     if (drag.down) return;
-    const r = cv.getBoundingClientRect();
-    drag.down = true; drag.id = e.pointerId;
+    drag.down = true; drag.id = e.pointerId; drag.t0 = now; drag.far = 0;
     drag.ox = drag.px = (e.clientX - r.left) / S; drag.oy = drag.py = (e.clientY - r.top) / S;
     try { cv.setPointerCapture(e.pointerId); } catch (er) { }
   });
@@ -3590,6 +3745,7 @@
     drag.px = (e.clientX - r.left) / S; drag.py = (e.clientY - r.top) / S;
     // the pad follows the finger when it slides past the rim
     const dx = drag.px - drag.ox, dy = drag.py - drag.oy, d = hyp(dx, dy);
+    drag.far = Math.max(drag.far || 0, d);
     if (d > PAD_R) { drag.ox = drag.px - dx / d * PAD_R; drag.oy = drag.py - dy / d * PAD_R; }
   });
   const up = e => {
@@ -3603,8 +3759,13 @@
       }
       return;
     }
-    if (e.pointerId === drag.id) { drag.down = false; drag.id = null; }
+    if (e.pointerId === drag.id) {
+      const now = performance.now();
+      if (now - (drag.t0 || 0) < 230 && (drag.far || 0) < 16) { lastTap.t = now; lastTap.x = drag.ox; lastTap.y = drag.oy; }   // a short tap: the 1st half of a double tap
+      drag.down = false; drag.id = null;
+    }
   };
+  const lastTap = { t: 0, x: 0, y: 0 };
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
 
   // ---------------------------------------------------------------
@@ -3674,5 +3835,5 @@
   requestAnimationFrame(frame);
   // test hooks
   window.__yusha = { get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
-    enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt };
+    enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt };
 })();
