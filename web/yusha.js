@@ -219,7 +219,7 @@
       moves: ['laser3', 'homing', 'spiral3', 'warp', 'rain:void', 'gapring'], moves2: ['cross', 'laser3', 'homing', 'spiral3', 'warp', 'triple', 'rain:void'] },
     cerberus: { name: 'ケルベロス', hp: 13160, atk: 142, def: 34, r: 48, exp: 9600, gold: 10000, col: '#c8402a', song: 'c15', key: 2, bpm: 150,
       moves: ['breath3', 'dash3', 'rain:meteor', 'quake', 'fireball'], moves2: ['breath3', 'dash3', 'rain:meteor', 'mines', 'tail', 'wave'] },
-    hydra: { name: 'ヒュドラ', hp: 19800, atk: 190, def: 40, r: 48, col: '#5aa83a', wcol: '#4a9a3a', fcol: 'poison',
+    hydra: { name: 'ヒュドラ', hp: 17680, atk: 174, def: 40, r: 48, col: '#5aa83a', wcol: '#4a9a3a', fcol: 'poison',
       moves: ['breath3', 'rain:poison', 'tentacles', 'homing', 'gapring'], moves2: ['breath3', 'rain:poison', 'tentacles', 'cross', 'dash3', 'triple'] },
     ghostcaptain: { name: 'ゆうれいせんちょう', hp: 25120, atk: 222, def: 43, r: 40, col: '#7ad8c8', wcol: '#c8e8ff', ocol: '120,255,200',
       moves: ['sweep', 'aimed5', 'rain:curse', 'warp', 'wave', 'summon'], moves2: ['sweep', 'cross', 'rain:curse', 'warp', 'triple', 'aimed5'] },
@@ -432,6 +432,7 @@
   }
 
   const HEALS = ['herb', 'potion', 'hipotion', 'elixir'];
+  const ITEM_CD = 6;   // seconds before the next item can be used (shared by every item)
   // use an item. no id = pick a sensible heal automatically (also used by the test bot)
   function useItem(id) {
     if (!hero || hero.hp <= 0) return false;
@@ -443,6 +444,7 @@
       if (!id) { popText(hero.x, hero.y + 26, 'かいふくアイテムがない', '#ff9a8a', 13, 0.9); return false; }
     }
     if (!it[id]) return false;
+    if (hero.itemCD > 0) { popText(hero.x, hero.y + 26, `あと ${Math.ceil(hero.itemCD)}びょう`, '#ff9a8a', 13, 0.8); A.sfx('block'); return false; }
     const I = ITEMS[id];
     if (I.buff) {
       it[id]--; hero.buff[I.buff] = I.dur;
@@ -456,6 +458,7 @@
       popText(hero.x, hero.y + 26, `${I.name}  +${h}`, '#6fd38a', 16, 1.1);
       burst(hero.x, hero.y, 16, '#6fd38a', 160); A.sfx('heal');
     }
+    hero.itemCD = ITEM_CD;
     updateHudButtons(); return true;
   }
 
@@ -587,6 +590,7 @@
     if (sp > 30) h.face = Math.atan2(h.vy, h.vx);
     h.walk = (h.walk || 0) + sp * dt;   // drives the walk cycle of the sprite
     if (h.inv > 0) h.inv -= dt;
+    if (h.itemCD > 0) { h.itemCD -= dt; if (h.itemCD <= 0) { h.itemCD = 0; updateHudButtons(); } else itemCdShow(h.itemCD); }
     if (h.ramSafe > 0) h.ramSafe -= dt;
     if (h.slow > 0) h.slow -= dt;
     if (h.buff.atk > 0) h.buff.atk -= dt; if (h.buff.def > 0) h.buff.def -= dt;
@@ -1984,11 +1988,25 @@
   }
 
   function showHud(on) { $('pauseBtn').hidden = !on; $('itemBtn').hidden = !on; if (!on && trayOpen) closeTray(); updateNav(); updateHudButtons(); }
-  function updateHudButtons() { const it = save.items; $('itemCount').textContent = Object.keys(ITEMS).reduce((a, k) => a + (it[k] || 0), 0); }
+  function updateHudButtons() {
+    const it = save.items; $('itemCount').textContent = Object.keys(ITEMS).reduce((a, k) => a + (it[k] || 0), 0);
+    itemCdShow(hero && hero.itemCD > 0 ? hero.itemCD : 0);
+  }
+  // cooldown on the bag button: a dark sweep that empties as the timer runs out, plus the seconds left
+  let cdShown = '';
+  function itemCdShow(cd) {
+    const k = Math.round(clamp(cd / ITEM_CD, 0, 1) * 60) / 60, sec = Math.ceil(cd), key = k + '|' + sec + '|' + (cd > 0);
+    if (key === cdShown) return; cdShown = key;
+    const b = $('itemBtn');
+    b.classList.toggle('cool', cd > 0);
+    b.style.setProperty('--cd', (k * 360).toFixed(0) + 'deg');
+    $('itemCd').textContent = cd > 0 ? sec : '';
+  }
   // item tray: tap the bag → the game pauses and you pick what to use
   let trayOpen = false;
   function openTray() {
     if (!hero || hero.hp <= 0 || (state !== 'play' && state !== 'boss')) return;
+    if (hero.itemCD > 0) { popText(hero.x, hero.y + 26, `どうぐは あと ${Math.ceil(hero.itemCD)}びょう`, '#ff9a8a', 13, 0.8); A.sfx('block'); return; }
     trayOpen = true; paused = true;
     const s = hero.s;
     $('tray').innerHTML = Object.entries(ITEMS).map(([id, I]) => {
@@ -2129,7 +2147,7 @@
       <p>・たからばこ と 木箱は たいあたりで あけられる。</p>
       <p>・ダンジョンの おくには ボスが いる。まるい へやで 弾幕を よけながら たいあたり！</p>
       <p>・盾を もつ騎士は 正面からの こうげきを ふせぐ。よこに まわりこもう。</p>
-      <p>・右下の どうぐボタンで アイテムを えらんで つかう（えらんでいる あいだは ゲームが とまる）。ちから・まもりの くすりは 20びょう こうかが つづく。</p>
+      <p>・右下の どうぐボタンで アイテムを えらんで つかう（えらんでいる あいだは ゲームが とまる）。ちから・まもりの くすりは 20びょう こうかが つづく。つかったあとは 6びょう まつと つぎの どうぐが つかえる。</p>
       <p>・街に もどると HPは ぜんかいふく。やられると その ぼうけんで ひろった ゴールドの はんぶんを おとす。</p>
       <p>・街は 左右に スワイプして たてものを えらび、タップで 中に はいる。</p>`, [['もどる', openHouse, true]], 'house');
   }
