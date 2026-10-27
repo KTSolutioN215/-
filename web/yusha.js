@@ -150,7 +150,7 @@
     else Object.assign(e, { hp: 10 + d * 8, val: Math.round(w.price * 0.3) });
     EQUIP.push(e);
   });
-  const DROP_RATE = { lo: 0.012, fx: 0.006, rare: 0.002, boss: 0.05 };   // per kill (boss: per clear)
+  const DROP_RATE = { lo: 0.03, fx: 0.004, rare: 0.0005, boss: 0.05 };   // per kill (boss: per clear)
   const RARITY = { lo: { mark: '', col: '#c8c0b0' }, fx: { mark: '◆', col: '#7ad8ff' }, rare: { mark: '★', col: '#f2c14e' } };
   const EQ = Object.fromEntries(EQUIP.map(e => [e.id, e]));
   const visOf = id => (EQ[id] && EQ[id].vis) || id;
