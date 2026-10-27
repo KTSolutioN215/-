@@ -1,0 +1,123 @@
+<title>ぶつかり勇者</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap">
+<style>
+/* Layout: one full-screen canvas (town / dungeon / boss room); classic JRPG command windows float over it. */
+:root {
+  --night: #0e0c16;        /* page + dungeon black */
+  --window: #13183a;       /* command-window navy */
+  --window-hi: #1d2558;    /* selected row */
+  --frame: #f3ecda;        /* window border / text */
+  --muted: #a3a8cc;        /* secondary text */
+  --gold: #f2c14e;         /* gold, prices, highlights */
+  --hp: #e5483c;           /* damage / danger */
+  --ok: #6fd38a;           /* equipped / owned */
+  --font: "DotGothic16", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Meiryo", sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--night); color: var(--frame); font-family: var(--font); overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
+#game { position: relative; height: 100%; max-width: 560px; margin: 0 auto; overflow: hidden; }
+#cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+/* ---------- JRPG window ---------- */
+.win { background: var(--window); border: 3px solid var(--frame); border-radius: 8px; box-shadow: 0 0 0 3px var(--window), 0 10px 30px rgba(0,0,0,.55); padding: 12px 14px; }
+.win h2 { margin: 0 0 8px; font-size: 18px; font-weight: 400; letter-spacing: .06em; text-wrap: balance; }
+.win p { margin: 0; line-height: 1.6; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* town: arrow buttons beside the building (swipe also works) */
+.nav { position: absolute; top: 46%; width: 40px; height: 56px; border: 2px solid rgba(243,236,218,.7); border-radius: 8px; background: rgba(19,24,58,.7); font-size: 18px; }
+#navL { left: max(6px, env(safe-area-inset-left, 0px)); }
+#navR { right: max(6px, env(safe-area-inset-right, 0px)); }
+.nav:disabled { opacity: .25; }
+
+/* modal panel */
+#panelWrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 14px max(14px, env(safe-area-inset-right, 0px)) 14px max(14px, env(safe-area-inset-left, 0px)); background: rgba(5,4,12,.45); }
+#panel { width: 100%; max-width: 420px; max-height: 86%; display: flex; flex-direction: column; }
+/* inside a building: the room shows on top, the shop window fills the lower part */
+#panelWrap.inside { align-items: flex-end; background: none; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+#panelWrap.inside #panel { max-height: 56%; }
+#panelBody { overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 6px; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+#panelFoot { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.btn { border: 2px solid var(--frame); border-radius: 6px; padding: 8px 14px; font-size: 16px; background: var(--window); flex: 1 1 auto; min-width: 0; }
+.btn.primary { background: var(--frame); color: var(--window); }
+.btn:disabled { opacity: .4; cursor: default; }
+.row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; padding: 8px 6px; border-bottom: 1px dashed rgba(243,236,218,.22); }
+.row:last-child { border-bottom: 0; }
+.row .nm { font-size: 16px; min-width: 0; }
+.row .sub { grid-column: 1 / 2; font-size: 13px; color: var(--muted); }
+.row .act { grid-row: 1 / span 2; grid-column: 2; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.price { color: var(--gold); font-variant-numeric: tabular-nums; }
+.tag { font-size: 13px; color: var(--ok); }
+.sbtn { border: 2px solid var(--frame); border-radius: 5px; padding: 4px 12px; font-size: 14px; }
+.sbtn:disabled { opacity: .35; }
+.lock { opacity: .45; }
+.gold { color: var(--gold); }
+.hpc { color: var(--hp); }
+.stat { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; font-size: 16px; font-variant-numeric: tabular-nums; }
+.stat dt { color: var(--muted); }
+.stat dd { margin: 0; text-align: right; }
+.tabs { display: flex; gap: 6px; margin-bottom: 6px; }
+.tabs button { flex: 1; border: 2px solid rgba(243,236,218,.35); border-radius: 5px; padding: 5px 0; font-size: 14px; }
+.tabs button[aria-pressed="true"] { border-color: var(--frame); background: var(--window-hi); }
+label.sl { display: grid; grid-template-columns: 5.5em 1fr; align-items: center; gap: 10px; font-size: 15px; }
+input[type=range] { width: 100%; accent-color: var(--gold); }
+
+/* in-dungeon buttons */
+.hudBtn { position: absolute; border: 2px solid var(--frame); border-radius: 50%; background: rgba(19,24,58,.82); display: flex; align-items: center; justify-content: center; }
+#pauseBtn { top: calc(8px + env(safe-area-inset-top, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); width: 40px; height: 40px; font-size: 15px; }
+#itemBtn { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); width: 64px; height: 64px; flex-direction: column; font-size: 12px; line-height: 1.15; }
+#itemBtn span { white-space: nowrap; font-size: 11px; }
+/* item tray (game pauses while it is open) */
+#tray { position: absolute; right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(88px + env(safe-area-inset-bottom, 0px)); width: min(250px, calc(100% - 24px)); padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+#tray button { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; align-items: center; text-align: left; padding: 6px 10px; border-radius: 5px; font-size: 15px; }
+#tray button:active { background: var(--window-hi); }
+#tray button:disabled { opacity: .35; }
+#tray button b { grid-row: 1 / span 2; grid-column: 2; font-weight: 400; color: var(--ok); }
+#tray .tn { font-size: 12px; color: var(--muted); }
+#tray .tclose { display: block; text-align: center; border-top: 1px dashed rgba(243,236,218,.3); border-radius: 0; color: var(--muted); }
+#itemBtn b { font-size: 20px; font-weight: 400; color: var(--ok); }
+
+/* title */
+#title { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26px; text-align: center; padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); }
+#title h1 { margin: 0; font-weight: 400; font-size: clamp(44px, 15vw, 72px); line-height: 1.05; letter-spacing: .04em; color: var(--frame); text-shadow: 4px 4px 0 var(--hp), 8px 8px 0 #000; text-wrap: balance; }
+#title h1 small { display: block; font-size: .3em; letter-spacing: .5em; color: var(--gold); text-shadow: 2px 2px 0 #000; margin-bottom: 10px; }
+#title .how { font-size: 15px; line-height: 1.8; color: var(--frame); max-width: 22em; }
+#title .start { font-size: 20px; padding: 12px 34px; flex: none; animation: blink 1.1s steps(2, start) infinite; }
+@keyframes blink { 50% { border-color: transparent; } }
+@media (prefers-reduced-motion: reduce) { #title .start { animation: none; } }
+</style>
+
+<div id="game">
+  <canvas id="cv" aria-label="ゲーム画面"></canvas>
+
+  <button id="navL" class="nav" aria-label="ひだりの たてもの" hidden>◀</button>
+  <button id="navR" class="nav" aria-label="みぎの たてもの" hidden>▶</button>
+
+  <button id="pauseBtn" class="hudBtn" aria-label="ポーズ" hidden>II</button>
+  <button id="itemBtn" class="hudBtn" aria-label="どうぐを使う" hidden><span>どうぐ</span><b id="itemCount">0</b></button>
+  <div id="tray" class="win" hidden></div>
+
+  <div id="panelWrap" hidden>
+    <div id="panel" class="win" role="dialog" aria-modal="true" aria-labelledby="panelTitle">
+      <h2 id="panelTitle"></h2>
+      <div id="panelBody"></div>
+      <div id="panelFoot"></div>
+    </div>
+  </div>
+
+  <div id="title">
+    <h1><small>BUMP HERO</small>ぶつかり<br>勇者</h1>
+    <p class="how">画面のどこでも指をおいてスライド。<br>大きくたおして体当たりすれば攻撃になる！</p>
+    <button class="btn start" id="startBtn">はじめる</button>
+  </div>
+</div>
+
+<script src="fantasy.js"></script>
+<script src="arrangements.js"></script>
+<script src="sprites.js"></script>
+<script src="yusha.js"></script>
