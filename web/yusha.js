@@ -56,6 +56,8 @@
     { id: 'w13', slot: 'weapon', name: 'せいれいの剣', atk: 255, price: 200000 },
     { id: 'w14', slot: 'weapon', name: 'はじゃの剣', atk: 300, price: 290000 },
     { id: 'w15', slot: 'weapon', name: 'ひかりの聖剣', atk: 350, price: 420000 },
+    { id: 'w16', slot: 'weapon', name: 'せかいじゅの剣', atk: 420, price: 600000 },
+    { id: 'w17', slot: 'weapon', name: 'てんくうの剣', atk: 500, price: 860000 },
     { id: 'a0', slot: 'armor', name: '布の服', def: 0, price: 0 },
     { id: 'a1', slot: 'armor', name: '革のよろい', def: 3, price: 100 },
     { id: 'a2', slot: 'armor', name: 'くさりかたびら', def: 7, price: 380 },
@@ -71,6 +73,8 @@
     { id: 'a12', slot: 'armor', name: 'せいれいのよろい', def: 122, price: 185000 },
     { id: 'a13', slot: 'armor', name: 'ふしちょうのよろい', def: 142, price: 270000 },
     { id: 'a14', slot: 'armor', name: 'ひかりの聖よろい', def: 165, price: 390000 },
+    { id: 'a15', slot: 'armor', name: 'せかいじゅのよろい', def: 192, price: 560000 },
+    { id: 'a16', slot: 'armor', name: 'てんしのよろい', def: 222, price: 800000 },
     { id: 'b0', slot: 'boots', name: '旅人のくつ', ram: 1, price: 0 },
     { id: 'b1', slot: 'boots', name: '疾風のくつ', ram: 1.12, price: 320 },
     { id: 'b2', slot: 'boots', name: '天馬のくつ', ram: 1.25, price: 1500 },
@@ -78,6 +82,7 @@
     { id: 'b4', slot: 'boots', name: '流星のくつ', ram: 1.5, price: 26000 },
     { id: 'b5', slot: 'boots', name: '天翔のくつ', ram: 1.6, price: 110000 },
     { id: 'b6', slot: 'boots', name: '時空のくつ', ram: 1.7, price: 320000 },
+    { id: 'b7', slot: 'boots', name: 'てんしのくつ', ram: 1.8, price: 700000 },
     { id: 'c1', slot: 'charm', name: 'いのちのお守り', hp: 30, price: 450 },
     { id: 'c2', slot: 'charm', name: 'まもりの指輪', def: 6, price: 900 },
     { id: 'c3', slot: 'charm', name: '戦士のうでわ', atk: 8, price: 1400 },
@@ -87,6 +92,7 @@
     { id: 'c7', slot: 'charm', name: '天空のかんむり', atk: 28, def: 28, hp: 200, price: 58000 },
     { id: 'c8', slot: 'charm', name: '竜王のメダル', atk: 40, def: 40, hp: 300, price: 150000 },
     { id: 'c9', slot: 'charm', name: 'ひかりの宝玉', atk: 60, def: 55, hp: 450, price: 400000 },
+    { id: 'c10', slot: 'charm', name: 'せかいじゅのしずく', atk: 85, def: 75, hp: 650, price: 900000 },
   ];
   // ---- equipment that monsters drop (never sold in the shop) ----
   // special effects. Kept mild, and the same effect on two items does not stack.
@@ -108,8 +114,8 @@
     buff: { v: 0.5, name: 'れんきん', note: 'ちから・まもりの くすりの こうか じかん+50%' },
   };
   // the shop tier a player usually has in each dungeon: drops are pinned to it
-  const DROP_WT = [1, 1, 2, 2, 3, 4, 5, 5, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 15];
-  const DROP_AT = [1, 1, 2, 2, 3, 4, 4, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14];
+  const DROP_WT = [1, 1, 2, 2, 3, 4, 5, 5, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 15, 15, 16, 16, 17, 17];
+  const DROP_AT = [1, 1, 2, 2, 3, 4, 4, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16];
   // ふるびた (common, a weaker copy of a shop item) and 名工の (rare, a stronger copy)
   for (const base of EQUIP.filter(e => (e.slot === 'weapon' || e.slot === 'armor') && e.price > 0)) {
     const k = base.slot === 'weapon' ? 'atk' : 'def';
@@ -140,6 +146,9 @@
     ['brave', 'weapon', 21, 'えいゆうの剣'], ['buff', 'charm', 21, 'れんきんじゅつしのおまもり'],
     ['desperate', 'armor', 22, 'しにものぐるいのよろい'],
     ['bossbane', 'weapon', 23, 'まものほろぼしの剣'],
+    ['spin', 'weapon', 25, 'せかいじゅのつむじ剣'], ['exp', 'charm', 26, 'ゆめのおまもり'], ['chain', 'boots', 26, 'ゆめみのくつ'],
+    ['guard', 'armor', 27, 'いしのころも'], ['herbal', 'charm', 28, 'せいれいのペンダント'], ['brave', 'weapon', 28, 'てんしの剣'],
+    ['bossbane', 'weapon', 29, 'かみごろしの剣'],
   ];
   SPECIALS.forEach(([fx, slot, d, name], i) => {
     const w = EQUIP.find(e => e.id === 'w' + DROP_WT[d]), a = EQUIP.find(e => e.id === 'a' + DROP_AT[d]);
@@ -195,6 +204,11 @@
     angler: { name: 'チョウチンアンコウ', hp: 34, atk: 12, def: 1, r: 15, mass: 1.1, spd: 40, exp: 13, gold: 11, ai: 'phase', col: '#3a5a8a', fly: true },
     jelly: { name: 'デンキクラゲ', hp: 20, atk: 10, def: 0, r: 12, mass: 0.5, spd: 80, exp: 9, gold: 8, ai: 'flutter', col: '#c8a8ff', fly: true },
     hellhound: { name: 'ヘルハウンド', hp: 30, atk: 11, def: 1, r: 14, mass: 1.1, spd: 115, exp: 11, gold: 10, ai: 'lunge', col: '#c8402a', dash: 480, wind: 0.3 },
+    fairy: { name: 'ようせい', hp: 22, atk: 11, def: 1, r: 11, mass: 0.5, spd: 115, exp: 13, gold: 12, ai: 'imp', col: '#ffb0f0', fly: true, mod: { spark: 1 } },
+    baku: { name: 'バク', hp: 50, atk: 13, def: 3, r: 16, mass: 1.8, spd: 45, exp: 16, gold: 14, ai: 'spore', col: '#a090e0', mod: { dream: 1 } },
+    gargoyle: { name: 'ガーゴイル', hp: 58, atk: 13, def: 8, r: 15, mass: 2, spd: 90, exp: 20, gold: 18, ai: 'lunge', col: '#8a8a94', fly: true, dash: 450, wind: 0.45, mod: { stone: 1 } },
+    angel: { name: 'てんしへい', hp: 52, atk: 13, def: 5, r: 15, mass: 1.6, spd: 70, exp: 20, gold: 18, ai: 'swing', col: '#f0e8c0', fly: true, mod: { holy: 1 } },
+    chaosbeast: { name: 'カオスビースト', hp: 76, atk: 13, def: 5, r: 18, mass: 3, spd: 60, exp: 24, gold: 22, ai: 'breath', col: '#6a2aa0', mod: { void: 1 } },
     archdemon: { name: 'アークデーモン', hp: 90, atk: 17, def: 5, r: 22, mass: 4, spd: 32, exp: 30, gold: 28, ai: 'slam', col: '#8a2a4a' },
   };
 
@@ -234,9 +248,10 @@
     { poisonspider: 0.8, sleepshroom: 0.6 }, { generalskel: 0.6, wraith: 0.6, deepfishman: 0.5 }, { snowwolf: 1, icewyvern: 0.8, frostlizard: 0.5 }, { frostmage: 0.8, shadowarmor: 0.5 }, { poisonspider: 0.6, goldscorpion: 0.5 },
     { lavagolem: 0.8, shadowarmor: 0.6 }, { crimsonknight: 0.6, shadowarmor: 0.6, wraith: 0.5 }, { deepfishman: 1 }, { generalskel: 1, cursemummy: 0.6, icewyvern: 0.5 }, { lavagolem: 0.6, iceimp: 0.8, vampbat: 0.6 },
     { crimsonknight: 0.6, generalskel: 0.5, shadowarmor: 0.5, wraith: 0.5 },
+    { snowwolf: 0.6, sleepshroom: 0.5 }, { wraith: 0.6, iceimp: 0.5 }, { cursemummy: 0.6, shadowarmor: 0.5 }, { wraith: 0.5, icewyvern: 0.5 }, { lavagolem: 0.5, shadowarmor: 0.6, wraith: 0.5 },
   ];
 
-  // 25 dungeons. m = monster HP multiplier, a = monster attack multiplier.
+  // 30 dungeons (26-30 are the rift that opens once the demon king falls). m = monster HP multiplier, a = monster attack multiplier.
   // xp / gp = EXP and gold one full run is worth (monsters + boss + boxes); the numbers are set so that
   // stages 1-5 clear first time, and from 6 on: clear + about 3 more runs of the newest stage = ready for the next.
   const DUNGEONS = [
@@ -290,6 +305,17 @@
       pal: { wall: '#2a0a10', wallHi: '#5a1a24', floor: '#5a2a2a', floorLn: '#441e1e', light: '255,70,70', fog: 0.52 }, song: 'slam', key: 2, bpm: 150, boss: 'demongeneral', m: 36.17, a: 15.04, xp: 24239, gp: 135929 },
     { name: '魔王城', en: "DEMON KING'S CASTLE", rec: 88, len: 4100, w: [0.62, 0.9], pool: { knight: 1.6, mage: 1, ghost: 0.8, golem: 0.6, imp: 1.2, archdemon: 0.8, armor: 1, hellhound: 0.8, book: 0.6 }, groups: 17, rocks: 5, spikes: 9, chests: 2, crates: 3,
       pal: { wall: '#170d22', wallHi: '#35214c', floor: '#54406a', floorLn: '#3f2f52', light: '220,120,255', fog: 0.56 }, song: 'c3', key: 2, bpm: 152, boss: 'maou', m: 40.15, a: 16.31, xp: 26295, gp: 165833 },
+    // --- the rift (post-game) ---
+    { name: 'せかいじゅの こずえ', en: 'WORLD TREE CANOPY', rec: 92, len: 4200, w: [0.6, 0.86], pool: { fairy: 2.5, mandrake: 1.2, toad: 0.8, wyvern: 1, wolf: 0.6 }, groups: 17, rocks: 4, spikes: 6, chests: 2, crates: 3,
+      pal: { wall: '#16260e', wallHi: '#3e5a24', floor: '#6a5a3a', floorLn: '#4e4028', light: '210,255,170', fog: 0.4 }, song: 'c17', key: 2, bpm: 150, boss: 'fenrir', m: 44.57, a: 17.0, xp: 28422, gp: 202316 },
+    { name: 'ゆめの かいろう', en: 'DREAM CORRIDOR', rec: 96, len: 4200, w: [0.6, 0.86], pool: { baku: 2.5, fairy: 1, ghost: 1, book: 0.6, mimic: 0.5 }, groups: 17, rocks: 3, spikes: 6, chests: 2, crates: 3,
+      pal: { wall: '#2a1a3a', wallHi: '#5a3a7a', floor: '#7a5e98', floorLn: '#604880', light: '255,180,240', fog: 0.42 }, song: 'gravity', key: 7, bpm: 150, boss: 'nightmare', m: 49.47, a: 17.6, xp: 30620, gp: 246826 },
+    { name: 'いしの みやこ', en: 'PETRIFIED CITY', rec: 100, len: 4200, w: [0.6, 0.88], pool: { gargoyle: 2, golem: 1, armor: 0.8, mummy: 0.8, scorpion: 0.6 }, groups: 17, rocks: 7, spikes: 7, chests: 2, crates: 3,
+      pal: { wall: '#262624', wallHi: '#5a5a56', floor: '#8a867a', floorLn: '#6e6a5e', light: '240,230,200', fog: 0.4 }, song: 'mine', key: 4, bpm: 152, boss: 'gorgon', m: 54.92, a: 18.2, xp: 32888, gp: 301128 },
+    { name: 'てんかいの もん', en: 'GATE OF HEAVEN', rec: 104, len: 4300, w: [0.6, 0.88], pool: { angel: 2, fairy: 1.2, gargoyle: 0.8, ghost: 0.8, wyvern: 0.6 }, groups: 17, rocks: 3, spikes: 5, chests: 2, crates: 3,
+      pal: { wall: '#5a5a7a', wallHi: '#b8b8d8', floor: '#d8d2c0', floorLn: '#b8ae94', light: '255,250,220', fog: 0.22 }, song: 'A', key: 7, bpm: 152, boss: 'fallenangel', m: 60.96, a: 18.8, xp: 35224, gp: 367376 },
+    { name: 'はかいしんの ざ', en: 'THRONE OF RUIN', rec: 108, len: 4300, w: [0.6, 0.88], pool: { chaosbeast: 1.6, angel: 1, gargoyle: 1, archdemon: 0.6, hellhound: 1, fairy: 0.8 }, groups: 17, rocks: 4, spikes: 5, chests: 2, crates: 3,
+      pal: { wall: '#0a0410', wallHi: '#2a0a3a', floor: '#2a1236', floorLn: '#1c0a26', light: '255,70,210', fog: 0.6 }, song: 'c3', key: 2, bpm: 156, boss: 'hakaishin', m: 67.66, a: 19.4, xp: 37629, gp: 448198 },
   ];
 
   DUNGEONS.forEach((d, i) => Object.assign(d.pool, VAR_POOL[i] || {}));
@@ -303,6 +329,7 @@
     { poison: 3, barrel: 2 }, { barrel: 4, swing: 2 }, { boulder: 3, bumper: 2 }, { warp: 2, bumper: 2, swing: 1 }, { mud: 2, boulder: 2 },
     { belt: 3, vent: 3 }, { ice: 2, bumper: 4, warp: 1 }, { stream: 3, bumper: 2 }, { crumble: 3, swing: 2 }, { vent: 4, boulder: 2 },
     { mace: 3, crumble: 2, warp: 1 },
+    { bumper: 3, crumble: 2, mud: 1 }, { warp: 1, ice: 2, bumper: 3 }, { boulder: 2, swing: 1, crumble: 2 }, { stream: 2, warp: 1, bumper: 3 }, { vent: 3, mace: 2, crumble: 2 },
   ];
   // each boss's own technique: [move, name shown when it starts]
   const SIG = {
@@ -313,6 +340,7 @@
     cyclops: ['boulders', 'いわなだれ'], archmage: ['illusion', 'げんえいじゅつ'], quetzal: ['tornado', 'たつまきの つばさ'], colossus: ['rocketfist', 'ロケットパンチ'],
     shadowhero: ['mirror', 'かげうつし'], leviathan: ['tsunami', 'だいつなみ'], bonedragon: ['raisedead', 'しりょうの よびごえ'], demongeneral: ['whirlblade', 'まぐんの せんぷう'],
     maou: ['despair', 'ぜつぼうの まほうじん'],
+    fenrir: ['packhunt', 'まぼろしの むれ'], nightmare: ['dreamorbs', 'あくむの あわ'], gorgon: ['petrify', 'せきかの まなざし'], fallenangel: ['pillars', 'さばきの ひかり'], hakaishin: ['collapse', 'せかいの ほうかい'],
   };
   const FLOOR_GIM = { mud: 1, poison: 1, ice: 1, belt: 1, stream: 1, crumble: 1, vent: 1 };
 
@@ -366,6 +394,16 @@
       moves: ['breath', 'tail', 'rain:curse', 'quake', 'homing', 'fireball'], moves2: ['breath3', 'tail', 'rain:curse', 'cross', 'dash3', 'fireball'] },
     demongeneral: { name: 'まぐんしょうぐん', hp: 26040, atk: 268, def: 67, r: 44, col: '#c83a3a', wcol: '#ff4a3a',
       moves: ['twin', 'dash3', 'rain:meteor', 'laser3', 'sweep', 'summon'], moves2: ['twin', 'dash3', 'rain:meteor', 'cross', 'mines', 'laser3', 'triple'] },
+    fenrir: { name: 'フェンリル', hp: 52000, atk: 330, def: 75, r: 50, col: '#cfe8ff', wcol: '#bfe0ff', fcol: 'water', ocol: '170,230,255',
+      moves: ['dash3', 'breath', 'rain:ice', 'gapring', 'homing'], moves2: ['dash3', 'breath3', 'rain:ice', 'cross', 'triple'] },
+    nightmare: { name: 'ナイトメア', hp: 48000, atk: 345, def: 78, r: 48, col: '#7a3ab0', wcol: '#d080ff', fcol: 'ghost', ocol: '210,130,255',
+      moves: ['charge', 'spiral', 'homing', 'wave', 'warp'], moves2: ['dash3', 'charge', 'homing', 'cross', 'warp', 'wave'] },
+    gorgon: { name: 'ゴルゴーン', hp: 48000, atk: 360, def: 81, r: 46, col: '#5aa86a', wcol: '#7ad86a', fcol: 'poison', ocol: '170,255,140',
+      moves: ['aimed5', 'tentacles', 'rain:poison', 'homing', 'gapring'], moves2: ['aimed5', 'tentacles', 'rain:poison', 'cross', 'homing', 'gapring'] },
+    fallenangel: { name: 'だてんし', hp: 46000, atk: 380, def: 84, r: 44, col: '#e8e0ff', wcol: '#fff2b0', ocol: '255,240,180',
+      moves: ['twin', 'laser3', 'homing', 'warp', 'aimed5'], moves2: ['twin', 'cross', 'laser3', 'aimed5', 'warp', 'gapring'] },
+    hakaishin: { name: 'はかいしん', hp: 44000, atk: 368, def: 90, r: 54, col: '#a03aff', wcol: '#ff4a9a', fcol: 'ghost', ocol: '255,90,210', song: 'M', key: 2, bpm: 158, rage: 1.4,
+      moves: ['wave', 'laser3', 'rain:void', 'twin', 'homing', 'gapring', 'despair'], moves2: ['cross', 'spiral3', 'rain:meteor', 'mines', 'warp', 'despair', 'tentacles'] },
     maou: { name: 'まおう', hp: 27300, atk: 251, def: 72, r: 42, exp: 15000, gold: 15000, col: '#c04cff', song: 'M', key: 2, bpm: 150, rage: 1.45,
       moves: ['twin', 'spiral3', 'rain:meteor', 'warp', 'homing', 'laser3', 'gapring', 'clock'], moves2: ['cross', 'triple', 'rain:void', 'warp', 'dash3', 'mines', 'laser3', 'twin', 'spiral3', 'breath3'] },
   };
@@ -377,7 +415,7 @@
   //  SAVE
   // ---------------------------------------------------------------
   const DEF_SAVE = () => ({ v: 1, lv: 1, exp: 0, gold: 40, hp: null, items: { herb: 3, potion: 0, hipotion: 0, elixir: 0, power: 0, guard: 0 },
-    eq: { weapon: 'w0', armor: 'a0', boots: 'b0', charm: null }, owned: ['w0', 'a0', 'b0'], cleared: Array(25).fill(false), layout10: true, layout15: true, layout25: true,
+    eq: { weapon: 'w0', armor: 'a0', boots: 'b0', charm: null }, owned: ['w0', 'a0', 'b0'], cleared: Array(30).fill(false), layout10: true, layout15: true, layout25: true,
     kills: 0, settings: { bgm: 0.8, sfx: 0.8 } });
   let save = DEF_SAVE();
   function loadSave() {
@@ -578,7 +616,7 @@
   // ---------------------------------------------------------------
   function newHero(x, y) {
     const s = stats();
-    return { x, y, vx: 0, vy: 0, r: HERO_R, hp: curHp(), inv: 0, face: Math.PI / 2, trail: [], lvFlash: 0, s, recoil: 0, ramSafe: 0, buff: { atk: 0, def: 0 } };
+    return { x, y, vx: 0, vy: 0, r: HERO_R, hp: curHp(), inv: 0, face: Math.PI / 2, trail: [], lvFlash: 0, s, recoil: 0, ramSafe: 0, stun: 0, stunImm: 0, buff: { atk: 0, def: 0 } };
   }
   function heroSpeed() { return hyp(hero.vx, hero.vy); }
 
@@ -601,6 +639,13 @@
   function gainGold(n) { if (hero && hero.s.fx.gold) n = Math.round(n * (1 + hero.s.fx.gold)); runGold += n; save.gold += n; }
 
   const hurtLog = {};
+  // put the hero to sleep / turn them to stone for a moment (no control); a short immunity follows so it can't chain
+  function stunHero(t, kind) {
+    const h = hero; if (!h || h.hp <= 0 || h.stunImm > 0) return;
+    h.stun = t; h.stunKind = kind; h.stunImm = t + 2.6; h.vx *= 0.3; h.vy *= 0.3;
+    popText(h.x, h.y + 36, kind === 'stone' ? 'せきか！' : 'ねむってしまった…', kind === 'stone' ? '#e0dcd0' : '#e8c0ff', 15, 1.1);
+    A.sfx(kind === 'stone' ? 'block' : 'magic2');
+  }
   function hurtHero(dmg, fromX, fromY, power = 300, cause = '?') {
     if (hero.inv > 0 || hero.hp <= 0) return;
     let d = Math.max(1, Math.round(dmg - hero.s.def * 0.5));
@@ -772,8 +817,9 @@
           <dt>レベル</dt><dd>Lv ${save.lv}</dd>
         </dl>
         ${lootHtml()}
-        ${first && dIdx < DUNGEONS.length - 1 ? `<p style="margin-top:10px" class="gold">あたらしいダンジョン「${DUNGEONS[dIdx + 1].name}」に いけるようになった！</p>` : ''}
-        ${first && dIdx === DUNGEONS.length - 1 ? `<p style="margin-top:10px" class="gold">まおうを たおし、せかいに へいわが もどった！<br>（ダンジョンには なんどでも いどめます）</p>` : ''}`,
+        ${first && dIdx === 24 ? `<p style="margin-top:10px" class="gold">まおうを たおし、せかいに へいわが もどった！<br>…しかし、そらに ぶきみな じげんの さけめが ひらいた。<br>あたらしいダンジョン「${DUNGEONS[25].name}」に いけるようになった！</p>`
+          : first && dIdx < DUNGEONS.length - 1 ? `<p style="margin-top:10px" class="gold">あたらしいダンジョン「${DUNGEONS[dIdx + 1].name}」に いけるようになった！</p>` : ''}
+        ${first && dIdx === DUNGEONS.length - 1 ? `<p style="margin-top:10px" class="gold">はかいしんを たおし、じげんの さけめは とじた。<br>せかいに ほんとうの へいわが もどった！ おめでとう！<br>（ダンジョンには なんどでも いどめます）</p>` : ''}`,
         [['街へもどる', () => goTown(), true]]);
     }
   }
@@ -791,7 +837,11 @@
 
   function updateHero(dt) {
     const h = hero, maxS = MAXSPD * h.s.ram, G = h.gnd || {};
-    if (h.recoil > 0) {   // 反動: just after a ram the hero flies back and the pad is ignored for a moment
+    if (h.stunImm > 0) h.stunImm -= dt;
+    if (h.stun > 0) {     // asleep / petrified: no control, slides to a stop
+      h.stun -= dt; const f = Math.exp(-dt * 6); h.vx *= f; h.vy *= f;
+      if (h.recoil > 0) h.recoil -= dt;
+    } else if (h.recoil > 0) {   // 反動: just after a ram the hero flies back and the pad is ignored for a moment
       h.recoil -= dt; const f = Math.exp(-dt * 3); h.vx *= f; h.vy *= f;
     } else if (drag.down) {
       const dx = drag.px - drag.ox, dy = drag.py - drag.oy, d = hyp(dx, dy);
@@ -909,7 +959,8 @@
         return;
       }
     }
-    const { dmg, crit, tag } = ramDamage(e, res.imp, false);
+    let { dmg, crit, tag } = ramDamage(e, res.imp, false);
+    if (e.mod.stone && !e.awake) { dmg = Math.max(1, Math.round(dmg * 0.5)); tag = 'いしの からだ'; wakeStatue(e); }
     e.hp -= dmg; e.hurt = 0.18; e.hitCD = 0.12;
     if (e.st === 'wind' || e.st === 'aim') { e.st = 'idle'; e.cd = 0.6; }   // a hit interrupts the attack
     combo += comboStep(); comboT = 1.6 + (hero.s.fx.chain || 0);
@@ -954,13 +1005,22 @@
           const wob = Math.sin(e.t * 6 + e.phase);
           if (e.st === 'retreat') { want = 1; wx = -ux; wy = -uy; if (e.t > 0.6) { e.st = 'idle'; e.t = 0; } }
           else { want = 1; wx = ux - uy * wob * 0.9; wy = uy + ux * wob * 0.9; }
-          if (e.ai === 'imp' && e.cd <= 0 && d < 300) { e.cd = rnd(1.6, 2.2); const a0 = Math.atan2(uy, ux); for (const o of e.mod.spread ? [-0.22, 0.22] : [0]) shootFx(e, a0 + o, 180, e.mod.ice ? 'orb' : 'fire', e.mod.ice ? 'ice' : null); }
+          if (e.ai === 'imp' && e.cd <= 0 && d < 300) {
+            e.cd = rnd(1.6, 2.2); const a0 = Math.atan2(uy, ux);
+            if (e.mod.spark) { for (const o of [-0.3, 0, 0.3]) shootFx(e, a0 + o, 160, 'orb', 'spark'); fairyHeal(e); }   // fairy: sparkles + mends the monsters round it
+            else for (const o of e.mod.spread ? [-0.22, 0.22] : [0]) shootFx(e, a0 + o, 180, e.mod.ice ? 'orb' : 'fire', e.mod.ice ? 'ice' : null);
+          }
           if (e.mod.shot && e.cd <= 0 && d < 260) { e.cd = rnd(2, 2.6); shootFx(e, Math.atan2(uy, ux), 170, 'orb', 'blood'); }
           break;
         }
         case 'lunge':
+          if (e.mod.stone && !e.awake) {   // gargoyle: a statue until you come close (or hit it)
+            want = 0; e.vx *= 0.8; e.vy *= 0.8;
+            if (d < 170) wakeStatue(e);
+            break;
+          }
           if (e.st === 'wind') { want = 0; if (e.t > e.windT) { e.st = 'dash'; e.t = 0; e.vx = e.lx * e.dashSpd; e.vy = e.ly * e.dashSpd; } }
-          else if (e.st === 'dash') { if (e.t > 0.32) { if (e.mod.twice && !e.again) { e.again = 1; e.st = 'wind'; e.t = e.windT * 0.45; e.lx = ux; e.ly = uy; } else { e.again = 0; e.st = 'idle'; e.cd = rnd(1, 1.5); } } }
+          else if (e.st === 'dash') { if (e.t > 0.32) { if ((e.mod.twice || e.mod.stone) && !e.again) { e.again = 1; e.st = 'wind'; e.t = e.windT * 0.45; e.lx = ux; e.ly = uy; } else { e.again = 0; e.st = 'idle'; e.cd = rnd(1, 1.5); } } }
           else { want = d > 90 ? 1 : 0.2; wx = ux; wy = uy; if (d < 135 && e.cd <= 0) { e.st = 'wind'; e.t = 0; e.lx = ux; e.ly = uy; } }
           break;
         case 'shooter':
@@ -971,8 +1031,11 @@
           if (e.st === 'wind') { want = 0; if (e.t > 0.5) { e.st = 'slash'; e.t = 0; } }
           else if (e.st === 'slash') {
             if (e.t < 0.2) { const ang = Math.atan2(dy, dx), da = Math.abs(((ang - e.face + Math.PI * 3) % (Math.PI * 2)) - Math.PI); if (d < 72 + h.r && da < 1.25) hurtHero(e.atk, e.x, e.y, 360, 'slash'); }
-            else if (e.mod.double && !e.again) { e.again = 1; e.st = 'wind'; e.t = 0.28; e.face = Math.atan2(dy, dx); }
-            else { e.again = 0; e.st = 'idle'; e.cd = rnd(1, 1.4); }
+            else if ((e.mod.double || e.mod.holy) && !e.again) { e.again = 1; e.st = 'wind'; e.t = 0.28; e.face = Math.atan2(dy, dx); }
+            else {
+              if (e.mod.holy) { const b = shoot(e.x + Math.cos(e.face) * e.r, e.y + Math.sin(e.face) * e.r, Math.cos(e.face), Math.sin(e.face), 220, Math.round(e.atk * 0.7), 'crescent', 1.4); b.pierce = true; b.holy = true; A.sfx('magic'); }   // angel: the second swing throws a blade of light
+              e.again = 0; e.st = 'idle'; e.cd = rnd(1, 1.4);
+            }
           } else { want = d > 58 ? 1 : 0; wx = ux; wy = uy; e.face = Math.atan2(dy, dx); if (d < 84 && e.cd <= 0) { e.st = 'wind'; e.t = 0; } }
           break;
         case 'phase': {
@@ -994,8 +1057,8 @@
         case 'breath':
           if (e.st === 'wind') { want = 0; e.face = Math.atan2(dy, dx); if (e.t > 0.42) { e.st = 'fire'; e.t = 0; } }
           else if (e.st === 'fire') {
-            if (e.t < 0.65) { e.fireAcc = (e.fireAcc || 0) + dt; while (e.fireAcc > 0.045) { e.fireAcc -= 0.045; const a = e.face + rnd(-0.32, 0.32); const fb = shoot(e.x + Math.cos(e.face) * e.r, e.y + Math.sin(e.face) * e.r, Math.cos(a), Math.sin(a), 210, e.atk, 'flame', 0.55); if (e.mod.ice) { fb.tint = 'water'; fb.slow = 0.8; } } }
-            else { e.st = 'idle'; e.cd = rnd(1.4, 1.9); }
+            if (e.t < 0.65) { e.fireAcc = (e.fireAcc || 0) + dt; while (e.fireAcc > 0.045) { e.fireAcc -= 0.045; const a = e.face + rnd(-0.32, 0.32); const fb = shoot(e.x + Math.cos(e.face) * e.r, e.y + Math.sin(e.face) * e.r, Math.cos(a), Math.sin(a), 210, e.atk, 'flame', 0.55); if (e.mod.ice) { fb.tint = 'water'; fb.slow = 0.8; } if (e.mod.void) fb.tint = 'void'; } }
+            else { e.st = 'idle'; e.cd = rnd(1.4, 1.9); if (e.mod.void) for (let k = 0; k < 5; k++) shootFx(e, k / 5 * Math.PI * 2 + e.phase + e.t, 100, 'orb', 'void'); }   // chaos beast: the void it breathed bursts outward
           } else { want = d > 110 ? 1 : 0.2; wx = ux; wy = uy; e.face = Math.atan2(dy, dx); if (d < 170 && e.cd <= 0) { e.st = 'wind'; e.t = 0; } }
           break;
         case 'slam':
@@ -1003,7 +1066,8 @@
           else { want = 1; wx = ux; wy = uy; if (d < 100 && e.cd <= 0) { e.st = 'wind'; e.t = 0; } }
           break;
         case 'spore':   // swells up, then puffs a ring of slow spores
-          if (e.st === 'swell') { want = 0; if (e.t > 0.55) { e.st = 'idle'; e.cd = rnd(2.4, 3.2); for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + e.phase; const sb = shoot(e.x, e.y, Math.cos(a), Math.sin(a), 85, e.atk, 'spore', 2.4); if (e.mod.sleep) sb.slow = 1.6; } } }
+          if (e.st === 'swell') { want = 0; if (e.t > 0.55) { e.st = 'idle'; e.cd = rnd(2.4, 3.2); if (e.mod.dream) { for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 + e.phase; const sb = shoot(e.x, e.y, Math.cos(a), Math.sin(a), 75, Math.round(e.atk * 0.6), 'bubble', 2.8); sb.col = SHOTCOL.dream; sb.stun = 0.6; sb.stunKind = 'sleep'; } }   // baku: dream bubbles put you to sleep
+            else for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + e.phase; const sb = shoot(e.x, e.y, Math.cos(a), Math.sin(a), 85, e.atk, 'spore', 2.4); if (e.mod.sleep) sb.slow = 1.6; } } }
           else { want = 0.4; wx = ux + Math.sin(e.t + e.phase); wy = uy; if (e.cd <= 0 && d < 260) { e.st = 'swell'; e.t = 0; } }
           break;
         case 'shamble': // mummy: keeps walking at you, flings bandages that slow you down
@@ -1054,6 +1118,17 @@
     enemies = enemies.filter(e => !e.dead);
   }
 
+  function wakeStatue(e) {
+    e.awake = 1; e.cd = 0.35; e.st = 'idle'; burst(e.x, e.y, 16, '#b8b8c0', 180, 0.5);
+    popText(e.x, e.y + 28, 'うごきだした！', '#e0dcd0', 13, 0.8); A.sfx('block');
+  }
+  function fairyHeal(e) {
+    for (const o of enemies) {
+      if (o === e || o.dead || o.hp >= o.maxHp || hyp(o.x - e.x, o.y - e.y) > 170) continue;
+      const hh = Math.round(o.maxHp * 0.12); o.hp = Math.min(o.maxHp, o.hp + hh);
+      popText(o.x, o.y + 26, '+' + hh, '#8af07a', 12, 0.7); burst(o.x, o.y, 8, '#ffb0f0', 110, 0.4);
+    }
+  }
   function blink(e) {
     for (let k = 0; k < 10; k++) {
       let x, y;
@@ -1064,11 +1139,11 @@
   }
 
   function shoot(x, y, ux, uy, spd, dmg, kind, life = 4) {
-    const b = { x, y, vx: ux * spd, vy: uy * spd, r: ({ orb: 8, flame: 7, big: 14, rock: 9, spore: 8, web: 9, homing: 9 })[kind] || 6, dmg, kind, life, t: 0 };
+    const b = { x, y, vx: ux * spd, vy: uy * spd, r: ({ orb: 8, flame: 7, big: 14, rock: 9, spore: 8, web: 9, homing: 9, bubble: 10, crescent: 14 })[kind] || 6, dmg, kind, life, t: 0 };
     bullets.push(b); return b;
   }
   // tinted shots for the variants: frost (slows), venom, curse, blood
-  const SHOTCOL = { ice: '150,225,255', poison: '150,230,60', curse: '190,120,255', blood: '230,50,70' };
+  const SHOTCOL = { ice: '150,225,255', poison: '150,230,60', curse: '190,120,255', blood: '230,50,70', spark: '255,150,230', dream: '220,170,255', void: '210,70,255' };
   function shootFx(e, a, spd, kind, fx) { const b = shoot(e.x, e.y, Math.cos(a), Math.sin(a), spd, e.atk, kind); if (fx) { b.col = SHOTCOL[fx]; if (fx === 'ice') b.slow = 1.2; } return b; }
 
   function updateBullets(dt) {
@@ -1118,11 +1193,14 @@
       else { const tn = tunnelAt(b.y); if (Math.abs(b.x - tn.cx) > tn.w / 2 + 4) { b.life = 0; burst(b.x, b.y, 4, '#ccc', 60, 0.3); } }
       if (!b.harmless && hyp(b.x - hero.x, b.y - hero.y) < b.r + hero.r * 0.6 && hero.inv <= 0) {
         if (b.slow) hero.slow = Math.max(hero.slow, b.slow);
+        if (b.stun) { b.hitHero = true; stunHero(b.stun, b.stunKind || 'sleep'); }
         if (b.kind === 'web') { hero.slow = 1.8; popText(hero.x, hero.y + 30, 'クモの糸！', '#dfe8ff', 13, 0.9); }
         hurtHero(b.dmg, b.x - b.vx * 0.05, b.y - b.vy * 0.05, b.pierce ? 420 : 220, 'shot:' + b.kind); if (!b.pierce) b.life = 0;
       }
     }
+    const dying = bullets.filter(b => b.life <= 0 && b.onDie);
     bullets = bullets.filter(b => b.life > 0);
+    for (const b of dying) { const f = b.onDie; b.onDie = null; f(b); }
     for (const r of rings) {
       r.r += r.spd * dt;
       const d = hyp(hero.x - r.x, hero.y - r.y);
@@ -1437,7 +1515,7 @@
   function addSweep(B, opt) { B.sweeps.push(Object.assign({ t: 0, tele: 0.75, len: 180, w: 11, vel: 2.4, left: Math.PI * 2, ang: 0, col: '#fff' }, opt)); }
 
   // ---- floor blasts & beams (telegraphed, then they hurt) ----
-  const ZCOL = { sand: '235,200,120', ink: '140,70,190', void: '200,80,255', thorn: '120,210,80', curse: '190,140,255', meteor: '255,120,50', ice: '150,225,255', bolt: '255,240,120', poison: '150,230,60', water: '90,170,255', mine: '255,90,60', beam: '255,80,160' };
+  const ZCOL = { sand: '235,200,120', ink: '140,70,190', void: '200,80,255', thorn: '120,210,80', curse: '190,140,255', meteor: '255,120,50', ice: '150,225,255', bolt: '255,240,120', poison: '150,230,60', water: '90,170,255', mine: '255,90,60', beam: '255,80,160', holy: '255,240,170' };
   function addCircle(x, y, r, tele, dmg, kind, after) { zones.push({ type: 'circle', x, y, r, tele, dmg, kind, t: 0, after }); }
   function addBeam(B, ang, opt) { zones.push(Object.assign({ type: 'beam', boss: B, ang, len: arena.R * 2.2, w: 16, tele: 0.8, act: 0.45, vel: 0, t: 0, dmg: B.atk, kind: 'beam', hit: false }, opt)); }
   function updateZones(dt) {
@@ -1467,6 +1545,28 @@
           if (!z.safe.some(s2 => hyp(h.x - s2.x, h.y - s2.y) < s2.r)) hurtHero(z.dmg, arena.cx, arena.cy, 500, 'zone:doom');
         }
         z.dead = z.t > z.tele + 0.4;
+        continue;
+      }
+      if (z.type === 'cone') {   // gorgon's gaze: a wedge from the boss; inside it when it fires = petrified
+        if (z.boss) { z.x = z.boss.x; z.y = z.boss.y; }
+        if (z.track && z.t < z.tele - 0.3) { const want = Math.atan2(h.y - z.y, h.x - z.x); let da = ((want - z.ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI; z.ang += clamp(da, -z.track * dt, z.track * dt); }
+        if (z.t >= z.tele && !z.fired) {
+          z.fired = true; flash = 0.45; flashCol = '200,255,170'; A.sfx('boom');
+          const a = Math.atan2(h.y - z.y, h.x - z.x), da = Math.abs(((a - z.ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+          if (da < z.spread && h.hp > 0) { hurtHero(z.dmg, z.x, z.y, 120, 'zone:gaze'); stunHero(1.1, 'stone'); }
+        }
+        z.dead = z.t > z.tele + z.act;
+        continue;
+      }
+      if (z.type === 'shrink') {  // the edge of the world closes in; outside the ring hurts and pushes you back in
+        const T1 = z.tele, T2 = T1 + z.close, T3 = T2 + z.hold, T4 = T3 + z.open;
+        z.r = z.t < T1 ? z.r0 : z.t < T2 ? lerp(z.r0, z.r1, 1 - (1 - (z.t - T1) / z.close) ** 2) : z.t < T3 ? z.r1 : lerp(z.r1, z.r0, (z.t - T3) / z.open);
+        const dx = h.x - arena.cx, dy = h.y - arena.cy, d = hyp(dx, dy) || 1;
+        if (z.t >= T1 && z.t < T3 && d > z.r - h.r * 0.3 && h.hp > 0) {
+          hurtHero(z.dmg, h.x + dx / d * 40, h.y + dy / d * 40, 420, 'zone:collapse');
+          if (d > z.r && h.recoil <= 0) { h.vx -= dx / d * 600 * dt; h.vy -= dy / d * 600 * dt; }
+        }
+        z.dead = z.t > T4;
         continue;
       }
       if (z.type === 'circle') {
@@ -1891,6 +1991,58 @@
         if (mv.t > 3.2) done(1.2);
         break;
       }
+      case 'packhunt': {   // fenrir: phantom wolves dash across the room one after another, each through where you stand
+        const n = p2 ? 5 : 3;
+        if (mv.t > 0.3 + mv.n * 0.45 && mv.n < n) {
+          mv.n++;
+          const a = rnd(0, 6.28), cx0 = Math.cos(a), cy0 = Math.sin(a), sx = arena.cx + cx0 * (arena.R - 4), sy0 = arena.cy + cy0 * (arena.R - 4);
+          let ux = hero.x + hero.vx * 0.2 - sx, uy = hero.y + hero.vy * 0.2 - sy0; const l = hyp(ux, uy) || 1; ux /= l; uy /= l;
+          const len = Math.max(arena.R * 0.8, -2 * arena.R * (cx0 * ux + cy0 * uy)), spd = p2 ? 600 : 540;
+          zones.push({ type: 'seg', kind: 'ice', x: sx, y: sy0, x2: sx + ux * len, y2: sy0 + uy * len, w: 16, tele: 0.75, act: 0.05, dmg: 0, t: 0 });
+          bullets.push({ x: sx, y: sy0, vx: ux * spd, vy: uy * spd, r: 18, dmg: B.atk, kind: 'spiritwolf', life: 0.75 + len / spd, t: 0, delay: 0.75, pierce: true });
+          A.sfx('warp');
+        }
+        if (mv.t > 0.3 + n * 0.45 + 1.3) done(1.1);
+        break;
+      }
+      case 'dreamorbs':    // nightmare: big dream bubbles bounce round the room; touch one and you fall asleep
+        if (mv.t > 0.4 && mv.n < (p2 ? 4 : 3) && mv.t > 0.4 + mv.n * 0.22) {
+          mv.n++; const a = mv.a0 + (mv.n - (p2 ? 2.5 : 2)) * 0.8 + rnd(-0.15, 0.15);
+          bullets.push({ x: B.x, y: B.y, vx: Math.cos(a) * 140, vy: Math.sin(a) * 140, r: 20, dmg: Math.round(B.atk * 0.6), kind: 'dream', life: 5, t: 0, bounce: 3, stun: 0.75, stunKind: 'sleep',
+            onDie: b => { burst(b.x, b.y, 18, '#e8c0ff', 200, 0.5); A.sfx('magic'); if (!b.hitHero && p2) for (let k = 0; k < 4; k++) { const a2 = k / 4 * Math.PI * 2 + b.t; const o = shoot(b.x, b.y, Math.cos(a2), Math.sin(a2), 120, B.atk, 'orb', 2.4); o.col = SHOTCOL.dream; } } });
+          A.sfx('magic2');
+        }
+        if (mv.t > 1.9 && mv.n2 == null) { mv.n2 = 1; for (const o of [-0.2, 0.2]) { const b = shoot(B.x, B.y, Math.cos(ang + o), Math.sin(ang + o), 220, B.atk, 'orb'); b.col = SHOTCOL.dream; } }
+        if (mv.t > 2.3) done(1.3);
+        break;
+      case 'petrify': {    // gorgon: a wide cone of petrifying gaze; be outside it when her eyes flash
+        if (!mv.n) { mv.n = 1; for (const o of p2 ? [0, Math.PI] : [0]) zones.push({ type: 'cone', boss: B, ang: ang + o, spread: 0.52, len: arena.R * 2.2, tele: 1.2, act: 0.3, track: 0.55, dmg: B.atk * 0.8, t: 0 }); A.sfx('magic2'); }
+        if (mv.t > 1.7 && mv.n === 1) { mv.n = 2; for (const o of [-0.3, 0, 0.3]) { const b = shoot(B.x, B.y, Math.cos(ang + o), Math.sin(ang + o), 210, B.atk, 'orb'); b.col = SHOTCOL.poison; } A.sfx('magic'); }
+        if (mv.t > 2.3) done(1.1);
+        break;
+      }
+      case 'pillars': {    // fallen angel: judgement falls on a checkerboard, then on the other squares
+        const waves = p2 ? 3 : 2, S = 84;
+        if (mv.t > 0.2 + mv.n * 1.0 && mv.n < waves) {
+          if (mv.off == null) { mv.off = rnd(0, S); mv.off2 = rnd(0, S); }
+          const par = mv.n % 2; mv.n++;
+          for (let gx = -5; gx <= 4; gx++) for (let gy = -5; gy <= 4; gy++) {
+            if ((((gx + gy) % 2) + 2) % 2 !== par) continue;
+            const x = arena.cx + gx * S + mv.off, y = arena.cy + gy * S + mv.off2;
+            if (hyp(x - arena.cx, y - arena.cy) > arena.R - 18) continue;
+            addCircle(x, y, 44, 1.05, B.atk, 'holy');
+          }
+          A.sfx('magic');
+        }
+        if (mv.t > 0.2 + waves * 1.0 + 0.5) done(1.1);
+        break;
+      }
+      case 'collapse': {   // god of ruin: the world crumbles in from the edge while it spins out stars of ruin
+        if (!mv.n) { mv.n = 1; B.hx = arena.cx; B.hy = arena.cy; B.homeT = 6; zones.push({ type: 'shrink', r0: arena.R, r1: p2 ? 160 : 180, tele: 1.0, close: 1.4, hold: 2.2, open: 0.8, dmg: B.atk * 0.6, t: 0 }); A.sfx('roar'); shake = 14; }
+        if (mv.t > 1.4 && mv.t < 4.6) { mv.acc += dt; while (mv.acc > 0.24) { mv.acc -= 0.24; mv.n++; for (let k = 0; k < 2; k++) { const a = mv.a0 + mv.n * 0.36 + k * Math.PI; shoot(B.x, B.y, Math.cos(a), Math.sin(a), 100, B.atk, 'orb', 3.2); } } }
+        if (mv.t > 5.8) done(1.2);
+        break;
+      }
       default: done(1);
     }
   }
@@ -2211,7 +2363,7 @@
     const moving = hyp(e.vx, e.vy) > 12;
     const f = Math.floor((globalT + e.phase) * (e.ai === 'flutter' || e.ai === 'imp' ? (e.type === 'jelly' ? 5 : 10) : 4));
     const step = moving ? (Math.sin((globalT + e.phase) * 11) > 0 ? 1 : -1) : 0;
-    const spr = SPR.enemy(e.type, { st: e.st, f, step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: hero.x < e.x - 2, flash: hurt });
+    const spr = SPR.enemy(e.type, { st: e.st, f, step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake });
     SPR.draw(ctx, spr, x, yy + r * 0.75);
     if (e.ai === 'swing' && e.st === 'slash') { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(x, yy, 64, -e.face - 1.25, -e.face + 1.25); ctx.stroke(); }
     if (telegraph && e.ai !== 'swing') { const top = yy + r * 0.75 - (spr ? spr.ay * SPR.SCALE : r * 2); ctx.fillStyle = '#ff4040'; ctx.strokeStyle = '#1a1420'; ctx.lineWidth = 3; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'center'; ctx.strokeText('!', x, top - 2); ctx.fillText('!', x, top - 2); }
@@ -2242,7 +2394,11 @@
       ctx.fillStyle = `rgba(255,${180 - k * 80},60,${0.22 + k * 0.25})`; ctx.beginPath(); ctx.ellipse(x, y, h.r * (1.4 + k * 0.5), h.r * (1.6 + k * 0.5), 0, 0, 7); ctx.fill();
       ctx.restore();
     }
-    SPR.draw(ctx, spr, x, y + h.r * 0.75);
+    SPR.draw(ctx, h.stun > 0 && h.stunKind === 'stone' ? SPR.stoneOf(spr) : spr, x, y + h.r * 0.75);
+    if (h.stun > 0 && h.stunKind === 'sleep') {   // drifting z's and a dream bubble
+      for (let k = 0; k < 3; k++) { const kk = (globalT * 0.9 + k / 3) % 1, zx = q(x + 8 + kk * 14), zy = q(y - h.r - 10 - kk * 26), s3 = k === 1 ? 3 : 1.5; ctx.fillStyle = `rgba(232,200,255,${1 - kk})`; ctx.fillRect(zx, zy, s3 * 3, s3); ctx.fillRect(zx + s3 * 2, zy + s3, s3, s3); ctx.fillRect(zx + s3, zy + s3 * 2, s3, s3); ctx.fillRect(zx, zy + s3 * 3, s3 * 3, s3); }
+    }
+    if (h.stun > 0 && h.stunKind === 'stone') { ctx.fillStyle = 'rgba(40,36,30,.55)'; for (const [a, b] of [[-6, -18], [3, -10], [-2, -2]]) ctx.fillRect(q(x + a), q(y + b), 4.5, 1.5); }
     if (h.lvFlash > 0) { ctx.strokeStyle = `rgba(242,193,78,${h.lvFlash / 1.6})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, h.r + 8 + (1.6 - h.lvFlash) * 30, 0, 7); ctx.stroke(); }
     if (h.poisonT > 0) { ctx.fillStyle = '#b4f05a'; for (let k = 0; k < 3; k++) { const kk = (globalT * 1.5 + k / 3) % 1; ctx.fillRect(q(x - 9 + k * 9), q(y - h.r - kk * 22), 3, 3); } }
     if (h.slow > 0) { ctx.strokeStyle = 'rgba(235,240,255,.8)'; ctx.lineWidth = 1.5; for (let k = 0; k < 3; k++) { const a = k * 1.05 + 0.3; ctx.beginPath(); ctx.moveTo(x - Math.cos(a) * h.r * 1.3, y - Math.sin(a) * h.r * 1.3); ctx.lineTo(x + Math.cos(a) * h.r * 1.3, y + Math.sin(a) * h.r * 1.3); ctx.stroke(); } }
@@ -2280,9 +2436,11 @@
     // effects behind the body
     if (B.phase === 2) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(x, y, r * 0.2, x, y, r * 1.7); g.addColorStop(0, `rgba(255,40,60,${0.18 + beatPulse * 0.12})`); g.addColorStop(1, 'rgba(255,40,60,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 1.7, 0, 7); ctx.fill(); ctx.restore(); }
     if (B.type === 'lich') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(180,140,255,${0.1 + beatPulse * 0.12})`; ctx.beginPath(); ctx.arc(x, y, r * 1.5, 0, 7); ctx.fill(); ctx.restore(); }
+    if (B.type === 'hakaishin') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; for (let i = 0; i < 10; i++) { const a = globalT * (i % 2 ? 0.6 : -0.45) + i * 0.63, rr = r * (1.25 + (i % 3) * 0.18); ctx.fillStyle = i % 3 ? 'rgba(255,90,220,.7)' : 'rgba(255,240,170,.8)'; ctx.fillRect(q(x + Math.cos(a) * rr) - 1.5, q(y - Math.sin(a) * rr * 0.6) - 1.5, 3, 3); } ctx.restore(); }
+    if (B.type === 'fenrir') for (let i = 0; i < 5; i++) { const kk = (globalT * 0.4 + i / 5) % 1; ctx.fillStyle = `rgba(220,245,255,${0.8 * (1 - kk)})`; ctx.fillRect(q(x - r + (i * 37) % (r * 2)), q(y + r * 0.4 - kk * 60), 3, 3); }
     if (B.type === 'icequeen') for (let i = 0; i < 6; i++) { const a = globalT * 0.8 + i / 6 * Math.PI * 2, ox = x + Math.cos(a) * r * 1.5, oy = y - Math.sin(a) * r * 1.0; ctx.fillStyle = 'rgba(190,240,255,.85)'; ctx.fillRect(Math.round(ox) - 2, Math.round(oy) - 6, 4, 12); ctx.fillRect(Math.round(ox) - 5, Math.round(oy) - 2, 10, 4); }
     // the boss (pixel sprite, feet on the shadow; fliers hover above it)
-    const FLOAT = { lich: 1, icequeen: 1, thunderbird: 1, voideye: 1, ghostcaptain: 1, archmage: 1, quetzal: 1 };
+    const FLOAT = { lich: 1, icequeen: 1, thunderbird: 1, voideye: 1, ghostcaptain: 1, archmage: 1, quetzal: 1, fallenangel: 1, hakaishin: 1 };
     const hov = FLOAT[B.type] ? 12 + Math.sin(globalT * 2.2) * 4 : 0;
     const lk = Math.round((((-look) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / (Math.PI / 4)) % 8;
     const spr = SPR.boss(B.type, { f: Math.floor(globalT * (B.type === 'thunderbird' ? 8 : 4)), act: B.mv && B.mv.t < 0.7 ? 1 : 0, p2: B.phase === 2, look: lk, air: (B.z || 0) > 0.05, flash: hurt });
@@ -2359,6 +2517,27 @@
         } else { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(255,80,180,${0.6 * (1 - (z.t - z.tele) / 0.4)})`; ctx.beginPath(); ctx.arc(arena.cx, sy(arena.cy), arena.R, 0, 7); ctx.fill(); ctx.restore(); }
         continue;
       }
+      if (z.type === 'cone') {
+        const x = z.x, y = sy(z.y), k = clamp(z.t / z.tele, 0, 1), a0 = -z.ang;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.arc(x, y, z.len, a0 - z.spread, a0 + z.spread); ctx.closePath();
+        if (!z.fired) {
+          ctx.fillStyle = ditherFill('170,255,140', 0.18 + k * 0.4); ctx.fill();
+          ctx.strokeStyle = `rgba(200,255,170,${0.5 + k * 0.5})`; ctx.lineWidth = 3; ctx.setLineDash([9, 7]); ctx.beginPath(); ctx.moveTo(x + Math.cos(a0 - z.spread) * z.len, y + Math.sin(a0 - z.spread) * z.len); ctx.lineTo(x, y); ctx.lineTo(x + Math.cos(a0 + z.spread) * z.len, y + Math.sin(a0 + z.spread) * z.len); ctx.stroke(); ctx.setLineDash([]);
+        } else { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(220,255,190,${0.65 * (1 - (z.t - z.tele) / z.act)})`; ctx.fill(); ctx.restore(); }
+        continue;
+      }
+      if (z.type === 'shrink') {
+        const T1 = z.tele, cx = arena.cx, cyy = sy(arena.cy), r = z.r || z.r0;
+        if (z.t < T1) { ctx.strokeStyle = `rgba(255,80,210,${0.4 + 0.4 * Math.sin(globalT * 12)})`; ctx.lineWidth = 3; ctx.setLineDash([10, 8]); ctx.beginPath(); ctx.arc(cx, cyy, z.r1, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
+        if (r < arena.R - 1) {
+          ctx.beginPath(); ctx.arc(cx, cyy, arena.R + 40, 0, 7); ctx.moveTo(cx + r, cyy); ctx.arc(cx, cyy, r, 0, 7, true);
+          ctx.fillStyle = 'rgba(12,2,22,.82)'; ctx.fill('evenodd'); ctx.fillStyle = ditherFill('200,40,180', 0.35); ctx.fill('evenodd');
+          ctx.strokeStyle = '#ff4ad8'; ctx.lineWidth = 3; ctx.beginPath();
+          for (let i = 0; i <= 48; i++) { const a = i / 48 * Math.PI * 2, rr = r + (i % 2 ? 4 : -3) + Math.sin(globalT * 20 + i) * 2; if (i) ctx.lineTo(cx + Math.cos(a) * rr, cyy + Math.sin(a) * rr); else ctx.moveTo(cx + Math.cos(a) * rr, cyy + Math.sin(a) * rr); }
+          ctx.stroke(); ctx.strokeStyle = 'rgba(255,220,250,.8)'; ctx.lineWidth = 1.5; ctx.stroke();
+        }
+        continue;
+      }
       if (z.type === 'circle') {
         const x = z.x, y = sy(z.y);
         if (!z.fired) {
@@ -2371,6 +2550,7 @@
           const k = (z.t - z.tele) / 0.3;
           ctx.save(); ctx.globalCompositeOperation = 'lighter';
           ctx.fillStyle = `rgba(${col},${0.7 * (1 - k)})`; ctx.beginPath(); ctx.arc(x, y, z.r * (1 + k * 0.3), 0, 7); ctx.fill();
+          if (z.kind === 'holy') { ctx.fillStyle = `rgba(255,245,200,${0.75 * (1 - k)})`; ctx.fillRect(q(x - z.r * 0.45), q(y - 420), q(z.r * 0.9), 420); ctx.fillStyle = `rgba(255,255,255,${1 - k})`; ctx.fillRect(q(x - z.r * 0.15), q(y - 420), q(z.r * 0.3), 420); }
           if (z.kind === 'bolt') { ctx.strokeStyle = `rgba(255,255,220,${1 - k})`; ctx.lineWidth = 4.5; ctx.beginPath(); ctx.moveTo(x + 9, y - 400); ctx.lineTo(x - 10.5, y - 199.5); ctx.lineTo(x + 6, y - 100.5); ctx.lineTo(x, y); ctx.stroke(); }
           ctx.restore();
         }
@@ -2399,7 +2579,20 @@
       if (b.kind === 'web') { SPR.draw(ctx, SPR.ENV.web(), x, y - lift); continue; }
       if (b.kind === 'bomb') { ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(q(x - 6), q(y + 4), 12, 3); SPR.draw(ctx, SPR.ENV.barrel(true, f), x, y + 8 - lift); continue; }
       if (b.kind === 'knife') { const a = b.vx || b.vy ? Math.atan2(-b.vy, b.vx) : Math.atan2(-(hero.y - b.y), hero.x - b.x); ctx.strokeStyle = '#e8ecf4'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x - Math.cos(a) * 9, y + Math.sin(a) * 9); ctx.lineTo(x + Math.cos(a) * 7, y - Math.sin(a) * 7); ctx.stroke(); ctx.fillStyle = '#f2c14e'; ctx.fillRect(q(x - Math.cos(a) * 9) - 1.5, q(y + Math.sin(a) * 9) - 1.5, 3, 3); continue; }
-      if (b.kind === 'crescent') { const a = Math.atan2(-b.vy, b.vx); ctx.strokeStyle = 'rgba(160,90,255,.55)'; ctx.lineWidth = 12; ctx.beginPath(); ctx.arc(x - Math.cos(a) * 10, y + Math.sin(a) * 10, b.r, -a - 1.1, -a + 1.1); ctx.stroke(); ctx.strokeStyle = '#e8d8ff'; ctx.lineWidth = 4.5; ctx.stroke(); continue; }
+      if (b.kind === 'crescent') { const a = Math.atan2(-b.vy, b.vx); ctx.strokeStyle = b.holy ? 'rgba(255,230,140,.6)' : 'rgba(160,90,255,.55)'; ctx.lineWidth = b.holy ? 9 : 12; ctx.beginPath(); ctx.arc(x - Math.cos(a) * 10, y + Math.sin(a) * 10, b.r, -a - 1.1, -a + 1.1); ctx.stroke(); ctx.strokeStyle = b.holy ? '#fffbe8' : '#e8d8ff'; ctx.lineWidth = b.holy ? 3 : 4.5; ctx.stroke(); continue; }
+      if (b.kind === 'spiritwolf') {
+        const s2 = SPR.enemy('snowwolf', { st: 'dash', f: 0, step: 0, flip: b.vx < 0 }), sp = hyp(b.vx, b.vy) || 1;
+        for (let k = 3; k >= 1; k--) SPR.draw(ctx, s2, x - b.vx / sp * k * 16, y + b.vy / sp * k * 16 + 12, 0.14 * (4 - k));
+        SPR.draw(ctx, s2, x, y + 12, 0.85); ctx.save(); ctx.globalCompositeOperation = 'lighter'; SPR.draw(ctx, s2, x, y + 12, 0.35); ctx.restore(); continue;
+      }
+      if (b.kind === 'dream' || b.kind === 'bubble') {
+        const rr = b.r * (1 + Math.sin(globalT * 6 + b.x * 0.05) * 0.06), fade = Math.min(1, b.life * 2);
+        ctx.globalAlpha = fade; ctx.fillStyle = 'rgba(200,140,255,.22)'; ctx.beginPath(); ctx.arc(x, y, rr, 0, 7); ctx.fill();
+        ctx.strokeStyle = 'rgba(235,200,255,.95)'; ctx.lineWidth = 3; ctx.stroke();
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(q(x - rr * 0.5), q(y - rr * 0.55), 4.5, 3); ctx.fillRect(q(x - rr * 0.6), q(y - rr * 0.3), 1.5, 3);
+        if (b.kind === 'dream') { ctx.fillStyle = '#ffd8ff'; ctx.fillRect(q(x - 4.5), q(y - 4.5), 9, 1.5); ctx.fillRect(q(x + 1.5), q(y - 3), 1.5, 3); ctx.fillRect(q(x - 1.5), q(y), 1.5, 3); ctx.fillRect(q(x - 4.5), q(y + 3), 9, 1.5); }
+        ctx.globalAlpha = 1; continue;
+      }
       if (b.kind === 'cannon') { SPR.draw(ctx, SPR.ENV.orb('40,40,50', 10), x, y); ctx.fillStyle = '#9a9aa8'; ctx.fillRect(q(x - 4.5), q(y - 6), 4.5, 3); continue; }
       if (b.kind === 'boulder') { ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(q(x - b.r), q(y + b.r * 0.6), q(b.r * 2), 4.5); SPR.draw(ctx, SPR.ENV.rock('#9a7a58', Math.floor(b.t * 8) % 3, 14), x, y + b.r * 0.3); continue; }
       if (b.kind === 'fist') { ctx.fillStyle = '#22262e'; ctx.fillRect(q(x - 15), q(y - 13.5), 30, 27); ctx.fillStyle = '#7a8696'; ctx.fillRect(q(x - 12), q(y - 10.5), 24, 21); ctx.fillStyle = '#b8c4d4'; ctx.fillRect(q(x - 12), q(y - 10.5), 24, 3); ctx.fillStyle = '#ffa23a'; ctx.fillRect(q(x - 3), q(y + 3), 6, 4.5); continue; }

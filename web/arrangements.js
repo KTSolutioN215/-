@@ -153,6 +153,33 @@ const FARR = {
       lead: { intro: 'organ', A: 'organ', A2: 'choir', B: 'violin' }, leadOct: { B: 12 }, dbl: { A2: ['organ', -12, 0.5] },
       harm: [{ p: 'pad', i: 'organ', o: -12, v: 0.45 }, { p: 'trem', i: 'trem', v: 0.32, sec: ['A2', 'B'] }],
       bass: { p: 'sustain', i: 'organbass', v: 0.9 }, drums: { def: 'doom', A2: 'doom2' }, crash: true },
+    // ---- the rift (post-game) ----
+    { name: 'せかいじゅの こずえ', mood: 'こもれびの大樹', theme: 'dungeon', mode: 'lydian', key: 65, bpm: 112, room: 3.0, wet: 0.4,
+      lead: { intro: 'recorder', A: 'flute', A2: 'strings', B: 'harp' }, leadOct: { A: 12, intro: 12, A2: 12 }, dbl: { A2: ['flute', 12, 0.35] },
+      echo: { i: 'harp', d: 3, o: 12, v: 0.25, sec: ['A', 'B'] },
+      harm: [{ p: 'arp8', i: 'harp', v: 0.4 }, { p: 'pad', i: 'strings', o: -12, v: 0.4 }],
+      bass: { p: 'half', i: 'contrabass', v: 0.75 }, drums: { def: 'forest', A2: 'sky' }, fx: ['wind', 'chimes'] },
+
+    { name: 'ゆめの かいろう', mood: 'ゆらめく夢うつつ', theme: 'dungeon', mode: 'dorian', key: 63, bpm: 84, swing: 0.33, room: 4.4, wet: 0.52,
+      lead: { intro: 'musicbox', A: 'musicbox', A2: 'glass', B: 'celesta' }, leadOct: { def: 12, A: 12, intro: 12, B: 12 },
+      echo: { i: 'glass', d: 6, o: 12, v: 0.25 },
+      harm: [{ p: 'shimmer', i: 'celesta', o: 12, v: 0.25 }, { p: 'pad', i: 'synthpad', o: -12, v: 0.48 }],
+      bass: { p: 'sustain', i: 'organbass', v: 0.6 }, drums: 'hush', dv: 0.6, fx: ['chimes'] },
+
+    { name: 'いしの みやこ', mood: '石と化した都のしじま', theme: 'dungeon', mode: 'phrygian', key: 59, bpm: 96, room: 3.6, wet: 0.44, orn: 'grace',
+      lead: { intro: 'ney', A: 'oboe', A2: 'ney', B: 'horn' }, leadOct: { A2: 12 },
+      harm: [{ p: 'drone', i: 'strings', v: 0.4 }, { p: 'stab2', i: 'oud', o: -12, v: 0.3, sec: ['A2', 'B'] }],
+      bass: { p: 'pedal', i: 'contrabass', v: 0.75 }, drums: { def: 'gong', B: 'toll' }, fx: ['wind'] },
+
+    { name: 'てんかいの もん', mood: 'そらへつづく階段', theme: 'dungeon', mode: 'ionian', key: 67, bpm: 120, room: 4.0, wet: 0.44,
+      lead: { intro: 'choir', A: 'trumpet', A2: 'strings', B: 'choir' }, leadOct: { A2: 12 }, dbl: { A: ['horn', -12, 0.35], A2: ['flute', 12, 0.4] },
+      harm: [{ p: 'arp16', i: 'harp', v: 0.38 }, { p: 'pad', i: 'organ', o: -12, v: 0.4 }],
+      bass: { p: 'march', i: 'contrabass', v: 0.85 }, drums: { def: 'sky', B: 'military2' }, crash: true, fx: ['chimes'] },
+
+    { name: 'はかいしんの ざ', mood: 'ほうかいの序曲', theme: 'dungeon', mode: 'dblharm', key: 61, bpm: 132, room: 3.4, wet: 0.4,
+      lead: { intro: 'choir', A: 'organ', A2: 'distlead', B: 'choir' }, leadOct: { A2: 12 }, dbl: { A: ['organ', -12, 0.45] },
+      harm: { def: [{ p: 'trem', i: 'trem', o: -12, v: 0.42 }], A2: [{ p: 'trem', i: 'trem', o: -12, v: 0.38 }, { p: 'power', i: 'distguitar', v: 0.5 }] },
+      bass: { p: 'drive', i: 'organbass', v: 0.9 }, drums: { def: 'doom2', A2: 'taikofast' }, crash: true, fx: ['embers', 'wind'] },
   ],
 
   // ---------------- たたかいのテーマ (boss) ----------------
@@ -258,6 +285,27 @@ const FARR = {
       harm: [{ p: 'pad', i: 'organ', o: -12, v: 0.4 }, { p: 'trem', i: 'trem', v: 0.32 }, { p: 'stab', i: 'brass', o: -12, v: 0.4, sec: ['A', 'A2'] }],
       bass: { p: 'drive', i: 'organbass', v: 0.9 }, drums: { intro: 'bossintro', def: 'final' }, crash: true,
       rage: { key: 1, tempo: 1.05, dbl: ['choir', 12, 0.5] } },
+    fenrir: { name: 'フェンリル', mood: 'いてつく牙', theme: 'boss', mode: 'aeolian', key: 62, bpm: 156, room: 3.2, wet: 0.4,
+      lead: { def: 'horn', B: 'strings', C: 'flute' }, leadOct: { B: 12, C: 12 }, dbl: { A2: ['strings', 12, 0.4] },
+      harm: [{ p: 'trem', i: 'trem', v: 0.4 }, { p: 'stab', i: 'brass', o: -12, v: 0.42 }],
+      bass: { p: 'gallop', i: 'contrabass', v: 0.9 }, drums: { intro: 'bossintro', def: 'bossice' }, crash: true, fx: ['wind'] },
+    nightmare: { name: 'ナイトメア', mood: 'あくむの疾走', theme: 'boss', mode: 'harmonic', key: 61, bpm: 160, room: 3.4, wet: 0.42,
+      lead: { def: 'violin', B: 'glass', C: 'choir' }, leadOct: { B: 12 },
+      harm: [{ p: 'arp16', i: 'harpsichord', o: -12, v: 0.34 }, { p: 'pad', i: 'synthpad', o: -12, v: 0.42 }],
+      bass: { p: 'gallop', i: 'organbass', v: 0.85 }, drums: { intro: 'bossintro', def: 'boss' }, fx: ['chimes'] },
+    gorgon: { name: 'ゴルゴーン', mood: 'せきかの魔眼', theme: 'boss', mode: 'phrygdom', key: 64, bpm: 150, room: 2.6, wet: 0.34, orn: 'grace',
+      lead: { def: 'oud', B: 'ney', C: 'brass' }, leadOct: { B: 12 },
+      harm: [{ p: 'drone', i: 'strings', v: 0.38 }, { p: 'stab2', i: 'oud', o: -12, v: 0.36 }],
+      bass: { p: 'maqsum', i: 'pizzbass', v: 0.85 }, drums: { intro: 'bossintro', def: 'maqsumfast' }, crash: true },
+    fallenangel: { name: 'だてんし', mood: 'おちた天使の讃美歌', theme: 'boss', mode: 'harmonic', key: 62, bpm: 148, room: 4.2, wet: 0.46,
+      lead: { def: 'choir', B: 'organ', C: 'violin' }, leadOct: { C: 12 }, dbl: { A: ['strings', 12, 0.4], A2: ['brass', -12, 0.4] },
+      harm: [{ p: 'pad', i: 'organ', o: -12, v: 0.4 }, { p: 'arp16', i: 'harp', v: 0.34 }],
+      bass: { p: 'drive', i: 'organbass', v: 0.88 }, drums: { intro: 'bossintro', def: 'gongboss' }, crash: true, fx: ['chimes'] },
+    hakaishin: { name: 'はかいしん', mood: 'せかいの終わりのたたかい', theme: 'boss', mode: 'harmonic', key: 61, bpm: 152, room: 3.8, wet: 0.42,
+      lead: { intro: 'choir', A: 'brass', A2: 'distlead', B: 'choir', C: 'organ' }, leadOct: { A2: 12 }, dbl: { A: ['strings', 12, 0.45], B: ['violin', 12, 0.4] },
+      harm: [{ p: 'pad', i: 'organ', o: -12, v: 0.4 }, { p: 'trem', i: 'trem', v: 0.32 }, { p: 'power', i: 'distguitar', v: 0.45, sec: ['A2', 'C'] }],
+      bass: { p: 'drive', i: 'organbass', v: 0.92 }, drums: { intro: 'bossintro', def: 'final' }, crash: true,
+      rage: { key: 1, tempo: 1.06, dbl: ['choir', 12, 0.5] } },
   },
 
   // ---------------- 村のワルツ (town) ----------------
@@ -279,7 +327,7 @@ const FARR = {
 };
 
 // ---- measured mix: K-weighted stems balanced to lead (harm -3 dB, bass -5 dB, perc <= -5 dB), loudness matched ----
-const FMIX = {"d4":{"harm":-3.5,"bass":0.5,"perc":12,"gain":1.75},"d2":{"harm":-0.2,"bass":1.1,"perc":0,"gain":1.22},"d3":{"harm":-0.4,"bass":-6.3,"perc":-5.8,"gain":1.93},"d1":{"harm":7.4,"bass":2.5,"perc":-4.2,"gain":1.23},"d7":{"harm":-2.1,"bass":-0.3,"perc":2,"gain":1.55},"d5":{"harm":4.6,"bass":0.1,"perc":0,"gain":1.64},"d8":{"harm":0.2,"bass":1.5,"perc":-2.4,"gain":1.04},"d6":{"harm":0.1,"bass":-1.9,"perc":-7.9,"gain":1.45},"d10":{"harm":-1.0,"bass":0.5,"perc":12,"gain":1.48},"d9":{"harm":2.2,"bass":1.6,"perc":-6.5,"gain":1.1},"d12":{"harm":4.4,"bass":3.7,"perc":0,"gain":2.0},"d11":{"harm":1.9,"bass":-1.8,"perc":-3.2,"gain":1.45},"d14":{"harm":5.4,"bass":-0.2,"perc":-13.0,"gain":1.2},"b_kingslime":{"harm":-3.2,"bass":-5.9,"perc":-2.8,"gain":1.48},"d13":{"harm":-2.5,"bass":-1.0,"perc":2,"gain":1.72},"b_treant":{"harm":3.1,"bass":1.0,"perc":-10.7,"gain":1.11},"b_lich":{"harm":2.4,"bass":-0.3,"perc":-9.4,"gain":1.33},"b_goblinking":{"harm":1.6,"bass":1.0,"perc":-5.1,"gain":1.23},"b_spiderqueen":{"harm":6.3,"bass":-4.4,"perc":-6.0,"gain":1.09},"b_icequeen":{"harm":5.1,"bass":1.3,"perc":-2.2,"gain":1.07},"b_deathknight":{"harm":1.4,"bass":2.1,"perc":-7.9,"gain":1.16},"b_dragon":{"harm":2.7,"bass":0.6,"perc":-13.8,"gain":1.14},"b_thunderbird":{"harm":1.1,"bass":0.9,"perc":-8.1,"gain":1.1},"b_kraken":{"harm":0.1,"bass":-0.7,"perc":-14.1,"gain":1.43},"b_pharaoh":{"harm":1.9,"bass":-3.0,"perc":-4.5,"gain":1.14},"b_clockmachine":{"harm":4.5,"bass":-1.5,"perc":-6.0,"gain":1.48},"t_gate":{"harm":8.9,"bass":2.0,"perc":12,"gain":1.18},"b_voideye":{"harm":-0.6,"bass":-3.1,"perc":-14.5,"gain":1.59},"b_cerberus":{"harm":3.9,"bass":1.3,"perc":-13.9,"gain":1.09},"t_house":{"harm":0.2,"bass":0.1,"perc":12,"gain":2.04},"t_item":{"harm":3.0,"bass":0.6,"perc":10,"gain":1.29},"t_smith":{"harm":8.2,"bass":6.5,"perc":0,"gain":1.22},"b_maou":{"harm":-1.1,"bass":0.4,"perc":-7.9,"gain":1.06},"d25":{"harm":-2.6,"bass":-1.9,"perc":-8.0,"gain":1.29},"d15":{"harm":-3.3,"bass":-1.0,"perc":0,"gain":1.72},"d17":{"harm":0.7,"bass":3.4,"perc":-10.9,"gain":1.12},"d16":{"harm":2.5,"bass":-1.4,"perc":-2.8,"gain":1.27},"d19":{"harm":3.5,"bass":-0.4,"perc":-11.2,"gain":1.23},"d18":{"harm":2.6,"bass":-2.3,"perc":4,"gain":1.88},"d23":{"harm":-0.2,"bass":2.9,"perc":-0.2,"gain":1.14},"d22":{"harm":-1.8,"bass":1.9,"perc":2,"gain":1.87},"d21":{"harm":0.6,"bass":0.6,"perc":0,"gain":1.39},"d20":{"harm":0,"bass":0.1,"perc":0,"gain":1.39},"b_hydra":{"harm":5.1,"bass":1.5,"perc":-11.4,"gain":1.18},"b_ghostcaptain":{"harm":6.1,"bass":1.8,"perc":-4.1,"gain":1.09},"d24":{"harm":3.1,"bass":0.1,"perc":-13.7,"gain":1.16},"b_cyclops":{"harm":0.8,"bass":1.4,"perc":-13.2,"gain":1.18},"b_archmage":{"harm":-2.2,"bass":-2.0,"perc":-9.2,"gain":1.29},"b_colossus":{"harm":1.2,"bass":2.5,"perc":-6.0,"gain":1.22},"b_quetzal":{"harm":2.6,"bass":0.8,"perc":-8.0,"gain":1.06},"b_shadowhero":{"harm":3.3,"bass":1.2,"perc":-6.2,"gain":1.11},"b_bonedragon":{"harm":-2.8,"bass":-0.8,"perc":-11.6,"gain":1.37},"b_leviathan":{"harm":-0.3,"bass":0.1,"perc":-11.5,"gain":1.41},"b_demongeneral":{"harm":1.1,"bass":0.8,"perc":-14.1,"gain":1.15}};
+const FMIX = {"d4":{"harm":-3.5,"bass":0.5,"perc":12,"gain":1.75},"d2":{"harm":-0.2,"bass":1.1,"perc":0,"gain":1.22},"d3":{"harm":-0.4,"bass":-6.3,"perc":-5.8,"gain":1.93},"d1":{"harm":7.4,"bass":2.5,"perc":-4.2,"gain":1.23},"d7":{"harm":-2.1,"bass":-0.3,"perc":2,"gain":1.55},"d5":{"harm":4.6,"bass":0.1,"perc":0,"gain":1.64},"d8":{"harm":0.2,"bass":1.5,"perc":-2.4,"gain":1.04},"d6":{"harm":0.1,"bass":-1.9,"perc":-7.9,"gain":1.45},"d10":{"harm":-1.0,"bass":0.5,"perc":12,"gain":1.48},"d9":{"harm":2.2,"bass":1.6,"perc":-6.5,"gain":1.1},"d12":{"harm":4.4,"bass":3.7,"perc":0,"gain":2.0},"d11":{"harm":1.9,"bass":-1.8,"perc":-3.2,"gain":1.45},"d14":{"harm":5.4,"bass":-0.2,"perc":-13.0,"gain":1.2},"b_kingslime":{"harm":-3.2,"bass":-5.9,"perc":-2.8,"gain":1.48},"d13":{"harm":-2.5,"bass":-1.0,"perc":2,"gain":1.72},"b_treant":{"harm":3.1,"bass":1.0,"perc":-10.7,"gain":1.11},"b_lich":{"harm":2.4,"bass":-0.3,"perc":-9.4,"gain":1.33},"b_goblinking":{"harm":1.6,"bass":1.0,"perc":-5.1,"gain":1.23},"b_spiderqueen":{"harm":6.3,"bass":-4.4,"perc":-6.0,"gain":1.09},"b_icequeen":{"harm":5.1,"bass":1.3,"perc":-2.2,"gain":1.07},"b_deathknight":{"harm":1.4,"bass":2.1,"perc":-7.9,"gain":1.16},"b_dragon":{"harm":2.7,"bass":0.6,"perc":-13.8,"gain":1.14},"b_thunderbird":{"harm":1.1,"bass":0.9,"perc":-8.1,"gain":1.1},"b_kraken":{"harm":0.1,"bass":-0.7,"perc":-14.1,"gain":1.43},"b_pharaoh":{"harm":1.9,"bass":-3.0,"perc":-4.5,"gain":1.14},"b_clockmachine":{"harm":4.5,"bass":-1.5,"perc":-6.0,"gain":1.48},"t_gate":{"harm":8.9,"bass":2.0,"perc":12,"gain":1.18},"b_voideye":{"harm":-0.6,"bass":-3.1,"perc":-14.5,"gain":1.59},"b_cerberus":{"harm":3.9,"bass":1.3,"perc":-13.9,"gain":1.09},"t_house":{"harm":0.2,"bass":0.1,"perc":12,"gain":2.04},"t_item":{"harm":3.0,"bass":0.6,"perc":10,"gain":1.29},"t_smith":{"harm":8.2,"bass":6.5,"perc":0,"gain":1.22},"b_maou":{"harm":-1.1,"bass":0.4,"perc":-7.9,"gain":1.06},"d25":{"harm":-2.6,"bass":-1.9,"perc":-8.0,"gain":1.29},"d15":{"harm":-3.3,"bass":-1.0,"perc":0,"gain":1.72},"d17":{"harm":0.7,"bass":3.4,"perc":-10.9,"gain":1.12},"d16":{"harm":2.5,"bass":-1.4,"perc":-2.8,"gain":1.27},"d19":{"harm":3.5,"bass":-0.4,"perc":-11.2,"gain":1.23},"d18":{"harm":2.6,"bass":-2.3,"perc":4,"gain":1.88},"d23":{"harm":-0.2,"bass":2.9,"perc":-0.2,"gain":1.14},"d22":{"harm":-1.8,"bass":1.9,"perc":2,"gain":1.87},"d21":{"harm":0.6,"bass":0.6,"perc":0,"gain":1.39},"d20":{"harm":0,"bass":0.1,"perc":0,"gain":1.39},"b_hydra":{"harm":5.1,"bass":1.5,"perc":-11.4,"gain":1.18},"b_ghostcaptain":{"harm":6.1,"bass":1.8,"perc":-4.1,"gain":1.09},"d24":{"harm":3.1,"bass":0.1,"perc":-13.7,"gain":1.16},"b_cyclops":{"harm":0.8,"bass":1.4,"perc":-13.2,"gain":1.18},"b_archmage":{"harm":-2.2,"bass":-2.0,"perc":-9.2,"gain":1.29},"b_colossus":{"harm":1.2,"bass":2.5,"perc":-6.0,"gain":1.22},"b_quetzal":{"harm":2.6,"bass":0.8,"perc":-8.0,"gain":1.06},"b_shadowhero":{"harm":3.3,"bass":1.2,"perc":-6.2,"gain":1.11},"b_bonedragon":{"harm":-2.8,"bass":-0.8,"perc":-11.6,"gain":1.37},"b_leviathan":{"harm":-0.3,"bass":0.1,"perc":-11.5,"gain":1.41},"b_demongeneral":{"harm":1.1,"bass":0.8,"perc":-14.1,"gain":1.15},"d28":{"harm":1.9,"bass":2.3,"perc":4,"gain":1.5},"d27":{"harm":-2.9,"bass":-1.8,"perc":4,"gain":1.86},"d30":{"harm":6.9,"bass":-0.3,"perc":-8.7,"gain":0.98},"d26":{"harm":0.9,"bass":1.8,"perc":0,"gain":1.1},"d29":{"harm":-1.6,"bass":3.9,"perc":-1.7,"gain":1.05},"b_gorgon":{"harm":0.8,"bass":-0.5,"perc":-3.5,"gain":1.05},"b_nightmare":{"harm":1.0,"bass":-1.3,"perc":-7.9,"gain":1.29},"b_fenrir":{"harm":3.7,"bass":1.5,"perc":-2.6,"gain":1.09},"b_fallenangel":{"harm":-2.9,"bass":-1.7,"perc":-10.4,"gain":1.26},"b_hakaishin":{"harm":-0.1,"bass":-0.1,"perc":-7.8,"gain":1.04}};
 (function () {   // apply the measured mix (FMIX) to every arrangement
   FARR.dungeon.forEach((a, i) => Object.assign(a, { mix: FMIX['d' + (i + 1)], gain: (FMIX['d' + (i + 1)] || {}).gain }));
   for (const k in FARR.boss) if (FMIX['b_' + k]) Object.assign(FARR.boss[k], { mix: FMIX['b_' + k], gain: FMIX['b_' + k].gain });
