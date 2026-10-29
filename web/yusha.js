@@ -572,6 +572,7 @@
   let paused = false;
   let D = null, dIdx = 0;       // current dungeon
   let nodes = [], goalY = 0;
+  let gateNeed = 0, gateKills = 0, gateMsgT = 0, gateCallT = 0;   // the boss door opens once half of the corridor's monsters are down
   let hero = null, enemies = [], bullets = [], drops = [], props = [], fx = [], texts = [], rings = [], zones = [], anims = [];
   let bcamX = 180, bcamY = 0;   // boss-room camera
   let freezeT = 0, darkT = 0, shades = [], twisters = [];   // boss signature effects
@@ -641,6 +642,7 @@
         baseExp += EN[e.type].exp; baseGold += EN[e.type].gold;
       }
     }
+    gateNeed = Math.max(1, Math.ceil(enemies.length * 0.5)); gateKills = 0; gateMsgT = 0; gateCallT = 0;
     D.xk = D.xp * 0.7 / Math.max(1, baseExp); D.gk = D.gp * 0.55 / Math.max(1, baseGold);
     for (const e of enemies) { e.exp = Math.max(1, Math.round(EN[e.type].exp * D.xk)); e.gold = Math.max(1, Math.round(EN[e.type].gold * D.gk)); }
     // props: rocks, crates, chests, spike traps, torches
@@ -1187,6 +1189,9 @@
 
   function killEnemy(e) {
     e.hp = 0; e.dead = true; runKills++; save.kills++;
+    if (state === 'play' && e.type !== 'goldslime' && gateKills < gateNeed && ++gateKills >= gateNeed) {   // the seal on the boss door breaks
+      toast('ボスの とびらの ふういんが とけた！', '#ff8a8a'); A.sfx('chest');
+    }
     if (hero && hero.s.fx.blast && e.type !== 'goldslime') {   // まじんのめだま: it goes off
       rings.push({ x: e.x, y: e.y, r: 8, max: 90, spd: 420, dmg: 0, w: 8, fx: true }); burst(e.x, e.y, 18, '#ff6a8a', 240, 0.5); A.sfx('boom');
       for (const o of enemies) if (o !== e && !o.dead && !o.sub && hyp(o.x - e.x, o.y - e.y) < 85 + o.r) skillHit(o, hero.s.fx.blast, e.x, e.y, 260, '#ff8aa0');
@@ -3124,7 +3129,19 @@
       camY = lerp(camY, Math.max(hero.y + 40, H * 0.38 - 30), 1 - Math.exp(-dt * 6));
       camY = Math.min(camY, goalY + 60 - (H * 0.38) + 60);
       // boss door
-      if (hero.y > goalY + 10 && !transition) { hero.vx = hero.vy = 0; transition = { t: 0, mid: 0.5, fn: enterBossRoom }; A.sfx('door'); }
+      if (gateMsgT > 0) gateMsgT -= dt;
+      if (gateKills < gateNeed && hero.y > goalY - 220) {   // waiting at the sealed door: the seal calls the monsters left behind, a few at a time
+        if ((gateCallT -= dt) <= 0) {
+          gateCallT = 2.4;
+          const far = enemies.filter(e => !e.dead && e.type !== 'goldslime' && !e.march && hyp(e.x - hero.x, e.y - hero.y) > 330).sort((a, b) => a.y - b.y).slice(-3);
+          for (const e of far) { burst(e.x, e.y, 12, '#c8a0ff', 140, 0.4); const y2 = goalY - rnd(300, 460), tn = tunnelAt(y2); e.x = tn.cx + rnd(-0.3, 0.3) * tn.w; e.y = y2; e.vx = e.vy = 0; e.active = true; burst(e.x, e.y, 16, '#c8a0ff', 180, 0.5); anims.push({ kind: 'poof', x: e.x, y: e.y, t: 0, dur: 0.4, frames: 5 }); }
+          if (far.length) { A.sfx('summon'); if (!gateMsgT) popText(hero.x, hero.y + 60, 'ふういんが まものを よびよせた！', '#d8b0ff', 13, 1.2); }
+        }
+      }
+      if (gateKills < gateNeed && hero.y > goalY - 30) {   // sealed: pushed back from the door
+        hero.y = goalY - 30; if (hero.vy > 0) hero.vy = -Math.max(160, hero.vy * 0.5); hero.recoil = Math.max(hero.recoil, 0.12);
+        if (gateMsgT <= 0) { gateMsgT = 1.6; popText(hero.x, hero.y + 40, `ふういんされている… あと ${gateNeed - gateKills}たい たおそう`, '#ff9a8a', 14, 1.4); A.sfx('block'); shake = Math.max(shake, 5); }
+      } else if (hero.y > goalY + 10 && !transition) { hero.vx = hero.vy = 0; transition = { t: 0, mid: 0.5, fn: enterBossRoom }; A.sfx('door'); }
     } else {
       updateProps(dt);
       updateEvents(dt);
@@ -3182,6 +3199,14 @@
       ctx.fillStyle = '#c9a24a'; ctx.fillRect(q(W / 2) - 1.5, dy - 87, 3, 87); ctx.fillRect(q(W / 2) - 9, dy - 36, 6, 6); ctx.fillRect(q(W / 2) + 3, dy - 36, 6, 6);
       const glow = 0.5 + 0.5 * Math.sin(globalT * 3);
       ctx.fillStyle = `rgba(255,60,60,${0.25 + glow * 0.3})`; ctx.fillRect(dx + 6, dy - 3, dw - 12, 3);
+      if (gateKills < gateNeed) {   // the seal: crossed chains and a glowing lock
+        ctx.fillStyle = '#6a6a78'; for (let i = 0; i < 9; i++) { const k = i / 8; ctx.fillRect(q(dx + 4 + k * (dw - 14)), q(dy - 70 + k * 60), 7.5, 4.5); ctx.fillRect(q(dx + dw - 11 - k * (dw - 14)), q(dy - 70 + k * 60), 7.5, 4.5); }
+        ctx.fillStyle = '#a8a8b8'; for (let i = 0; i < 9; i += 2) { const k = i / 8; ctx.fillRect(q(dx + 5.5 + k * (dw - 14)), q(dy - 70 + k * 60), 4.5, 1.5); ctx.fillRect(q(dx + dw - 9.5 - k * (dw - 14)), q(dy - 70 + k * 60), 4.5, 1.5); }
+        const lx = q(W / 2), ly = q(dy - 40);
+        ctx.fillStyle = `rgba(200,120,255,${0.25 + glow * 0.35})`; ctx.fillRect(lx - 21, ly - 21, 42, 42);
+        ctx.fillStyle = '#c9a24a'; ctx.fillRect(lx - 9, ly - 15, 18, 3); ctx.fillRect(lx - 9, ly - 15, 3, 9); ctx.fillRect(lx + 6, ly - 15, 3, 9);
+        ctx.fillStyle = '#e8c860'; ctx.fillRect(lx - 12, ly - 6, 24, 18); ctx.fillStyle = '#7a5a20'; ctx.fillRect(lx - 12, ly + 9, 24, 3); ctx.fillStyle = '#1a0f12'; ctx.fillRect(lx - 1.5, ly, 3, 6);
+      }
     }
   }
   function roundRect(x, y, w, h, r) { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h); }
@@ -3794,7 +3819,7 @@
     ctx.globalAlpha = 1;
     if (D && !arena) {
       const dy = sy(goalY + 20);
-      if (dy > -80 && dy < H + 80) { const glow = 0.5 + 0.5 * Math.sin(globalT * 3); txt('BOSS', W / 2, dy - 100, 16, `rgba(255,${80 + glow * 60},${80 + glow * 60},1)`, 'center'); }
+      if (dy > -80 && dy < H + 80) { const glow = 0.5 + 0.5 * Math.sin(globalT * 3); txt('BOSS', W / 2, dy - 100, 16, `rgba(255,${80 + glow * 60},${80 + glow * 60},1)`, 'center'); if (gateKills < gateNeed) txt(`ふういん：あと ${gateNeed - gateKills}たい`, W / 2, dy - 122, 13, '#d8b0ff', 'center'); }
     }
   }
   function lighting() {
@@ -3860,6 +3885,9 @@
       ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(W - 14, top + 72, 6, 150);
       ctx.fillStyle = '#f2c14e'; ctx.fillRect(W - 14, top + 72 + 150 * (1 - k), 6, 150 * k);
       txt('BOSS', W - 11, top + 66, 10, '#ff6a5a', 'center');
+      const open = gateKills >= gateNeed, lab = open ? 'とびら OK' : `とびら ${gateKills}/${gateNeed}`, bw = 14 + lab.length * 9;
+      ctx.fillStyle = 'rgba(19,24,58,.86)'; roundRect(W - 8 - bw, top + 228, bw, 20, 5); ctx.fill(); ctx.strokeStyle = open ? '#f2c14e' : '#c8a0ff'; ctx.lineWidth = 1.5; roundRect(W - 8 - bw, top + 228, bw, 20, 5); ctx.stroke();
+      txt(lab, W - 8 - bw / 2, top + 243, 12, open ? '#f2c14e' : '#e0d0ff', 'center', false);
     }
     if (state === 'boss' && boss && !boss.dead) {   // arrow to an off-screen boss
       const bx = boss.x - bcamX + W / 2, byy = sy(boss.y), m = 34;
@@ -4534,6 +4562,7 @@
   function openHelp() {
     openPanel('あそびかた', `<p>・画面のどこでも 指をおくと そこが スライドパッドになる。たおした ほうこうに 勇者が うごく。</p>
       <p>・パッドを <b class="gold">おおきく たおす</b>と とっしん。オレンジに 光っていれば ぶつかると こうげきになる。ぶつかった あとは はねかえる。</p>
+      <p>・ボスの とびらは <b class="gold">ふういん</b>されている。つうろの まものを はんぶん いじょう たおすと ひらく（みぎうえの「とびら」に かずが でる）。</p>
       <p>・ダンジョンに はいる まえの <b class="gold">じゅんび</b>で、どうぐを 3しゅるいまで もっていける。どうぐごとに もっていける かずが きまっている。</p>
       <p>・指を <b class="gold">すばやく はじく（フリック）</b>と、その ほうこうへ ころがって かいひ。ころがっている あいだは こうげきを うけず、てきも すりぬける（つかうと 0.7びょう まつ）。</p>
       <p>・ゆっくり ふれると モンスターの こうげきを うける。弾や 剣にも ちゅうい。</p>
@@ -4698,5 +4727,5 @@
   requestAnimationFrame(frame);
   // test hooks
   window.__yusha = { get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
-    enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN, ITEMS, EQUIP }, get bag() { return bag; }, openPrep, charmHit, stats, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt, openOptions };
+    enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN, ITEMS, EQUIP }, get bag() { return bag; }, openPrep, charmHit, stats, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, get gate() { return [gateKills, gateNeed]; }, killE: e => killEnemy(e), drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt, openOptions };
 })();
