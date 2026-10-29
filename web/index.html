@@ -19,7 +19,7 @@
 }
 html, body { height: 100%; }
 body { background: var(--night); color: var(--frame); font-family: var(--font); overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; }
-#game { position: relative; height: 100%; max-width: 560px; margin: 0 auto; overflow: hidden; }
+#game { position: relative; height: 100%; margin: 0 auto; overflow: hidden; }
 /* the world: a small pixel canvas the browser scales up (sharp pixels, no per-frame upscale copy); HUD and text on #cv above it */
 #px { position: absolute; left: 0; top: 0; display: block; image-rendering: pixelated; image-rendering: crisp-edges; pointer-events: none; }
 #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }

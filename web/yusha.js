@@ -28,7 +28,7 @@
   function endPix() { ctx = mainCtx; ctx.imageSmoothingEnabled = false; }
   const $ = id => document.getElementById(id);
   const VW = 360;
-  let W = VW, H = 640, S = 1, dpr = 1;
+  let W = VW, H = 640, S = 1, dpr = 1, WX = 0;   // W = screen width (logical, ≥ 360); WX = where the 360-wide field starts
   const FONT = '"DotGothic16", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif';
 
   const rnd = (a, b) => a + Math.random() * (b - a);
@@ -623,17 +623,17 @@
     D = DUNGEONS[di]; dIdx = di;
     const r = mulberry(di * 7919 + 101 + Math.floor(Math.random() * 1e6));
     const R = (a, b) => a + r() * (b - a);
-    nodes = [{ y: -400, cx: W / 2, w: W * 0.7 }, { y: 0, cx: W / 2, w: W * 0.7 }, { y: 260, cx: W / 2, w: W * 0.74 }];
-    let y = 260, cx = W / 2;
+    nodes = [{ y: -400, cx: VW / 2, w: VW * 0.7 }, { y: 0, cx: VW / 2, w: VW * 0.7 }, { y: 260, cx: VW / 2, w: VW * 0.74 }];
+    let y = 260, cx = VW / 2;
     while (y < D.len - 200) {
       y += R(160, 240);
       const hall = r() < 0.24;
-      const w = hall ? W * R(0.86, 0.9) : W * R(D.w[0], D.w[1]);
-      cx = clamp(cx + R(-70, 70), w / 2 + 6, W - w / 2 - 6);
+      const w = hall ? VW * R(0.86, 0.9) : VW * R(D.w[0], D.w[1]);
+      cx = clamp(cx + R(-70, 70), w / 2 + 6, VW - w / 2 - 6);
       nodes.push({ y, cx, w, hall });
     }
     goalY = D.len;
-    nodes.push({ y: goalY - 120, cx: W / 2, w: W * 0.62 }, { y: goalY, cx: W / 2, w: W * 0.5 }, { y: goalY + 600, cx: W / 2, w: W * 0.5 });
+    nodes.push({ y: goalY - 120, cx: VW / 2, w: VW * 0.62 }, { y: goalY, cx: VW / 2, w: VW * 0.5 }, { y: goalY + 600, cx: VW / 2, w: VW * 0.5 });
 
     enemies = []; bullets = []; drops = []; props = []; fx = []; texts = []; rings = []; anims = [];
     // EXP / gold per run come from the dungeon's targets (monsters 70% / 55%, boss 30% / 25%, boxes 20% gold)
@@ -642,7 +642,7 @@
     for (let g = 0; g < D.groups; g++) {
       const gy = 420 + (g + R(0.1, 0.8)) * (D.len - 700) / D.groups;
       const tn = tunnelAt(gy);
-      const n = (tn.w > W * 0.85 ? 3 : 2) + (r() < 0.45 ? 1 : 0) + (di >= 2 && r() < 0.3 ? 1 : 0);
+      const n = (tn.w > VW * 0.85 ? 3 : 2) + (r() < 0.45 ? 1 : 0) + (di >= 2 && r() < 0.3 ? 1 : 0);
       for (let k = 0; k < n; k++) {
         const ey = gy + R(-60, 60), t2 = tunnelAt(ey);
         const e = spawnEnemy(wpick(D.pool, r()), t2.cx + R(-0.35, 0.35) * t2.w, ey);
@@ -721,7 +721,7 @@
     // warp pads point at each other by index, so link them before sorting
     for (const p of props) if (p.type === 'warp') p.to = props[p.pair];
     for (let ty = 200; ty < D.len; ty += 230) props.push({ type: 'torch', side: (ty / 230) % 2 < 1 ? -1 : 1, y: ty });
-    props.push({ type: 'spring', x: W / 2, y: goalY - 190, r: 26, used: false });
+    props.push({ type: 'spring', x: VW / 2, y: goalY - 190, r: 26, used: false });
     props.sort((a, b) => a.y - b.y);
   }
 
@@ -901,7 +901,7 @@
     closePanel(); deathT = 0;
     bag = fillBag(Array.isArray(save.slots) ? slotsLoadout(getSlots()) : save.loadout || autoLoadout());
     genDungeon(di);
-    hero = newHero(W / 2, 70);
+    hero = newHero(VW / 2, 70);
     camY = hero.y; boss = null; arena = null; zones = []; freezeT = 0; darkT = 0; shades = []; twisters = []; combo = 0; runExp = 0; runGold = 0; runKills = 0; runLoot = []; toasts = [];
     state = 'play'; paused = false; hint = di === 0 ? 6 : 0;
     banner = { a: D.name, b: D.en, t: 2.4 };
@@ -912,10 +912,10 @@
   function enterBossRoom() {
     const B = BOSSES[D.boss];
     state = 'boss';
-    arena = { cx: W / 2, cy: 0, R: 360 };   // much wider than the screen (1.2x the old 300); the camera follows the hero
+    arena = { cx: VW / 2, cy: 0, R: 360 };   // much wider than the screen (1.2x the old 300); the camera follows the hero
     enemies = []; bullets = []; drops = []; rings = []; props = []; zones = []; freezeT = 0; darkT = 0; shades = []; twisters = [];
     evs = []; ev = { qT: 30 };   // ハテナ箱: first after 30 s, then every 60 s
-    hero.x = W / 2; hero.y = -arena.R + 70; hero.vx = 0; hero.vy = 0;
+    hero.x = VW / 2; hero.y = -arena.R + 70; hero.vx = 0; hero.vy = 0;
     bcamX = hero.x; bcamY = hero.y + 120;
     boss = { type: D.boss, name: B.name, x: arena.cx, y: arena.cy + 20, vx: 0, vy: 0, r: Math.round(B.r * 1.4), hp: B.hp, maxHp: B.hp, atk: B.atk, def: B.def, col: B.col, wcol: B.wcol, fcol: B.fcol, ocol: B.ocol,
       exp: Math.round(D.xp * 0.3), gold: Math.round(D.gp * 0.25), moves: B.moves, moves2: B.moves2, phase: 1, mv: null, mt: 0, cd: 2.2, last: '', hurt: 0, hitCD: 0, z: 0,
@@ -3177,7 +3177,7 @@
   function drawDungeon() {
     makePatterns();
     const P = D.pal;
-    patShift(wallPat, 0, sy(0) % 24); ctx.fillStyle = wallPat; ctx.fillRect(0, 0, W, H);
+    patShift(wallPat, 0, sy(0) % 24); ctx.fillStyle = wallPat; ctx.fillRect(-WX - 3, 0, W + 6, H);
     // corridor floor
     const y0 = camY - H * 0.5, y1 = camY + H * 0.75;
     const L = [], R = [];
@@ -3193,23 +3193,23 @@
     ctx.beginPath(); L.forEach((p, i) => i ? ctx.lineTo(p[0] - 2, p[1]) : ctx.moveTo(p[0] - 2, p[1])); ctx.stroke();
     ctx.beginPath(); R.forEach((p, i) => i ? ctx.lineTo(p[0] + 2, p[1]) : ctx.moveTo(p[0] + 2, p[1])); ctx.stroke();
     // bottom wall at the entrance
-    if (sy(0) < H + 40) { ctx.fillStyle = wallPat; ctx.fillRect(0, q(sy(0)), W, H); ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(0, q(sy(0)), W, 4.5); }
+    if (sy(0) < H + 40) { ctx.fillStyle = wallPat; ctx.fillRect(-WX - 3, q(sy(0)), W + 6, H); ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(0, q(sy(0)), W, 4.5); }
     // boss door (pixel arch)
     const dy = q(sy(goalY + 20));
     if (dy > -80 && dy < H + 80) {
-      ctx.fillStyle = wallPat; ctx.fillRect(0, dy - 400, W, 400);
-      const dw = 138, dx = q(W / 2 - dw / 2);
+      ctx.fillStyle = wallPat; ctx.fillRect(-WX - 3, dy - 400, W + 6, 400);
+      const dw = 138, dx = q(VW / 2 - dw / 2);
       ctx.fillStyle = '#c9a24a'; ctx.fillRect(dx - 6, dy - 72, dw + 12, 72); ctx.fillRect(dx + 9, dy - 84, dw - 18, 12); ctx.fillRect(dx + 30, dy - 93, dw - 60, 9);
       ctx.fillStyle = '#7a5a20'; ctx.fillRect(dx - 6, dy - 3, dw + 12, 3);
       ctx.fillStyle = '#1a0f12'; ctx.fillRect(dx, dy - 66, dw, 66); ctx.fillRect(dx + 12, dy - 78, dw - 24, 12); ctx.fillRect(dx + 33, dy - 87, dw - 66, 9);
       ctx.fillStyle = '#3a2428'; for (let i = 0; i < 6; i++) ctx.fillRect(dx + 6 + i * 22.5, dy - 63, 3, 63);
-      ctx.fillStyle = '#c9a24a'; ctx.fillRect(q(W / 2) - 1.5, dy - 87, 3, 87); ctx.fillRect(q(W / 2) - 9, dy - 36, 6, 6); ctx.fillRect(q(W / 2) + 3, dy - 36, 6, 6);
+      ctx.fillStyle = '#c9a24a'; ctx.fillRect(q(VW / 2) - 1.5, dy - 87, 3, 87); ctx.fillRect(q(VW / 2) - 9, dy - 36, 6, 6); ctx.fillRect(q(VW / 2) + 3, dy - 36, 6, 6);
       const glow = 0.5 + 0.5 * Math.sin(globalT * 3);
       ctx.fillStyle = `rgba(255,60,60,${0.25 + glow * 0.3})`; ctx.fillRect(dx + 6, dy - 3, dw - 12, 3);
       if (gateKills < gateNeed) {   // the seal: crossed chains and a glowing lock
         ctx.fillStyle = '#6a6a78'; for (let i = 0; i < 9; i++) { const k = i / 8; ctx.fillRect(q(dx + 4 + k * (dw - 14)), q(dy - 70 + k * 60), 7.5, 4.5); ctx.fillRect(q(dx + dw - 11 - k * (dw - 14)), q(dy - 70 + k * 60), 7.5, 4.5); }
         ctx.fillStyle = '#a8a8b8'; for (let i = 0; i < 9; i += 2) { const k = i / 8; ctx.fillRect(q(dx + 5.5 + k * (dw - 14)), q(dy - 70 + k * 60), 4.5, 1.5); ctx.fillRect(q(dx + dw - 9.5 - k * (dw - 14)), q(dy - 70 + k * 60), 4.5, 1.5); }
-        const lx = q(W / 2), ly = q(dy - 40);
+        const lx = q(VW / 2), ly = q(dy - 40);
         ctx.fillStyle = `rgba(200,120,255,${0.25 + glow * 0.35})`; ctx.fillRect(lx - 21, ly - 21, 42, 42);
         ctx.fillStyle = '#c9a24a'; ctx.fillRect(lx - 9, ly - 15, 18, 3); ctx.fillRect(lx - 9, ly - 15, 3, 9); ctx.fillRect(lx + 6, ly - 15, 3, 9);
         ctx.fillStyle = '#e8c860'; ctx.fillRect(lx - 12, ly - 6, 24, 18); ctx.fillStyle = '#7a5a20'; ctx.fillRect(lx - 12, ly + 9, 24, 3); ctx.fillStyle = '#1a0f12'; ctx.fillRect(lx - 1.5, ly, 3, 6);
@@ -3826,7 +3826,7 @@
     ctx.globalAlpha = 1;
     if (D && !arena) {
       const dy = sy(goalY + 20);
-      if (dy > -80 && dy < H + 80) { const glow = 0.5 + 0.5 * Math.sin(globalT * 3); txt('BOSS', W / 2, dy - 100, 16, `rgba(255,${80 + glow * 60},${80 + glow * 60},1)`, 'center'); if (gateKills < gateNeed) txt(`ふういん：あと ${gateNeed - gateKills}たい`, W / 2, dy - 122, 13, '#d8b0ff', 'center'); }
+      if (dy > -80 && dy < H + 80) { const glow = 0.5 + 0.5 * Math.sin(globalT * 3); txt('BOSS', VW / 2, dy - 100, 16, `rgba(255,${80 + glow * 60},${80 + glow * 60},1)`, 'center'); if (gateKills < gateNeed) txt(`ふういん：あと ${gateNeed - gateKills}たい`, VW / 2, dy - 122, 13, '#d8b0ff', 'center'); }
     }
   }
   function lighting() {
@@ -4138,8 +4138,8 @@
   function drawInterior(id) {
     if (id === 'gate') {
       ctx.fillStyle = '#0d0a16'; ctx.fillRect(0, 0, W, H);
-      for (let i = 0; i < 7; i++) { const k = (globalT * 0.4 + i / 7) % 1; ctx.strokeStyle = `rgba(255,120,220,${0.6 * (1 - k)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(W / 2, H * 0.24, W * 0.45 * (1 - k), H * 0.18 * (1 - k), 0, 0, 7); ctx.stroke(); }
-      for (let i = 0; i < 24; i++) { const a = i * 2.4 + globalT * 0.3, rr = (i * 13 % 100) / 100 * W * 0.45; ctx.fillStyle = 'rgba(255,190,240,.7)'; ctx.fillRect(q(W / 2 + Math.cos(a) * rr), q(H * 0.24 + Math.sin(a) * rr * 0.4), 1.5, 1.5); }
+      for (let i = 0; i < 7; i++) { const k = (globalT * 0.4 + i / 7) % 1; ctx.strokeStyle = `rgba(255,120,220,${0.6 * (1 - k)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(W / 2, H * 0.24, VW * 0.45 * (1 - k), Math.min(H * 0.18, VW * 0.36) * (1 - k), 0, 0, 7); ctx.stroke(); }
+      for (let i = 0; i < 24; i++) { const a = i * 2.4 + globalT * 0.3, rr = (i * 13 % 100) / 100 * VW * 0.45; ctx.fillStyle = 'rgba(255,190,240,.7)'; ctx.fillRect(q(W / 2 + Math.cos(a) * rr), q(H * 0.24 + Math.sin(a) * rr * 0.4), 1.5, 1.5); }
       return;
     }
     const T = SPR.tileCanvas, wallCol = id === 'smith' ? '#4a3428' : id === 'house' ? '#5a4868' : '#5a4430';
@@ -4215,6 +4215,7 @@
     ctx.save();
     ctx.translate(shx, shy);
     if (arena) ctx.translate(q(W / 2 - bcamX), 0);   // boss room camera
+    else ctx.translate(q(WX), 0);                    // corridor: the 360-wide field in the middle of a wider screen
     if (arena) drawArena(); else drawDungeon();
     if (state !== 'boss' && !arena) drawProps();
     drawEvents();
@@ -4232,7 +4233,7 @@
     if (D) lighting();
     ctx.restore();
     endPix();
-    ctx.save(); ctx.translate(shx, shy); if (arena) ctx.translate(q(W / 2 - bcamX), 0); drawWorldText(); ctx.restore();
+    ctx.save(); ctx.translate(shx, shy); ctx.translate(arena ? q(W / 2 - bcamX) : q(WX), 0); drawWorldText(); ctx.restore();
     camY = cam0; bcamX = bx0; bcamY = by0;
     if (flash > 0) { ctx.fillStyle = `rgba(${flashCol},${flash * 0.5})`; ctx.fillRect(0, 0, W, H); }
     drawHud();
@@ -4674,12 +4675,12 @@
   // Screens wider than 360:540 (tablets, foldables, landscape) get side bars so the field never gets too short.
   let safeT = 0, safeB = 0;
   function resize() {
-    const game = $('game'), vw = window.innerWidth, vh = window.innerHeight;
-    game.style.maxWidth = Math.max(240, Math.min(560, vw, Math.floor(vh * VW / 540))) + 'px';
     const r = cv.getBoundingClientRect();
     const cap = Math.sqrt(1.2e6 / Math.max(1, r.width * r.height));
     dpr = Math.max(0.75, Math.min(2, window.devicePixelRatio || 1, cap) * quality);
-    S = r.width / VW; W = VW; H = Math.round(r.height / S);
+    // the whole screen is used. Characters keep one size: fit 360 to the width on phones; on wider screens
+    // (tablets, foldables, landscape) the scale is set by the height (and capped) and the extra width shows more around the field
+    S = Math.max(0.5, Math.min(r.width / VW, r.height / 540, 560 / VW)); W = Math.max(VW, r.width / S); H = Math.round(r.height / S); WX = (W - VW) / 2;
     cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
     const pr = $('safeProbe'), cs = pr ? getComputedStyle(pr) : null, T = window.__safeTest;   // notch / punch-hole and the gesture bar, in logical px
     safeT = (T ? T.t : cs ? parseFloat(cs.paddingTop) || 0 : 0) / S; safeB = (T ? T.b : cs ? parseFloat(cs.paddingBottom) || 0 : 0) / S;
