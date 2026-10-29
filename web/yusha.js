@@ -3488,12 +3488,13 @@
     return null;
   }
   // Draw-only state. Movement, collision and attack timing are never changed here.
-  const ZAKO4 = new Set(['slime','bat','goblin','archer','skeleton']);
+  const ZAKO4 = new Set(['slime','bat','goblin','archer','skeleton','ghost','mage','lizard','golem','knight']);
   function zakoFacing(e) {
     let dx=hero.x-e.x,dy=hero.y-e.y;
-    const locked=e.st==='wind'||e.st==='dash'||e.st==='slash';
-    if(locked){if(e.ai==='lunge'){dx=e.lx;dy=e.ly;}else{dx=Math.cos(e.face);dy=Math.sin(e.face);}}
-    else if(e.st!=='aim'&&hyp(e.vx,e.vy)>18){dx=e.vx;dy=e.vy;}
+    const locked=(e.st==='wind'&&e.ai!=='slam')||e.st==='dash'||e.st==='slash'||e.st==='fire';
+    if(e.ai==='guard'){dx=Math.cos(e.face);dy=Math.sin(e.face);}
+    else if(locked){if(e.ai==='lunge'){dx=e.lx;dy=e.ly;}else{dx=Math.cos(e.face);dy=Math.sin(e.face);}}
+    else if(e.ai!=='phase'&&e.st!=='wind'&&e.st!=='aim'&&hyp(e.vx,e.vy)>18){dx=e.vx;dy=e.vy;}
     const angle=Math.atan2(dy,dx),wanted=face4(angle);
     let s=e.zakoView;
     if(!s)s=e.zakoView={face:wanted,candidate:wanted,since:globalT,st:e.st,changed:globalT,prev:e.st};
@@ -3523,6 +3524,27 @@
       return {a:turn(arc1,rest,k),w:1-k};
     }
     return null;
+  }
+  function zakoMotion2(e,view) {
+    if(!['ghost','mage','lizard','golem','knight'].includes(e.type))return null;
+    const q=v=>Math.round(v*16)/16, since=globalT-view.changed;
+    const m=view.motion||(view.motion={cd:e.cd,fireAt:-100});
+    if(e.cd>m.cd+.1)m.fireAt=globalT;m.cd=e.cd;
+    const p={raise:0,drop:0,impact:0,jaw:0,pulse:0,weight:0,extend:0,theta:0};
+    if(e.type==='ghost')p.pulse=Math.max(0,1-(globalT-m.fireAt)/.35);
+    if(e.type==='mage')p.raise=e.st==='cast'?easeIO(clamp(e.t/.6,0,1)):view.prev==='cast'?1-easeIO(clamp(since/.35,0,1)):0;
+    if(e.type==='lizard')p.jaw=e.st==='wind'?easeIO(clamp(e.t/.42,0,1)):e.st==='fire'?1:view.prev==='fire'?1-easeIO(clamp(since/.3,0,1)):0;
+    if(e.type==='golem') {
+      if(e.st==='wind') {const strike=easeIn(clamp((e.t-.5)/.2,0,1));p.raise=easeIO(clamp(e.t/.5,0,1))*(1-strike);p.impact=strike;p.drop=-p.raise+3*strike;}
+      else if(view.prev==='wind'){p.impact=1-easeIO(clamp(since/.3,0,1));p.drop=3*p.impact;}
+    }
+    if(e.type==='knight') {
+      if(e.st==='wind'){p.weight=easeIO(clamp(e.t/.3,0,1));p.extend=-2;}
+      else if(e.st==='dash'){p.weight=1;p.extend=lerp(-2,8.5,easeIO(clamp(e.t/.1,0,1)));}
+      else if(e.st==='tired'){const k=easeIO(clamp(e.t/.35,0,1));p.weight=1-k;p.extend=8.5*(1-k);}
+      if(p.weight>0)p.theta=Math.round(-e.face*20)/20;
+    }
+    for(const k of Object.keys(p))if(k!=='theta')p[k]=q(p[k]);return p;
   }
   function drawEnemy(e) {
     const x = e.x, y = sy(e.y), r = e.r;
@@ -3556,7 +3578,7 @@
     const step = moving ? (Math.sin((globalT + e.phase) * 11) > 0 ? 1 : -1) : 0;
     const arm = zakoArm(e), bx = arm ? x + arm.lean * SPR.SCALE * (hero.x < e.x - 2 ? -1 : 1) : x, byy = arm ? yy + arm.cr * SPR.SCALE : yy;   // the body leans back into the wind-up and steps into the blow
     const view = ZAKO4.has(e.type) ? zakoFacing(e) : null;
-    const spr = SPR.enemy(e.type, { view:view&&view.face, upSlash:view?skeletonUpSlash(e,view):null, bodyX:view&&arm?Math.round(arm.lean*(view.face==='r'?1:view.face==='l'?-1:0)):0, bodyY:view&&arm?Math.round(arm.cr):0, pull:e.st==='aim'?easeIO(clamp(e.t/.55,0,1)):0, release:view&&view.prev==='aim'?Math.max(0,1-(globalT-view.changed)/.2):0, st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step: arm && arm.sp != null ? Math.round(arm.sp) : step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: !view && hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm });
+    const spr = SPR.enemy(e.type, { view:view&&view.face, upSlash:view?skeletonUpSlash(e,view):null, motion:view?zakoMotion2(e,view):null, bodyX:view&&arm?Math.round(arm.lean*(view.face==='r'?1:view.face==='l'?-1:0)):0, bodyY:view&&arm?Math.round(arm.cr):0, pull:e.st==='aim'?easeIO(clamp(e.t/.55,0,1)):0, release:view&&view.prev==='aim'?Math.max(0,1-(globalT-view.changed)/.2):0, st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step: arm && arm.sp != null ? Math.round(arm.sp) : step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: !view && hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm });
     if(R3[e.type] && R3[e.type].enemy) drawR3Enemy(e,R3[e.type],x,yy+r*.75,hurt);
     else {
       const hop=e.type==='slime'&&e.st==='hop'?Math.sin(clamp(e.t/.38,0,1)*Math.PI)*7:0;

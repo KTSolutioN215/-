@@ -550,16 +550,16 @@ const SPR = (() => {
     // ----- dark mage: staff orb glows while casting -----
     mage(P) {
       const cast = P.st === 'cast' ? 1 : 0, k = P.f % 2;
-      return mk('mage' + cast + k, 34, 48, 17, 46, g => {
+      return mk('mage' + cast + k + motionKey2(P), 34, 48, 17, 46, g => {
         const R = '#3b2466', RS = '#24123e', HT = '#8a4fd8', HS = '#5a2a9a', G = '#f2c14e';
         g.poly([[11, 21], [23, 21], [28, 45], [6, 45]], R); g.poly([[18, 21], [23, 21], [28, 45], [20, 45]], RS);
         g.r(6, 44, 22, 1, G); g.r(16, 22, 2, 22, '#5a3a8a');
-        g.r(9, 23 - cast * 3, 4, 7, R); g.r(9, 29 - cast * 3, 3, 2, '#c8b0e8');
+        const lift=P.motion?P.motion.raise:cast;g.r(9,23-lift*3,4,7,R);g.r(9,29-lift*3,3,2,'#c8b0e8');
         // staff
-        const sy = cast ? 4 : 10 + k;
+        const sy = P.motion ? 10+k*(1-P.motion.raise)-6*P.motion.raise : cast ? 4 : 10+k;
         g.r(25, sy + 3, 2, 44 - sy - 3, '#6a4020'); g.r(23, sy + 2, 6, 1, G);
-        g.r(23, 27 - cast * 4, 4, 3, R); g.r(24, 29 - cast * 4, 3, 2, '#c8b0e8');
-        g.ell(26, sy, cast ? 3.6 : 2.8, cast ? 3.6 : 2.8, cast ? '#e8b0ff' : '#c878ff'); g.p(25, sy - 1, '#ffffff');
+        g.r(23,27-lift*4,4,3,R);g.r(24,29-lift*4,3,2,'#c8b0e8');
+        g.ell(26,sy,2.8+.8*lift,2.8+.8*lift,cast?'#e8b0ff':'#c878ff'); g.p(25, sy - 1, '#ffffff');
         // face + hat
         g.r(11, 15, 12, 7, '#140a24');
         g.r(13, 17, 2, 1, '#ffe14a'); g.r(19, 17, 2, 1, '#ffe14a'); if (cast) { g.p(13, 18, '#ffe14a'); g.p(20, 18, '#ffe14a'); }
@@ -571,8 +571,8 @@ const SPR = (() => {
     // ----- salamander (side view) -----
     lizard(P) {
       const wind = P.st === 'wind' || P.st === 'fire' ? 1 : 0, k = P.f % 2, fl = P.f % 3;
-      return mk('liz' + wind + k + fl, 50, 32, 25, 29, g => {
-        const B = '#ff7a3c', S = '#c04a1a', BL = '#ffd080';
+      return mk('liz' + wind + k + fl + motionKey2(P), 50, 32, 25, 29, g => {
+        const B = '#ff7a3c', S = '#c04a1a', BL = '#ffd080',jaw=P.motion?P.motion.jaw:wind;
         g.line(14, 21, 7, 15, 5, S); g.line(7, 15, 3, 10, 3, S);
         g.ell(3, 8 - fl, 2.4, 3, '#ffd24a'); g.p(3, 5 - fl, '#ff4a1a'); g.p(2, 9, '#ff4a1a');
         const leg = (x, fw) => { g.r(x + fw, 24, 3, 4, S); g.r(x + fw - 1, 27, 5, 1, '#8a2a0a'); };
@@ -580,24 +580,24 @@ const SPR = (() => {
         g.ell(24, 20, 12, 6, B); g.ell(24, 23, 9, 3, BL);
         for (let i = 0; i < 5; i++) g.poly([[15 + i * 4, 15], [17 + i * 4, 11], [19 + i * 4, 15]], '#ffd24a');
         leg(19, k ? -1 : 2); leg(33, k ? 2 : -1);
-        g.ell(37, 17 - wind, 6, 5, B); g.ell(42, 18 - wind * 2, 4, 3, B);
-        if (wind) { g.poly([[38, 19], [47, 17], [46, 23]], '#6a0a0a'); g.p(44, 19, '#ffd24a'); g.p(45, 20, '#ffffff'); }
+        g.ell(37, 17 - jaw, 6, 5, B); g.ell(42, 18 - jaw * 2, 4, 3, B);
+        if(jaw>0){g.poly([[38,19],[47,19-2*jaw],[46,19+4*jaw]],'#6a0a0a'); g.p(44, 19, '#ffd24a'); g.p(45, 20, '#ffffff'); }
         else g.r(40, 20, 6, 1, S);
-        g.r(38, 14 - wind, 2, 2, '#ffe14a'); g.p(39, 14 - wind, EYE); g.p(44, 16 - wind * 2, S);
+        g.r(38, 14 - jaw, 2, 2, '#ffe14a'); g.p(39, 14 - jaw, EYE); g.p(44, 16 - jaw * 2, S);
       });
     },
     // ----- stone golem -----
     golem(P) {
       const wind = P.st === 'wind' ? 1 : 0, k = P.f % 2;
-      return mk('golem' + wind + k, 54, 58, 27, 55, g => {
+      return mk('golem' + wind + k + motionKey2(P) + (P.motion?'|'+(P.step||0):''), 54, 58, 27, 55, g => {
         const B = '#9a8f86', S = '#6a625c', H = '#c4bab0', M = '#5a8a3a', E = wind ? '#ff5a3a' : '#7af0ff';
-        g.r(16, 44, 9, 10, S); g.r(30, 44, 9, 10, S); g.r(15, 53, 11, 2, '#4a443e'); g.r(29, 53, 11, 2, '#4a443e');
+        const step=P.motion?(P.step||0):0;g.r(16,44-(step>0?1:0),9,10,S);g.r(30,44-(step<0?1:0),9,10,S);g.r(15,53-(step>0?1:0),11,2,'#4a443e');g.r(29,53-(step<0?1:0),11,2,'#4a443e');if(P.motion)g.x.translate(0,P.motion.drop);
         g.r(12, 20, 31, 26, B); g.r(36, 20, 7, 26, S); g.r(12, 20, 31, 2, H); g.r(12, 44, 31, 2, S);
         g.r(17, 27, 2, 8, S); g.r(24, 33, 7, 1, S); g.p(33, 24, S);
         g.ell(27, 32, 3.4, 3.4, '#4a4440'); g.ell(27, 32, 2, 2, E);
         g.r(13, 21, 6, 3, M); g.r(38, 38, 4, 2, M);
         // arms
-        const ay = wind ? -14 : k;
+        const ay=P.motion?-14*P.motion.raise+4*P.motion.impact+k*(1-P.motion.raise)*(1-P.motion.impact):wind?-14:k;
         for (const m of [-1, 1]) {
           const x0 = m < 0 ? 2 : 43;
           g.r(x0, 22 + ay, 10, 18, m < 0 ? B : S); g.r(x0, 22 + ay, 10, 2, H);
@@ -612,11 +612,12 @@ const SPR = (() => {
     knight(P) {
       const st = P.st === 'wind' || P.st === 'dash' ? 1 : P.st === 'tired' ? 2 : 0, k = P.f % 2;
       const AR = armQ(P.arm, { ha: 1.35, hr: 0.75, wa: -1.57 });
-      return mk('knight' + st + k + armKey(AR), 66, 52, 22, 49, g => {
+      return mk('knight' + st + k + armKey(AR) + motionKey2(P) + (P.motion?'|'+(P.bodyX||0)+','+(P.bodyY||0):''), P.motion?82:66, P.motion?68:52, P.motion?30:22, P.motion?57:49, g => {
+        if(P.motion)g.x.translate(8,8);
         const A = '#5a5f7a', S = '#3a3e52', H = '#8a90a8', C = '#7a1828';
         g.poly([[14, 19], [30, 19], [33, 46], [11, 46]], C);
         g.r(15, 37, 5, 9, S); g.r(24, 37, 5, 9, S); g.r(14, 45, 7, 2, '#22242e'); g.r(23, 45, 7, 2, '#22242e');
-        g.r(13, 21, 18, 17, A); g.r(26, 21, 5, 17, S); g.r(15, 22, 3, 6, H); g.r(13, 33, 18, 2, S); g.r(21, 33, 2, 2, '#c9a24a');
+        if(P.motion)g.x.translate(P.bodyX||0,P.bodyY||0);g.r(13,21,18,17,A); g.r(26, 21, 5, 17, S); g.r(15, 22, 3, 6, H); g.r(13, 33, 18, 2, S); g.r(21, 33, 2, 2, '#c9a24a');
         g.r(10, 20, 6, 5, H); g.r(28, 20, 6, 5, A);
         // helmet
         const hy = st === 2 ? 3 : 0;
@@ -626,8 +627,8 @@ const SPR = (() => {
         // sword arm (right): the gauntlet holds the sword, the arm swings it
         {
           const sx = 29, sy = 23, L = 6, reach = Math.min(AR.hr, 0.999) * L * 2, a = AR.ha, off = Math.acos(Math.max(-1, Math.min(1, reach / (2 * L))));
-          const hx = sx + Math.cos(a) * reach, hy = sy + Math.sin(a) * reach, dx = Math.cos(AR.wa), dy = Math.sin(AR.wa), nx = -dy, ny = dx;
-          const e1 = [sx + Math.cos(a + off) * L, sy + Math.sin(a + off) * L], e2 = [sx + Math.cos(a - off) * L, sy + Math.sin(a - off) * L], el = (e1[1] - e1[0] * 0.4) > (e2[1] - e2[0] * 0.4) ? e1 : e2;
+          const raw=[sx+Math.cos(a)*reach,sy+Math.sin(a)*reach],thrust=knightThrust2(P,[sx,sy],raw,[Math.cos(AR.wa),Math.sin(AR.wa)]),hx=thrust.hand[0],hy=thrust.hand[1],dx=thrust.dir[0],dy=thrust.dir[1],nx=-dy,ny=dx;
+          const ah=Math.atan2(hy-sy,hx-sx),oh=Math.acos(Math.min(.9999,Math.hypot(hx-sx,hy-sy)/(2*L))),e1=[sx+Math.cos(P.motion?ah+oh:a+off)*L,sy+Math.sin(P.motion?ah+oh:a+off)*L],e2=[sx+Math.cos(P.motion?ah-oh:a-off)*L,sy+Math.sin(P.motion?ah-oh:a-off)*L],el= (e1[1] - e1[0] * 0.4) > (e2[1] - e2[0] * 0.4) ? e1 : e2;
           const sword = () => {
             g.poly([[hx + dx * 3 + nx * 1.6, hy + dy * 3 + ny * 1.6], [hx + dx * 18 + nx * 1.5, hy + dy * 18 + ny * 1.5], [hx + dx * 21, hy + dy * 21], [hx + dx * 18 - nx * 1.5, hy + dy * 18 - ny * 1.5], [hx + dx * 3 - nx * 1.6, hy + dy * 3 - ny * 1.6]], '#dfe6f2');
             g.line(hx + dx * 4 + nx * 0.5, hy + dy * 4 + ny * 0.5, hx + dx * 18 + nx * 0.5, hy + dy * 18 + ny * 0.5, 1, '#ffffff');
@@ -3558,9 +3559,64 @@ const SPR = (() => {
     x.putImageData(d, 0, 0);
     return { c, ax: src.ax, ay: src.ay };
   }
+  const ZAKO4B=new Set(['ghost','mage','lizard','golem','knight']);
+  function motionKey2(P){return P.motion?'|m2|'+JSON.stringify(P.motion):'';}
+  function knightThrust2(P,shoulder,hand,dir){
+    const m=P.motion;if(!m||!m.weight)return {hand,dir};
+    const theta=P.view==='l'?Math.atan2(Math.sin(m.theta),-Math.cos(m.theta)):m.theta,target=[shoulder[0]+Math.cos(theta)*m.extend,shoulder[1]+3+Math.sin(theta)*m.extend*.25],from=Math.atan2(dir[1],dir[0]),angle=from+Math.atan2(Math.sin(theta-from),Math.cos(theta-from))*m.weight;
+    return {hand:hand.map((v,i)=>v+(target[i]-v)*m.weight),dir:[Math.cos(angle),Math.sin(angle)]};
+  }
+  function zakoView2(type,P){
+    const side=P.view==='r'||P.view==='l',back=P.view==='b',f=P.f||0,k=f%2,step=P.step||0,m=P.motion||{},raise=m.raise||0,jaw=m.jaw||0,pulse=m.pulse||0;
+    if(type==='lizard'&&side)return EN.lizard(P);
+    if(type!=='lizard'&&!side&&!back)return EN[type](P);
+    const dims={ghost:[34,34,17,31],mage:[34,48,17,46],lizard:[50,32,25,29],golem:[54,58,27,55],knight:P.motion?[82,68,30,57]:[66,52,22,49]}[type];
+    return mk('z4b_'+type+'_'+(side?'s':back?'b':'f')+'_'+(f%6)+'_'+step+'_'+P.st+motionKey2(P)+'_'+(P.arm?armKey(armQ(P.arm,{})):'')+'_'+(P.bodyX||0)+'_'+(P.bodyY||0),...dims,g=>{
+      if(type==='knight'&&P.motion)g.x.translate(8,8);
+      if(type==='ghost'){
+        const B='#d7e8ff',S='#a8c0e8';g.ell(17,13,side?8:10,10,B);g.r(side?9:7,13,side?16:20,11,B);
+        const wave=[0,1.5,0,-1.5,0];for(let i=0;i<(side?4:5);i++)g.ell((side?11:9)+i*4,24+wave[(i+f%3)%5]+i%2,2.4,3,B);
+        g.ell(side?12:23,16,3.5,8,S);g.r(side?10:23,22,4,3,S);g.ell(side?14:12,7,3,2,'#ffffff');const ay=[0,-1,1][f%3];
+        if(side){g.ell(24+pulse*4,17-ay,2.4,2,B);g.r(21,11,2,4,'#1a2440');g.p(21,11,'#fff');g.r(23,18,2,3,'#1a2440');g.p(19,16,'#f0b0c8');}else{g.ell(6,17+ay,2.4,2,S);g.ell(28,17-ay,2.4,2,B);}return;
+      }
+      if(type==='mage'){
+        const R='#3b2466',RS='#24123e',HT='#8a4fd8',HS='#5a2a9a',G='#f2c14e',sx=back?8:26,sy=10+k*(1-raise)-6*raise,
+          staff=()=>{g.r(sx-1,sy+3,2,44-sy-3,'#6a4020');g.r(sx-3,sy+2,6,1,G);g.ell(sx,sy,2.8+.8*raise,2.8+.8*raise,P.st==='cast'?'#e8b0ff':'#c878ff');g.p(sx-1,sy-1,'#ffffff');g.r(sx-3,27-4*raise,4,3,R);g.r(sx-2,29-4*raise,3,2,'#c8b0e8');};
+        if(back)staff();g.poly(side?[[13,21],[23,21],[27,45],[9,45]]:[[11,21],[23,21],[28,45],[6,45]],R);g.poly(side?[[18,21],[23,21],[27,45],[20,45]]:[[18,21],[23,21],[28,45],[20,45]],RS);
+        g.r(side?9:6,44,side?18:22,1,G);g.r(16,22,2,22,'#5a3a8a');g.r(side?19:22,23-raise*3,4,7,R);g.r(side?20:23,29-raise*3,3,2,'#c8b0e8');
+        if(side){g.r(16,15,10,7,'#140a24');g.r(23,17,2,1+Math.round(raise),'#ffe14a');}else g.r(11,15,12,7,RS);
+        g.ell(17,14,side?9:11,2.6,HS);g.poly(side?[[11,14],[25,14],[21,7],[24,1],[17,4],[14,10]]:[[10,14],[24,14],[20,7],[23,1],[16,4],[13,10]],HT);g.poly([[17,14],[24,14],[20,7]],HS);g.r(side?12:11,12,side?13:12,1,G);g.p(16,8,G);g.p(14,11,'#fff27a');if(!back)staff();return;
+      }
+      if(type==='lizard'){
+        const B='#ff7a3c',S='#c04a1a',BL='#ffd080',cx=25,
+          tail=()=>{const end=back?26:6;g.line(cx,back?18:13,cx-5,back?23:9,5,S);g.line(cx-5,back?23:9,cx-8,end,3,S);g.ell(cx-8,end-(f%3)*.5,2.4,3,'#ffd24a');g.p(cx-8,end-3-(f%3)*.5,'#ff4a1a');g.p(cx-9,end+1,'#ff4a1a');},
+          feet=far=>{for(const d of[-1,1]){const x=cx+d*(far?6:8),yy=far?16:25,lift=step===d?1:0;g.r(x-1,yy-lift,3,3,S);g.r(x-2,yy+3-lift,5,1,'#8a2a0a');}},
+          head=()=>{const yy=back?10:21;g.ell(cx,yy-jaw,6,5,B);if(!back){g.ell(cx,yy+2,6,3,B);g.r(cx-4,yy-1-jaw,2,2,'#ffe14a');g.p(cx-3,yy-jaw,EYE);g.r(cx+2,yy-1-jaw,2,2,'#ffe14a');g.p(cx+3,yy-jaw,EYE);if(jaw){g.poly([[cx-4,yy+2],[cx+4,yy+2],[cx+3,yy+2+4*jaw],[cx-3,yy+2+4*jaw]],'#6a0a0a');g.p(cx-2,yy+3,'#ffd24a');g.p(cx+2,yy+3,'#ffffff');}else g.r(cx-4,yy+3,8,1,S);}};
+        if(!back)tail();else head();feet(true);g.ell(cx,17,8,8,B);if(!back)g.ell(cx,21,5.5,4,BL);else g.ell(cx+4,18,3,6,S);
+        for(let i=0;i<4;i++){const y=9+i*4;g.poly([[cx-2,y+2],[cx,y-2],[cx+2,y+2]],'#ffd24a');}feet(false);if(!back)head();else tail();return;
+      }
+      if(type==='golem'){
+        const B='#9a8f86',S='#6a625c',H='#c4bab0',M='#5a8a3a',E=P.st==='wind'?'#ff5a3a':'#7af0ff',
+          arm=near=>{const xx=side?(near?29:14):(near?43:2),ay=-14*raise+4*(m.impact||0)+k*(1-raise)*(1-(m.impact||0));g.r(xx,22+ay,10,18,near?B:S);g.r(xx,22+ay,10,2,H);g.r(xx-1,37+ay,12,9,B);g.r(xx-1,44+ay,12,2,S);g.r(xx+2,39+ay,1,4,S);g.r(xx+6,39+ay,1,4,S);};
+        for(const d of[-1,1]){const xx=side?22+d*step*3:d<0?16:30,lift=step===d?1:0;g.r(xx,44-lift,9,10,S);g.r(xx-1,53-lift,11,2,'#4a443e');}
+        g.x.translate(0,m.drop||0);arm(false);if(back)arm(true);g.r(side?17:12,20,side?20:31,26,B);g.r(side?30:36,20,7,26,S);g.r(side?17:12,20,side?20:31,2,H);g.r(side?17:12,44,side?20:31,2,S);g.r(side?21:17,27,2,8,S);g.r(side?23:24,33,7,1,S);g.p(33,24,S);g.r(side?18:13,21,6,3,M);g.r(side?31:38,38,4,2,M);
+        if(side){g.ell(35,32,1.5,3.4,'#4a4440');g.ell(35,32,1,2,E);arm(true);}g.r(side?21:19,7,side?14:17,14,B);g.r(side?21:31,7,side?4:5,14,S);g.r(side?21:19,7,side?14:17,2,H);g.r(side?23:21,9,side?10:13,1,M);if(side){g.r(30,12,5,2,'#4a4440');g.r(32,13,3,2,E);g.r(30,17,5,1,'#4a4440');}return;
+      }
+      if(type==='knight'){
+        const A='#5a5f7a',S='#3a3e52',H='#8a90a8',C='#7a1828',cx=22,st=P.st==='wind'||P.st==='dash'?1:P.st==='tired'?2:0,point=(x,y,z)=>side?[cx+z,y+x*.16]:[cx-x,y-z*.18],
+          weapon=()=>{const ar=armQ(P.arm,{ha:1.35,hr:.75,wa:-1.57}),shoulder=point(7,23,0),raw=point(7+Math.cos(ar.ha)*3,23+Math.sin(ar.ha)*12*ar.hr,3+Math.max(0,Math.cos(ar.ha))*8),th=knightThrust2(P,shoulder,raw,[side?Math.cos(ar.wa):-Math.cos(ar.wa),Math.sin(ar.wa)]),[hx,hy]=th.hand,[dx,dy]=th.dir,nx=-dy,ny=dx,ax=hx-shoulder[0],ay=hy-shoulder[1],dist=Math.hypot(ax,ay)||1,off=Math.sqrt(Math.max(0,36-Math.min(5.99,dist/2)**2)),el=[(hx+shoulder[0])/2-ay/dist*off,(hy+shoulder[1])/2+ax/dist*off];
+            g.poly([[hx+dx*3+nx*1.6,hy+dy*3+ny*1.6],[hx+dx*18+nx*1.5,hy+dy*18+ny*1.5],[hx+dx*21,hy+dy*21],[hx+dx*18-nx*1.5,hy+dy*18-ny*1.5],[hx+dx*3-nx*1.6,hy+dy*3-ny*1.6]],'#dfe6f2');g.line(hx+dx*4+nx*.5,hy+dy*4+ny*.5,hx+dx*18+nx*.5,hy+dy*18+ny*.5,1,'#ffffff');g.line(hx+dx*2+nx*3.5,hy+dy*2+ny*3.5,hx+dx*2-nx*3.5,hy+dy*2-ny*3.5,2,'#c9a24a');g.line(hx-dx*2.5,hy-dy*2.5,hx+dx,hy+dy,2.4,'#4a3020');g.line(...shoulder,...el,4,A);g.line(...el,hx,hy,3.4,S);g.ell(...el,1.8,1.8,H);g.ell(hx,hy,2.4,2.4,A);g.p(Math.round(hx)-1,Math.round(hy)-1,H);},
+          shield=()=>{const [x,y]=point(-10,st?27:21,4),w=side?4:st?9:13,h=st?20:26;g.r(x-w/2,y-5,w,h,'#4a5068');g.r(x-w/2+1,y-4,w-2,h-2,'#5d6684');g.r(x-1,y,2,h-8,'#c9a24a');if(!side)g.r(x-w/2+2,y+5,w-4,3,'#c9a24a');};
+        if(side)g.poly([[13,19],[20,19],[20,46],[10,46]],C);else g.poly([[14,19],[30,19],[33,46],[11,46]],C);
+        for(const d of[-1,1]){const xx=side?20+d*step*3:d<0?15:24,lift=step===d?2:0;g.r(xx,37,5,9-lift,S);g.r(xx-1,45-lift,7,2,'#22242e');}
+        g.x.translate(P.bodyX||0,P.bodyY||0);if(back){weapon();shield();}g.r(side?16:13,21,side?14:18,17,A);g.r(side?16:26,21,side?4:5,17,S);if(side)g.r(25,22,3,6,H);else g.r(15,22,3,6,H);g.r(side?16:13,33,side?14:18,2,S);g.r(side?28:21,33,2,2,'#c9a24a');g.r(side?20:10,20,6,5,H);if(back)g.r(28,20,6,5,A);if(side){weapon();shield();}
+        const hy=st===2?3:0;g.r(side?17:14,6+hy,side?13:16,15,A);g.r(side?17:26,6+hy,4,15,S);g.r(side?24:15,7+hy,3,4,H);if(side){g.r(26,12+hy,4,3,'#1b1d2a');g.r(28,13+hy,2,1,'#ff3b4a');}g.r(21,3+hy,2,4,'#c0283a');g.r(19,1+hy,6,3,'#c0283a');g.p(25,2+hy,'#e04050');if(back){g.poly([[14,24],[30,24],[33,46],[11,46]],C);g.line(22,26,25,44,1,'#4a0e18');}return;
+      }
+    },type==='ghost'?'#2a3460':undefined);
+  }
   // Four-direction additions for batch 1. Front factories remain the source of truth.
   // Original canvas sizes, anchors, palettes, clothing and equipment are retained.
-  const ZAKO4 = new Set(['slime','bat','goblin','archer','skeleton']);
+  const ZAKO4 = new Set(['slime','bat','goblin','archer','skeleton','ghost','mage','lizard','golem','knight']);
   // Rear-facing slash: hand stays beyond the shoulder; blade uses the world's attack arc.
   // Keep original arm/blade lengths. The fan is the existing generous gameplay range.
   function skeletonUpArm(P,shoulder,hand) {
@@ -3569,6 +3625,7 @@ const SPR = (() => {
     return {hand:[hand[0],hand[1]-2*Math.max(0,hand[1]-shoulder[1])*w],dir:[Math.cos(a),Math.sin(a)]};
   }
   function zakoView(type,P) {
+    if(ZAKO4B.has(type))return zakoView2(type,P);
     const v=P.view, side=v==='r'||v==='l', rear=v==='b';
     if(!side&&!rear)return EN[type](P);
     const f=P.f||0, step=P.step||0, A=P.arm, aim=P.st==='aim',

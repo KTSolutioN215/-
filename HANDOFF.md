@@ -331,3 +331,12 @@ sh tools/build_apk.sh      # 初回は Android SDK（platform 35 / build-tools 3
 - `skeletonUpArm` は剣の手の肩より下へ出た分を前方へ折り返し、剣のベクトルをワールドの斬撃角に合わせる。胴・頭・盾の後ろに描く順番は従来どおり。正面・横の既存ポーズと装備の長さを変えない。
 - `BASE_SPRITES=<修正前sprites.js> node tools/anim/check_skeleton_up.js` で実際の剣ポリゴン2,121サンプルと、無関係の240画像を確認。基準は `1ae4987`。攻撃AI・判定・範囲を動かして辻褄を合わせない。
 - 動画は `ENEMY=skeleton UP_DIAGONALS=1 UP_ONLY=1 OUT=out/skeleton_up_review node tools/anim/capture_zako_play.js`。上・右上・左上から始める自然AIの検証プレイ9.6秒。通常／半速を用意する。全4方向も見たい場合は UP_ONLY を外す。
+
+## 現在の進捗：ザコ第2組（2026-10-30）
+- ghost / mage / lizard / golem / knight を追加。次の5体は imp / wolf / mushroom / spider / fishman。ボスは別AIの担当を維持。
+- `ZAKO4B` / `zakoView2` が新しい向きの工場、`zakoMotion2` が描画だけの状態。`P.motion` がない元の工場は元絵比較・派生キャラ用に残す。
+- `knightThrust2` は剣先の向きを実際のワールドの方向から作る。左は反転前にXだけ戻し、二重反転を防ぐ。剣・腕の長さは維持し、画像の余白だけを増やす。
+- ゴーレムの wind は e.face を使わない（AIが更新しないため）。勇者の方向を使う。騎士は guard のe.face、サラマンダーのfireは発射角を使う。
+- `BATCH=2 BASE_SPRITES=<前版sprites.js> BASE_GAME=<前版yusha.js> node tools/anim/check_zako4.js`。基準は `e2f47e8`。続けて `node tools/anim/check_zako_batch2.js` とガイコツ上向きの回帰検証。
+- 比較画像は `BATCH=2 BASE_SPRITES=<前版sprites.js> node tools/anim/sheet_zako4.js`。元絵が横向きのサラマンダーだけ比較の基準方向は右。
+- APKのassets更新は `python3 tools/repack_apk.py --base <前版APK> --build-tools <公式build-toolsディレクトリ> --out ButsukariYusha.apk`。Java17が必要。Androidラッパーを変更していない場合だけ使える。
