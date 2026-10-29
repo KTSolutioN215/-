@@ -70,6 +70,16 @@ const BEAST3 = (() => {
   function piece(p, d0, fn) { op(dp(p) + d0, () => { const q = pr(p); cx.save(); fn(q[0], q[1]); cx.restore(); }); }
   function rot2(fn, x, y, ang, flipY) { cx.save(); cx.translate(x, y); cx.rotate(ang); if (flipY) cx.scale(1, -1); fn(); cx.restore(); }
 
+  // front-view mouth: the lower jaw drops away from the upper muzzle (yb = the muzzle's lower edge, w = its half width);
+  // call before drawing the upper head, then upperTeeth() after it
+  function frontJaw(yb, w, gap, jawH, colJaw, colIn, glow) {
+    g.poly([[-w, yb - 2], [w, yb - 2], [w * 0.8, yb + gap], [-w * 0.8, yb + gap]], colIn);
+    if (glow && gap > 1) g.ell(0, yb + gap * 0.55, w * 0.55, Math.max(1, gap * 0.4), glow);
+    g.poly([[-w, yb - 1 + gap], [w, yb - 1 + gap], [w * 0.6, yb + jawH + gap], [-w * 0.6, yb + jawH + gap]], colJaw);
+    if (gap > 1.5) for (const m of [-1, 1]) g.poly([[m * w * 0.7, yb - 1 + gap], [m * w * 0.45, yb - 1 + gap], [m * w * 0.58, yb - 3.5 + gap]], '#ffffff');
+  }
+  function upperTeeth(yb, w, gap) { if (gap > 1.5) for (const m of [-1, 1]) g.poly([[m * w * 0.75, yb - 1], [m * w * 0.45, yb - 1], [m * w * 0.6, yb + 2.5]], '#ffffff'); }
+
   // ---- shared timing: what a move looks like over its time ----
   const mvName = B => B.mv ? B.mv.name.split(':')[0] : '';
   const CAST = { spiral: 1, spiral3: 1, homing: 1, wave: 1, cross: 1, gapring: 1, triple: 1, rain: 1, ring: 1, ringaimed: 1, fireball: 1, aimed3: 1, aimed5: 1, warp: 1, summon: 1, mines: 1, laser: 1, laser3: 1 };
@@ -142,9 +152,11 @@ const BEAST3 = (() => {
       }
       cx.translate(x, y);   // front / back heads are drawn around (0, 0)
       if (VIEW === 'f') {
-        g.poly([[-8, -8], [8, -8], [6, 14], [3, 20], [-3, 20], [-6, 14]], C.m); g.poly([[2, -8], [8, -8], [6, 14], [3, 20], [1, 20]], C.d); g.line(0, -6, 0, 14, 1, C.h);
-        for (const m of [-1, 1]) { g.poly([[m * 5, -8], [m * 9, -18], [m * 8, -7]], C.m); g.ell(m * 6, -2, 1.8, 2.2, E); g.p(m * 6, -3, '#ffffff'); g.p(m * 2, 18, '#000000'); }
-        if (P.mo > 0.3) g.ell(0, 21, 3, 1.5 + P.mo * 2, '#000000');
+        const gap = P.mo * 6;
+        frontJaw(17, 4.5, gap, 4, C.d, '#2a0610');
+        g.poly([[-8, -8], [8, -8], [6, 12], [4, 17], [-4, 17], [-6, 12]], C.m); g.poly([[2, -8], [8, -8], [6, 12], [4, 17], [1, 17]], C.d); g.line(0, -6, 0, 13, 1, C.h);
+        for (const m of [-1, 1]) { g.poly([[m * 5, -8], [m * 9, -18], [m * 8, -7]], C.m); g.ell(m * 6, -2, 1.8, 2.2, E); g.p(m * 6, -3, '#ffffff'); g.p(m * 2, 15, '#000000'); }
+        upperTeeth(17, 4.5, gap);
         return;
       }
       g.ell(0, -1, 8, 10, C.m); g.ell(2, 0, 6, 9, C.d); for (const m of [-1, 1]) g.poly([[m * 4, -8], [m * 8, -18], [m * 8, -6]], C.m);
@@ -237,11 +249,13 @@ const BEAST3 = (() => {
       }
       cx.translate(x, y);   // front / back heads are drawn around (0, 0)
       if (VIEW === 'f') {
-        const lift = P.howl * 4;
-        g.poly([[-12, -8], [12, -8], [7, 6 - lift], [0, 14 - lift], [-7, 6 - lift]], C.m); g.poly([[-12, -8], [-7, 6 - lift], [0, 14 - lift], [0, -8]], CD.m); g.ell(0, -4, 7, 6, C.h);
+        const lift = P.howl * 4, gap = P.mo * 7;
+        cx.translate(0, -lift);
+        frontJaw(11, 5.5, gap, 5, CD.m, '#5a1a2a'); if (gap > 2) g.ell(0, 11 + gap * 0.6, 2.6, 1.4, '#d06070');   // the tongue
+        g.poly([[-12, -8], [12, -8], [7, 4], [5, 11], [-5, 11], [-7, 4]], C.m); g.poly([[-12, -8], [-7, 4], [-5, 11], [0, 11], [0, -8]], CD.m); g.ell(0, -4, 7, 6, C.h);
         for (const m of [-1, 1]) { g.poly([[m * 5, -8], [m * 12, -24], [m * 13, -6]], C.m); g.poly([[m * 7, -9], [m * 11, -19], [m * 11, -8]], '#e8a0b0'); g.ell(m * 6, -2, 2.2, 1.8, E); g.p(m * 6, -3, '#ffffff'); }
-        g.ell(0, 9 - lift, 3, 2, '#1a1a2a');
-        if (P.mo > 0.25) { g.ell(0, 14 - lift, 4, 1.5 + P.mo * 3, '#5a1a2a'); g.p(-2, 13 - lift, '#ffffff'); g.p(2, 13 - lift, '#ffffff'); }
+        g.ell(0, 6, 3, 2, '#1a1a2a');
+        upperTeeth(11, 5.5, gap);
         return;
       }
       g.ell(0, -2, 12, 11, C.m); g.ell(2, -1, 9, 9, CD.m); for (const m of [-1, 1]) g.poly([[m * 5, -8], [m * 12, -24], [m * 13, -6]], C.m);
@@ -285,7 +299,9 @@ const BEAST3 = (() => {
       if (P.tail) dir = norm(V.mix(dir, [P.tail[0], 0.05, P.tail[1]], P.tail[2]));
       tl.push(V.add(prev, V.mul(dir, P.tail ? 8 : 6)));
     }
-    for (let i = 1; i < tl.length; i++) { tube([tl[i - 1], tl[i]], [3.6 - i * 0.25, 3.4 - i * 0.25], C, -2); if (i % 2) piece(tl[i], -1.9, (x, y) => U.spike(g, x, y - 2, -PI / 2, 4, 1.6, C)); }
+    const tn = P.tail && P.tail[2] >= 1 ? 2 : tl.length;   // in a tail sweep the rest of the tail is drawn out along the swing (sweepLimbs)
+    if (tn < tl.length) ANCH = tl[tn - 1];
+    for (let i = 1; i < tn; i++) { tube([tl[i - 1], tl[i]], [3.6 - i * 0.25, 3.4 - i * 0.25], C, -2); if (i % 2) piece(tl[i], -1.9, (x, y) => U.spike(g, x, y - 2, -PI / 2, 4, 1.6, C)); }
     // hind legs (digitigrade): hip -> knee (forward) -> ankle -> claws
     for (const s of [-1, 1]) {
       const ha = V.add(pelvis, [s * 10, 2, 0]), st = s > 0 ? P.step * 4 : 0;
@@ -347,10 +363,13 @@ const BEAST3 = (() => {
       }
       cx.translate(x, y);   // front / back heads are drawn around (0, 0)
       if (VIEW === 'f') {
-        g.poly([[-11, -10], [11, -10], [8, 8], [4, 16], [-4, 16], [-8, 8]], C.m); g.poly([[2, -10], [11, -10], [8, 8], [4, 16], [2, 16]], C.d);
-        for (const m of [-1, 1]) { g.ell(m * 5, -3, 3.5, 3, '#0c140f'); g.ell(m * 5, -3, 1.8, 1.6, G[0]); g.p(m * 5, -4, G[1]); g.line(m * 9, -9, m * 17, -18, 2.6, C.m); g.p(m * 2, 9, '#0c140f'); }
-        for (let i = -3; i <= 3; i += 2) g.p(i, 15, '#ffffff');
-        if (P.mo > 0.3) { g.ell(0, 18 + P.mo * 2, 5, 2 + P.mo * 3, '#0c140f'); g.ell(0, 18 + P.mo * 2, 3, 1 + P.mo * 2, G[0]); }
+        const gap = P.mo * 9;
+        frontJaw(13, 7, gap, 6, C.m, '#0c140f', G[0]);
+        if (gap > 1) g.poly([[-4, 13 + gap], [4, 13 + gap], [2, 17 + gap], [-2, 17 + gap]], '#0c140f');   // the jaw is a hoop of bone: dark inside
+        g.poly([[-11, -10], [11, -10], [8, 6], [5, 13], [-5, 13], [-8, 6]], C.m); g.poly([[2, -10], [11, -10], [8, 6], [5, 13], [2, 13]], C.d);
+        for (const m of [-1, 1]) { g.ell(m * 5, -3, 3.5, 3, '#0c140f'); g.ell(m * 5, -3, 1.8, 1.6, G[0]); g.p(m * 5, -4, G[1]); g.line(m * 9, -9, m * 17, -18, 2.6, C.m); g.p(m * 2, 7, '#0c140f'); }
+        for (let i = -4; i <= 4; i += 2) g.r(i, 12, 1, 2, '#ffffff');
+        upperTeeth(13, 7, gap);
         return;
       }
       g.ell(0, -2, 11, 10, C.m); g.ell(2, -1, 8, 8, C.d); g.line(0, -11, 0, 6, 1, C.h);
@@ -423,9 +442,11 @@ const BEAST3 = (() => {
       cx.translate(x, y);   // front / back heads are drawn around (0, 0)
       if (VIEW === 'f') {
         for (const m of [-1, 1]) { for (let i = 0; i < 3; i++) U.spike(g, m * 10, -4 + i * 4, m > 0 ? -0.4 + i * 0.35 : PI + 0.4 - i * 0.35, 10, 3, Fn); g.line(m * 6, -8, m * 13, -19, 2.6, '#f0e8c8'); }
-        g.poly([[-11, -9], [11, -9], [9, 6], [4, 14], [-4, 14], [-9, 6]], C.m); g.poly([[2, -9], [11, -9], [9, 6], [4, 14], [2, 14]], C.d);
-        for (const m of [-1, 1]) { g.ell(m * 6, -2, 2.6, 2.2, E); g.p(m * 6, -3, '#ffffff'); g.p(m * 2, 11, '#0a1a3a'); }
-        if (P.mo > 0.3) { g.ell(0, 16 + P.mo * 2, 6, 2 + P.mo * 3, '#3a0a1a'); for (let i = -4; i <= 4; i += 2) g.p(i, 14 + P.mo * 2, '#ffffff'); }
+        const gap = P.mo * 8;
+        frontJaw(12, 6.5, gap, 5, LV.belly.c, '#3a0a1a');
+        g.poly([[-11, -9], [11, -9], [9, 5], [5, 12], [-5, 12], [-9, 5]], C.m); g.poly([[2, -9], [11, -9], [9, 5], [5, 12], [2, 12]], C.d);
+        for (const m of [-1, 1]) { g.ell(m * 6, -2, 2.6, 2.2, E); g.p(m * 6, -3, '#ffffff'); g.p(m * 2, 9, '#0a1a3a'); }
+        upperTeeth(12, 6.5, gap);
         return;
       }
       for (const m of [-1, 1]) { for (let i = 0; i < 3; i++) U.spike(g, m * 10, -4 + i * 4, m > 0 ? -0.4 + i * 0.35 : PI + 0.4 - i * 0.35, 10, 3, Fn); g.line(m * 6, -8, m * 13, -19, 2.6, '#f0e8c8'); }
@@ -454,12 +475,14 @@ const BEAST3 = (() => {
     for (let i = 0; i < N; i++) {
       const s = i / (N - 1), w = 1 - P.st;
       let p = [Math.sin(s * 4 + P.u * 0.7) * 16 * w * s, -78 - P.rise + s * 62 * w - s * 14 * P.st + (1 - w) * 18, 10 - s * 28 * w + Math.sin(s * 6 - P.u) * 12 * w * s - s * 96 * P.st];
-      if (P.tail && s > 0.45) { const k = (s - 0.45) / 0.55 * P.tail[2]; p = V.add(p, [P.tail[0] * k * 60, 0, P.tail[1] * k * 60]); }
+      if (P.tail && s > 0.45) { const k = (s - 0.45) / 0.55 * Math.min(1, P.tail[2] * 1.2); p = V.add(p, [P.tail[0] * k * 40, k * 20, P.tail[1] * k * 40]); }   // winds up toward the swing
       sp.push(p); rs.push(s < 0.15 ? lerp(5, 8, s / 0.15) : lerp(8, 2.5, (s - 0.15) / 0.85));
     }
-    tube(sp, rs, C, 0, { belly: { c: QZ.belly.c, s: QZ.belly.s, w: 0.4 }, scale: 1 });
+    const cut = P.tail && P.tail[2] >= 1 ? 9 : N;   // in a tail sweep the body's rear half lashes out along the swing (sweepLimbs)
+    if (cut < N) ANCH = sp[cut - 1];
+    tube(sp.slice(0, cut), rs.slice(0, cut), C, 0, { belly: { c: QZ.belly.c, s: QZ.belly.s, w: 0.4 }, scale: 1 });
     // tail fan
-    piece(sp[N - 1], 0, (x, y) => { for (let i = -1; i <= 1; i++) U.feather(g, x, y, PI / 2 + i * 0.5 + (VIEW === 's' ? -0.8 : 0), 12, 3, { m: QZ.F[(i + 2) % 5], d: QZ.F[(i + 3) % 5], tip: '#ffffff' }); });
+    if (cut === N) piece(sp[N - 1], 0, (x, y) => { for (let i = -1; i <= 1; i++) U.feather(g, x, y, PI / 2 + i * 0.5 + (VIEW === 's' ? -0.8 : 0), 12, 3, { m: QZ.F[(i + 2) % 5], d: QZ.F[(i + 3) % 5], tip: '#ffffff' }); });
     // wings: an arm from behind the head, a fan of long rainbow feathers hanging off it
     const root0 = sp[3], beat = (P.fl - 0.5) * 1.3;
     for (const s of [-1, 1]) {
@@ -499,6 +522,61 @@ const BEAST3 = (() => {
   }
 
   // =============================================================
+  //  WHOLE-BODY SWEEPS (指示: ダメージバーではなく体で攻撃): during a sweep the beast's own tail / tentacles are the weapon.
+  //  They are drawn in screen space, from the sweep's centre out to its full length (= the real hit area), lagging a little
+  //  behind the turn; the game only keeps the faint motion blur of the swing.
+  // =============================================================
+  const OUTL = '#120a14';
+  let ANCH = null;   // model point the swinging tail grows from (set by the build)
+  function limbTube(gc, pts, rs, C, opt) {   // pts in art px
+    U.tube(gc, pts.map((p, i) => [p[0], p[1], rs[i] + 1]), { d: OUTL, m: OUTL, h: OUTL });
+    U.tube(gc, pts.map((p, i) => [p[0], p[1], rs[i]]), C, opt || {});
+  }
+  function sweepLimbs(ctx, B, E, anchorS, back) {
+    if (!B.sweeps || !B.sweeps.length) return;
+    const gc = U.api(ctx), T = E.t;
+    ctx.save(); ctx.scale(K, K);
+    const cxA = E.x / K, cyA = E.cy / K;   // sweep centre, art px
+    for (const sw of B.sweeps) {
+      const th = -sw.ang, up = Math.sin(th) < -0.15;
+      if (up !== back) continue;
+      sw.own = true;
+      const act = sw.t >= sw.tele, len = sw.len / K, sg = Math.sign(sw.vel) || 1, n = 12;
+      if (B.type === 'leviathan') {   // a tentacle bursts out of the sea, rears up, then slams down and sweeps round
+        const r0 = 26, bx = cxA + Math.cos(th) * r0, by = cyA + Math.sin(th) * r0 * 0.75;
+        const k0 = act ? 1 : sstep(sw.t / sw.tele), lay = act ? sstep((sw.t - sw.tele) / 0.14) : 0, pts = [], rs = [];
+        for (let i = 0; i <= n; i++) {
+          const k = i / n, a = th + sg * 0.16 * k * k, rho = r0 + (len - r0) * k;
+          const flat = [cxA + Math.cos(a) * rho, cyA + Math.sin(a) * rho - Math.sin(PI * k) * 7 - 3];
+          const H = 46 * k0, rear = [bx + Math.sin(T * 6 + k * 3) * 4 * k + Math.cos(th) * 10 * k * k, by - H * k - Math.sin(k * PI) * 3];
+          pts.push([lerp(rear[0], flat[0], lay), lerp(rear[1], flat[1], lay)]); rs.push(lerp(7.5, 2, k) * (0.4 + 0.6 * Math.max(k0, lay)));
+        }
+        limbTube(gc, pts, rs, LV.B, { belly: { c: LV.belly.c, s: LV.belly.s, w: 0.4 } });
+        for (let i = 2; i < n; i += 2) { const p = pts[i]; gc.ell(p[0] + rs[i] * 0.3, p[1] + rs[i] * 0.45, Math.max(1, rs[i] * 0.3), Math.max(1, rs[i] * 0.22), '#e8f4ff'); }   // suckers
+        gc.ell(bx, by + 1, 11, 3, LV.foam); gc.ell(bx, by + 1, 7, 1.8, '#d0f0ff');
+        continue;
+      }
+      if (!act || !anchorS) continue;
+      // bone dragon / quetzalcoatl: the tail streams from the body out along the swing
+      const A = [anchorS[0] / K, anchorS[1] / K], tip = [cxA + Math.cos(th) * len, cyA + Math.sin(th) * len], pts = [], rs = [];
+      const nx = -Math.sin(th) * sg, ny = Math.cos(th) * sg;
+      for (let i = 0; i <= n; i++) { const k = i / n, bend = Math.sin(PI * k) * 10 + k * k * 6; pts.push([lerp(A[0], tip[0], k) - nx * bend, lerp(A[1], tip[1], k) - ny * bend - Math.sin(PI * k) * 4]); }
+      if (B.type === 'bonedragon') {
+        for (let i = 0; i <= n; i++) rs.push(lerp(3.4, 1.4, i / n));
+        limbTube(gc, pts, rs, BD.B);
+        for (let i = 1; i < n; i += 2) U.spike(gc, pts[i][0], pts[i][1] - rs[i], -PI / 2 - (th > 0 ? 0.3 : -0.3), 5, 1.8, BD.B);
+        const p = pts[n], q = pts[n - 1]; U.spike(gc, p[0], p[1], Math.atan2(p[1] - q[1], p[0] - q[0]), 11, 3.4, BD.B);   // the bone blade at the tip
+      } else {
+        for (let i = 0; i <= n; i++) rs.push(lerp(6, 2.2, i / n));
+        limbTube(gc, pts, rs, QZ.B, { belly: { c: QZ.belly.c, s: QZ.belly.s, w: 0.4 } });
+        const p = pts[n], q = pts[n - 1], a = Math.atan2(p[1] - q[1], p[0] - q[0]);
+        for (let i = -1; i <= 1; i++) U.feather(gc, p[0], p[1], a + i * 0.45, 13, 3, { m: QZ.F[(i + 2) % 5], d: QZ.F[(i + 3) % 5], tip: '#ffffff' });
+      }
+    }
+    ctx.restore();
+  }
+
+  // =============================================================
   const RIGS = { nightmare: [nmPose, nmBuild, 1.05], fenrir: [fnPose, fnBuild, 1.3], bonedragon: [bdPose, bdBuild, 1.2], leviathan: [lvPose, lvBuild, 1.1], quetzal: [qzPose, qzBuild, 1.1] };   // [pose, build, size]
   function faceOf(B, E) {
     const mv = B.mv, st = B.b3 || (B.b3 = {});
@@ -514,7 +592,7 @@ const BEAST3 = (() => {
     E = Object.assign({}, E); E.look = Math.atan2(E.hero.y - B.y, E.hero.x - B.x);
     const f = faceOf(B, E); E.face = f; VIEW = f === 'l' || f === 'r' ? 's' : f;
     const P = R[0](B, E.t, E);
-    OPS = []; cx.clearRect(0, 0, CW, CH);
+    OPS = []; ANCH = null; cx.clearRect(0, 0, CW, CH);
     R[1](B, P, E.t, B.phase === 2);
     OPS.sort((a, b) => a[0] - b[0]);
     const sz = R[2] || 1; cx.setTransform(sz, 0, 0, sz, OX * (1 - sz), OY * (1 - sz));   // drawn bigger about the feet: more pixels, not bigger pixels
@@ -529,9 +607,14 @@ const BEAST3 = (() => {
       if (hurt) { fx.globalCompositeOperation = 'source-atop'; fx.fillStyle = '#ffffff'; fx.fillRect(0, 0, CW, CH); fx.globalCompositeOperation = 'source-over'; }
       src = fc;
     }
-    const ox = f === 'l' ? CW - OX : OX;
+    const ox = f === 'l' ? CW - OX : OX, X0 = Math.round(x / K - ox) * K, Y0 = Math.round(yFeet / K - OY) * K;
+    let anchorS = null;
+    if (ANCH) { const q = pr(ANCH); let ax = OX + (q[0] - OX) * sz; const ay = OY + (q[1] - OY) * sz; if (f === 'l') ax = CW - ax; anchorS = [X0 + ax * K, Y0 + ay * K]; }
+    E.x = x; if (E.cy == null) E.cy = yFeet;
+    sweepLimbs(ctx, B, E, anchorS, true);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(src, Math.round(x / K - ox) * K, Math.round(yFeet / K - OY) * K, CW * K, CH * K);
+    ctx.drawImage(src, X0, Y0, CW * K, CH * K);
+    sweepLimbs(ctx, B, E, anchorS, false);
     return true;
   }
   return { has: t => !!RIGS[t], draw, types: Object.keys(RIGS) };
