@@ -100,15 +100,15 @@
     { id: 'c4', slot: 'charm', name: '勇者のペンダント', atk: 14, def: 10, hp: 60, price: 8000 },
     { id: 'c5', slot: 'charm', name: '神々の指輪', def: 22, hp: 120, price: 20000 },
     { id: 'c6', slot: 'charm', name: '覇王のうでわ', atk: 32, price: 30000 },
-    { id: 'c7', slot: 'charm', name: '蒼穹のかんむり', atk: 28, def: 28, hp: 200, price: 58000 },
-    { id: 'c8', slot: 'charm', name: '竜神のメダル', atk: 40, def: 40, hp: 300, price: 150000 },
-    { id: 'c9', slot: 'charm', name: '聖光の宝玉', atk: 60, def: 55, hp: 450, price: 400000 },
-    { id: 'c10', slot: 'charm', name: '大樹のしずく', atk: 85, def: 75, hp: 650, price: 900000 },
-    { id: 'c11', slot: 'charm', name: 'さばくのすなどけい', atk: 92, def: 81, hp: 700, price: 1150000 },
-    { id: 'c12', slot: 'charm', name: 'うみなりのしんじゅ', atk: 99, def: 87, hp: 755, price: 1400000 },
-    { id: 'c13', slot: 'charm', name: 'いかずちのたま', atk: 107, def: 94, hp: 815, price: 1700000 },
-    { id: 'c14', slot: 'charm', name: 'まじんのめだま', atk: 115, def: 101, hp: 880, price: 2050000 },
-    { id: 'c15', slot: 'charm', name: 'ながれぼしのかけら', atk: 124, def: 109, hp: 950, price: 2500000 },
+    { id: 'c7', slot: 'charm', name: '蒼穹のかんむり', atk: 28, def: 28, hp: 200, price: 58000, fx: { skillcd: 0.3 } },
+    { id: 'c8', slot: 'charm', name: '竜神のメダル', atk: 40, def: 40, hp: 300, price: 150000, fx: { thorns: 0.8 } },
+    { id: 'c9', slot: 'charm', name: '聖光の宝玉', atk: 60, def: 55, hp: 450, price: 400000, fx: { aegis: 20 } },
+    { id: 'c10', slot: 'charm', name: '大樹のしずく', atk: 85, def: 75, hp: 650, price: 900000, fx: { regen: 0.015 } },
+    { id: 'c11', slot: 'charm', name: 'さばくのすなどけい', atk: 92, def: 81, hp: 700, price: 1150000, fx: { hourglass: 2.5 } },
+    { id: 'c12', slot: 'charm', name: 'うみなりのしんじゅ', atk: 99, def: 87, hp: 755, price: 1400000, fx: { roller: 0.6 } },
+    { id: 'c13', slot: 'charm', name: 'いかずちのたま', atk: 107, def: 94, hp: 815, price: 1700000, fx: { thunder: 8 } },
+    { id: 'c14', slot: 'charm', name: 'まじんのめだま', atk: 115, def: 101, hp: 880, price: 2050000, fx: { blast: 0.8 } },
+    { id: 'c15', slot: 'charm', name: 'ながれぼしのかけら', atk: 124, def: 109, hp: 950, price: 2500000, fx: { revive: 0.5 } },
   ];
   // ---- equipment that monsters drop (never sold in the shop) ----
   // special effects. Kept mild, and the same effect on two items does not stack.
@@ -128,6 +128,16 @@
     bossbane: { v: 0.1, name: 'ボスごろし', note: 'ボスへの いりょく+10%' },
     guard: { v: 0.3, name: 'みかわし', note: 'こうげきを うけた あとの むてき じかん+0.3びょう' },
     buff: { v: 0.5, name: 'れんきん', note: 'ちから・まもりの くすりの こうか じかん+50%' },
+    // the unique powers of the later charms (shop items)
+    skillcd: { v: 0.3, name: 'ちえ', note: 'スキルの クールタイム -30%' },
+    thorns: { v: 0.8, name: 'りゅうのうろこ', note: 'てきや ボスに ふれられて ダメージを うけると、あいてに こうげき×0.8 の はんげき' },
+    aegis: { v: 20, name: 'まもりのひかり', note: 'こうげきを 1かい ふせぐ ひかりの たてが 20びょうごとに はられる' },
+    regen: { v: 0.015, name: 'さいせい', note: '3びょう ダメージを うけないと、まいびょう さいだいHPの 1.5% かいふく' },
+    hourglass: { v: 2.5, name: 'すなどけい', note: 'HPが 30%を きると 2.5びょう てきの 弾が とまる（40びょうに 1かい）' },
+    roller: { v: 0.6, name: 'うずしお', note: 'ころがりの まちじかん はんぶん。ころがって ぶつかった てきに こうげき×0.6' },
+    thunder: { v: 8, name: 'いかずち', note: '8かい あてるごとに ちかくの てきへ かみなり（こうげき×1.2）' },
+    blast: { v: 0.8, name: 'ばくはつ', note: 'てきを たおすと ばくはつし、まわりの てきに こうげき×0.8' },
+    revive: { v: 0.5, name: 'きせき', note: '1かいの ぼうけんで 1ど、たおれても HP 50% で ふっかつ' },
   };
   // the shop tier a player usually has in each dungeon: drops are pinned to it
   const DROP_WT = [1, 1, 2, 2, 3, 4, 5, 5, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 15, 15, 16, 16, 17, 17, 18, 19, 20, 21, 22];
@@ -762,7 +772,7 @@
     if (hero.buff.def > 0) d = Math.max(1, Math.round(d * 0.5));
     if (hero.barrierT > 0) { hero.barrierT = 0; hero.inv = 0.6; popText(hero.x, hero.y + 30, 'バリア！', '#c8b0ff', 16, 0.9); burst(hero.x, hero.y, 24, '#c8b0ff', 240, 0.5); A.sfx('block'); return; }
     if (hero.guardT > 0) { d = Math.max(1, Math.round(d * 0.4)); power *= 0.3; }
-    hero.hp -= d; hero.inv = 0.85 + (hero.s.fx.guard || 0);
+    hero.hp -= d; hero.inv = 0.85 + (hero.s.fx.guard || 0); hero.calmT = 0;
     const dx = hero.x - fromX, dy = hero.y - fromY, l = hyp(dx, dy) || 1;
     hero.vx += dx / l * power; hero.vy += dy / l * power;
     popText(hero.x, hero.y + 20, '-' + d, crit ? '#ffb020' : '#ff5a4a', crit ? 24 : 18, 0.9);
@@ -770,7 +780,18 @@
     shake = Math.max(shake, 10); flash = 0.35; flashCol = '255,40,40'; hitStop = Math.max(hitStop, 0.05);
     A.sfx('hurt'); combo = 0;
     if (navigator.vibrate) try { navigator.vibrate(30); } catch (e) { }
-    if (hero.hp <= 0) { hero.hp = 0; heroDown(); }
+    if (hero.hp <= 0 && !tryRevive()) { hero.hp = 0; heroDown(); }
+    if (hero.s.fx.hourglass && hero.hp > 0 && hero.hp < hero.s.maxHp * 0.3 && !(hero.hgCD > 0)) {   // すなどけい: the shots stop
+      hero.hgCD = 40; freezeT = Math.max(freezeT, hero.s.fx.hourglass); flash = 0.35; flashCol = '230,210,150'; A.sfx('warp');
+      popText(hero.x, hero.y + 48, 'すなどけいが まわった！', '#f0d890', 15, 1.2);
+    }
+  }
+  function tryRevive() {   // ながれぼしのかけら: once per adventure
+    const h = hero; if (!h.s.fx.revive || h.revived) return false;
+    h.revived = true; h.hp = Math.round(h.s.maxHp * h.s.fx.revive); h.inv = 2.2; h.stun = 0;
+    flash = 0.9; flashCol = '255,240,170'; shake = 12; burst(h.x, h.y, 40, '#ffe680', 320, 0.9); A.sfx('levelup');
+    popText(h.x, h.y + 56, 'ながれぼしの きせき！ ふっかつ！', '#ffe680', 18, 1.6);
+    return true;
   }
 
   const HEALS = ['herb', 'potion', 'hipotion', 'megapotion', 'lifewater', 'lifedrop', 'elixir'];
@@ -968,10 +989,39 @@
 
   // ころがり回避: a quick flick on the pad rolls the hero that way. Can't be hit and passes through monsters while rolling.
   const ROLL_T = 0.3, ROLL_CD = 0.7;
+  function charmTick(h, dt) {
+    const F = h.s.fx;
+    if (h.hgCD > 0) h.hgCD -= dt;
+    if (F.regen) {   // 大樹のしずく
+      h.calmT = (h.calmT || 0) + dt;
+      if (h.calmT > 3 && h.hp > 0 && h.hp < h.s.maxHp) { h.regAcc = (h.regAcc || 0) + h.s.maxHp * F.regen * dt; if (h.regAcc >= 1) { const v = Math.floor(h.regAcc); h.regAcc -= v; h.hp = Math.min(h.s.maxHp, h.hp + v); if (Math.random() < dt * 3) fx.push({ x: h.x + rnd(-10, 10), y: h.y - 4, vx: 0, vy: 40, life: 0.6, max: 0.6, col: '#8af07a', r: 2 }); } }
+    }
+    if (F.aegis) {   // 聖光の宝玉: a shield of light every 20 s
+      if (h.barrierT > 0) h.aegisT = F.aegis;
+      else if ((h.aegisT = (h.aegisT == null ? 2 : h.aegisT) - dt) <= 0) { h.barrierT = 9999; h.aegisT = F.aegis; popText(h.x, h.y + 40, 'ひかりの たて', '#e8d8ff', 13, 0.9); A.sfx('magic2'); }
+    }
+    if (F.roller && h.roll > 0) {   // うみなりのしんじゅ: the roll hits
+      h.rollHit = h.rollHit || new Set();
+      const T = enemies.filter(e => !e.dead && !e.sub && hyp(e.x - h.x, e.y - h.y) < e.r + h.r); if (boss && !boss.dead && hyp(boss.x - h.x, boss.y - h.y) < boss.r + h.r) T.push(boss);
+      for (const t of T) if (!h.rollHit.has(t)) { h.rollHit.add(t); skillHit(t, F.roller, h.x, h.y, 220, '#9ae8ff'); burst(t.x, t.y, 10, '#9ae8ff', 180, 0.4); A.sfx('hit'); }
+    } else h.rollHit = null;
+  }
+  function charmHit(t) {   // いかずちのたま: every 8th hit calls a bolt on the nearest other monster (or the boss)
+    const h = hero, F = h.s.fx; if (!F.thunder) return;
+    h.hitN = (h.hitN || 0) + 1; if (h.hitN % F.thunder) return;
+    const L = enemies.filter(e => !e.dead && e.active && !e.sub && hyp(e.x - h.x, e.y - h.y) < 300).sort((a, b) => hyp(a.x - h.x, a.y - h.y) - hyp(b.x - h.x, b.y - h.y));
+    const tg = L.find(e => e !== t) || L[0] || (boss && !boss.dead ? boss : null); if (!tg) return;
+    anims.push({ kind: 'bolt', x: tg.x, y: tg.y, t: 0, dur: 0.4, frames: 1 }); skillHit(tg, 1.2, tg.x, tg.y + 10, 0, '#fff27a'); if (tg !== boss && !tg.dead) tg.zap = Math.max(tg.zap || 0, 0.4);
+    flash = Math.max(flash, 0.15); flashCol = '255,250,200'; A.sfx('boom');
+  }
+  function thornsHit(t) {   // 竜神のメダル: hurt the one that touched you
+    const h = hero; if (!h.s.fx.thorns || !t || t.dead) return;
+    skillHit(t, h.s.fx.thorns, h.x, h.y, 200, '#ffb070'); burst(t.x, t.y, 8, '#ffb070', 160, 0.35);
+  }
   function startRoll(dx, dy) {
     const h = hero; if (!h || h.hp <= 0 || h.stun > 0 || (h.rollCD || 0) > 0 || paused || (state !== 'play' && state !== 'boss')) return false;
     const flip = h.pw && h.pw.kind === 'mirror' ? -1 : 1;
-    h.rollA = Math.atan2(-dy * flip, dx * flip); h.roll = ROLL_T; h.rollCD = ROLL_CD; h.recoil = 0; h.inv = Math.max(h.inv, ROLL_T + 0.06);
+    h.rollA = Math.atan2(-dy * flip, dx * flip); h.roll = ROLL_T; h.rollCD = ROLL_CD * (h.s.fx.roller ? 0.5 : 1); h.recoil = 0; h.inv = Math.max(h.inv, ROLL_T + 0.06);
     burst(h.x, h.y - 6, 10, '#d8ccb0', 140, 0.35); A.sfx('roll');
     return true;
   }
@@ -979,6 +1029,7 @@
     const h = hero, maxS = MAXSPD * h.s.ram, pk = h.pw ? h.pw.kind : '', G = pk === 'slip' ? Object.assign({ ice: 1 }, h.gnd) : (h.gnd || {}), flip = pk === 'mirror' ? -1 : 1;
     if (h.stunImm > 0) h.stunImm -= dt;
     if (h.rollCD > 0) h.rollCD -= dt;
+    charmTick(h, dt);
     if (h.roll > 0) {   // rolling: fast at first, easing out
       h.roll -= dt; const k = Math.max(0, h.roll / ROLL_T), v = (230 + 400 * k) * Math.min(1.3, h.s.ram);
       h.vx = Math.cos(h.rollA) * v; h.vy = Math.sin(h.rollA) * v;
@@ -1120,7 +1171,7 @@
     let { dmg, crit, tag } = ramDamage(e, res.imp, false);
     if ((e.ai === 'spin' && e.st === 'dizzy') || e.st === 'stun') { dmg = Math.round(dmg * 1.5); tag = 'めまい'; }
     if (e.mod.stone && !e.awake) { dmg = Math.max(1, Math.round(dmg * 0.5)); tag = 'いしの からだ'; wakeStatue(e); }
-    e.hp -= dmg; e.hurt = 0.18; e.hitCD = 0.12;
+    e.hp -= dmg; e.hurt = 0.18; e.hitCD = 0.12; charmHit(e);
     if (e.st === 'wind' || e.st === 'aim') { e.st = 'idle'; e.cd = 0.6; }   // a hit interrupts the attack
     combo += comboStep(); comboT = 1.6 + (hero.s.fx.chain || 0);
     popText(e.x, e.y + 20, (crit ? 'かいしん！ ' : '') + dmg, crit ? '#f2c14e' : '#fff', crit ? 22 : 17, 0.8);
@@ -1136,6 +1187,10 @@
 
   function killEnemy(e) {
     e.hp = 0; e.dead = true; runKills++; save.kills++;
+    if (hero && hero.s.fx.blast && e.type !== 'goldslime') {   // まじんのめだま: it goes off
+      rings.push({ x: e.x, y: e.y, r: 8, max: 90, spd: 420, dmg: 0, w: 8, fx: true }); burst(e.x, e.y, 18, '#ff6a8a', 240, 0.5); A.sfx('boom');
+      for (const o of enemies) if (o !== e && !o.dead && !o.sub && hyp(o.x - e.x, o.y - e.y) < 85 + o.r) skillHit(o, hero.s.fx.blast, e.x, e.y, 260, '#ff8aa0');
+    }
     if (e.parade && ev.parade) ev.parade.killed++;
     if (e.type === 'goldslime') { popText(e.x, e.y + 56, 'おおもうけ！', '#ffe14a', 20, 1.4); flash = 0.35; flashCol = '255,230,120'; burst(e.x, e.y, 40, '#ffe14a', 320, 0.9); }
     anims.push({ kind: 'poof', x: e.x, y: e.y, t: 0, dur: 0.4, frames: 5 });
@@ -1365,7 +1420,7 @@
       if (res && h.pw && h.pw.kind === 'giant') { res.kind = 'ram'; res.imp = Math.max(res.imp, PAD_MAX * h.s.ram); }   // きょだいか: everything you touch gets rammed
       if (res) {
         if (res.kind === 'ram') hitEnemy(e, res);
-        else if (e.hitCD <= 0 && h.ramSafe <= 0 && !(e.zap > 0) && e.ai !== 'flee') { if (e.mod.chill) h.slow = Math.max(h.slow, e.mod.chill); const big = (e.ai === 'charge' && e.st === 'dash') || (e.ai === 'shark' && e.st === 'leap'); hurtHero(Math.round(e.atk * (big ? 1.3 : 1)), e.x, e.y, big ? 520 : 260, 'touch:' + e.type); if (e.ai === 'flutter' || e.ai === 'imp') { e.st = 'retreat'; e.t = 0; } }
+        else if (e.hitCD <= 0 && h.ramSafe <= 0 && !(e.zap > 0) && e.ai !== 'flee') { if (e.mod.chill) h.slow = Math.max(h.slow, e.mod.chill); const big = (e.ai === 'charge' && e.st === 'dash') || (e.ai === 'shark' && e.st === 'leap'); const hp0 = h.hp; hurtHero(Math.round(e.atk * (big ? 1.3 : 1)), e.x, e.y, big ? 520 : 260, 'touch:' + e.type); if (h.hp < hp0) thornsHit(e); if (e.ai === 'flutter' || e.ai === 'imp') { e.st = 'retreat'; e.t = 0; } }
       }
     }
     // enemies push each other apart
@@ -1545,7 +1600,7 @@
             const d2 = Math.max(1, Math.round(h.s.maxHp * 0.08)); h.hp -= d2; h.inv = 1.0;
             popText(h.x, h.y + 26, 'おちた！ -' + d2, '#ff5a4a', 16, 1); A.sfx('hurt'); combo = 0;
             h.y = p.y - p.h / 2 - 50; h.x = tunnelAt(h.y).cx; h.vx = 0; h.vy = 0; h.recoil = 0.2;
-            if (h.hp <= 0) { h.hp = 0; heroDown(); }
+            if (h.hp <= 0 && !tryRevive()) { h.hp = 0; heroDown(); }
           }
         }
         continue;
@@ -2159,7 +2214,7 @@
     const h = hero, id = save.skill, S = SKILLS[id];
     if (!S || !h || h.hp <= 0 || paused || (state !== 'play' && state !== 'boss') || transition) return;
     if (h.skCD > 0) { popText(h.x, h.y + 30, `${S.name} あと ${Math.ceil(h.skCD)}びょう`, '#ff9a8a', 13, 0.8); A.sfx('block'); return; }
-    h.skCD = S.cd; h.skFlash = 0.5;
+    h.skCD = S.cd * (1 - (h.s.fx.skillcd || 0)); h.skFlash = 0.5;
     popText(h.x, h.y + 46, S.name + '！', S.col, 17, 1);
     switch (id) {
       case 'shock':
@@ -2458,7 +2513,7 @@
         let { dmg, crit, tag } = ramDamage(B, res.imp, true);
         dmg = Math.max(1, Math.round(dmg * (B.dmgTake || 1) * (B.dizzy > 0 ? 1.3 : 1)));
         if (B.regen) { B.regen = null; popText(B.x, B.y + B.r + 44, 'さいせいを とめた！', '#fff', 15, 1); }
-        B.hp -= dmg; B.hurt = 0.15; B.hitCD = 0.2; combo += comboStep(); comboT = 2.2 + (h.s.fx.chain || 0);
+        B.hp -= dmg; B.hurt = 0.15; B.hitCD = 0.2; charmHit(B); combo += comboStep(); comboT = 2.2 + (h.s.fx.chain || 0);
         if (h.pw && h.pw.kind === 'bomb') heroBomb(B.x - res.nx * B.r, B.y - res.ny * B.r, B);
         if (h.holy && h.holy.n > 0 && --h.holy.n <= 0) h.holy = null;
         if (tag) popText(B.x, B.y + B.r + 32, tag + '！', '#9fe8ff', 13, 0.6);
@@ -2471,7 +2526,7 @@
         const fl = 480 * (1 + (h.s.fx.recoil || 0) * 0.4); h.vx = -res.nx * fl; h.vy = -res.ny * fl; h.recoil = 0.45; h.ramSafe = 0.75;
         A.sfx(crit ? 'crit' : 'bosshit');
         if (B.hp <= 0) { B.hp = 0; bossDefeated(); }
-      } else if (res.kind === 'bump' && h.ramSafe <= 0) hurtHero(B.atk * 0.7, B.x, B.y, 380, 'boss');
+      } else if (res.kind === 'bump' && h.ramSafe <= 0) { const hp0 = h.hp; hurtHero(B.atk * 0.7, B.x, B.y, 380, 'boss'); if (h.hp < hp0) thornsHit(B); }
     }
   }
   // minions from this dungeon join the fight (capped so the room never floods)
@@ -4339,7 +4394,7 @@
         <p style="font-size:14px;color:var(--muted)">こうげき ${s.atk}・ぼうぎょ ${s.def}・<span class="gold">${save.gold} G</span></p>` +
         list.map(e => {
           const own = save.owned.includes(e.id), eq = save.eq[e.slot] === e.id;
-          return `<div class="row"><span class="nm">${eqIcon(e)} ${e.name}</span><span class="sub">${statOf(e) || 'ふつうの そうび'}</span>
+          return `<div class="row"><span class="nm">${eqIcon(e)} ${e.name}</span><span class="sub">${statOf(e) || 'ふつうの そうび'}${e.fx ? '<br>' + Object.keys(e.fx).map(k => `<span style="color:#7ad8ff">◆${FX[k].note}</span>`).join('<br>') : ''}</span>
             <span class="act">${eq ? '<span class="tag">そうびちゅう</span>' : own ? `<button class="sbtn" data-eq="${e.id}">そうびする</button>` : `<span class="price">${e.price} G</span><button class="sbtn" data-buy="${e.id}" ${save.gold < e.price ? 'disabled' : ''}>かう</button>`}</span></div>`;
         }).join(''),
         [['みせを でる', closePanel]], 'smith');
@@ -4643,5 +4698,5 @@
   requestAnimationFrame(frame);
   // test hooks
   window.__yusha = { get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
-    enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN, ITEMS, EQUIP }, get bag() { return bag; }, openPrep, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt, openOptions };
+    enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN, ITEMS, EQUIP }, get bag() { return bag; }, openPrep, charmHit, stats, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt, openOptions };
 })();
