@@ -36,8 +36,10 @@ const BEAST3 = (() => {
   // ---- facing and projection ----
   const face4 = a => { const c = Math.cos(a), s = Math.sin(a); return Math.abs(c) > 0.7 ? (c > 0 ? 'r' : 'l') : s > 0 ? 'b' : 'f'; };   // world angle (y up)
   function groundDir(f, a) { const c = Math.cos(a), s = Math.sin(a); return f === 'f' ? [c, -s] : f === 'b' ? [-c, s] : f === 'r' ? [-s, c] : [-s, -c]; }   // world angle -> model [x, z]
-  let VIEW = 'f'; const SL = 0.45;
+  let VIEW = 'f', SPIN = 0; const SL = 0.45;   // SPIN: the whole body turned about its vertical axis (rad), for spinning attacks
+  function gdir(E, a) { const d = groundDir(E.face, a); if (!SPIN) return d; const q = yaw([d[0], 0, d[1]], -SPIN); return [q[0], q[2]]; }   // world angle -> model [x, z], allowing for a turned body
   function pr(p) {   // model -> [canvas x, canvas y, depth]
+    if (SPIN) p = yaw(p, SPIN);
     if (VIEW === 'f') return [OX + p[0], OY + p[1] + p[2] * SL, p[2]];   // looking down a little: nearer = lower
     if (VIEW === 'b') return [OX - p[0], OY + p[1] - p[2] * SL, -p[2]];
     return [OX + p[2], OY + p[1] + p[0] * 0.22, p[0]];
@@ -179,7 +181,7 @@ const BEAST3 = (() => {
     } else if (n === 'breath' || n === 'breath3') {
       const k = env(t, 0, 0.35, 2.0, 2.3); P.sit = 1 - 0.6 * k; P.cr = 3 * k; P.hp = 0.35 * k; P.mo = env(t, 0.4, 0.5, 2.05, 2.25);
       const a = mv.dir != null && mv.a0 != null ? mv.a0 + (n === 'breath' ? clamp((t - 0.5) / 1.6, 0, 1) * 1.8 : clamp((t - 0.55) / 1.75, 0, 1) * 1.0) * mv.dir : E.look;
-      const d = groundDir(E.face, a); P.hy = clamp(Math.atan2(d[0], d[1]), -1.1, 1.1) * k;
+      const d = gdir(E, a); P.hy = clamp(Math.atan2(d[0], d[1]), -1.1, 1.1) * k;
     } else if (CAST[n] || n === 'packhunt') {
       const k = env(t, 0.05, 0.4, 1.0, 1.4); P.howl = k; P.mo = k; P.hp = -0.9 * k; P.cr = -1.5 * k;   // throws its head back and howls
     }
@@ -273,9 +275,9 @@ const BEAST3 = (() => {
     if (n === 'breath' || n === 'breath3') {
       const k = env(t, 0, 0.35, 2.0, 2.3); P.lean = 6 * k; P.hp = 0.5 * k; P.mo = env(t, 0.4, 0.5, 2.05, 2.25); P.sp = 0.6 + 0.3 * k;
       const a = mv.dir != null && mv.a0 != null ? mv.a0 + (n === 'breath' ? clamp((t - 0.5) / 1.6, 0, 1) * 1.8 : clamp((t - 0.55) / 1.75, 0, 1) * 1.0) * mv.dir : E.look;
-      const d = groundDir(E.face, a); P.hy = clamp(Math.atan2(d[0], d[1]), -1.1, 1.1) * k;
+      const d = gdir(E, a); P.hy = clamp(Math.atan2(d[0], d[1]), -1.1, 1.1) * k;
     } else if (n === 'tail' && B.sweeps.length) {
-      const sw = B.sweeps[0], d = groundDir(E.face, sw.ang); P.tail = [d[0], d[1], sw.t >= sw.tele ? 1 : sw.t / sw.tele]; P.lean = 4; P.cr = 3; P.sp = 0.9; P.fl = 0.6;
+      const sw = B.sweeps[0], d = gdir(E, sw.ang); P.tail = [d[0], d[1], sw.t >= sw.tele ? 1 : sw.t / sw.tele]; P.lean = 4; P.cr = 3; P.sp = 0.9; P.fl = 0.6;
     } else if (n === 'quake') {
       let up = 0, hit = 0; for (const T0 of [0.45, 1.0, 1.55]) { up = Math.max(up, env(t, T0 - 0.33, T0 - 0.08, T0 - 0.06, T0)); hit = Math.max(hit, env(t, T0 - 0.02, T0, T0 + 0.1, T0 + 0.35)); }
       P.fl = 0.35 + up * 0.65 - hit * 0.5; P.sp = 1; P.cr = -6 * up + 7 * hit; P.step = hit; P.mo = Math.max(up, hit) * 0.6; P.hp = -0.3 * up + 0.3 * hit;
@@ -387,7 +389,7 @@ const BEAST3 = (() => {
     if (n === 'breath' || n === 'breath3') {
       const k = env(t, 0, 0.35, 2.0, 2.3), pull = env(t, 0, 0.3, 0.35, 0.55); P.lean = 1.2 * k - 0.5 * pull; P.H = 1 - 0.18 * k + 0.1 * pull; P.hp = 0.55 * k; P.mo = env(t, 0.4, 0.5, 2.05, 2.25); P.amp = 1 - 0.6 * k;
       const a = mv.dir != null && mv.a0 != null ? mv.a0 + (n === 'breath' ? clamp((t - 0.5) / 1.6, 0, 1) * 1.8 : clamp((t - 0.55) / 1.75, 0, 1) * 1.0) * mv.dir : E.look;
-      const d = groundDir(E.face, a); P.hy = clamp(Math.atan2(d[0], d[1]), -1.2, 1.2) * k;
+      const d = gdir(E, a); P.hy = clamp(Math.atan2(d[0], d[1]), -1.2, 1.2) * k;
     } else if (n === 'tentacles') {
       const k = env(t, 0, 0.6, 3.5, 4); P.H = 1 + 0.15 * k; P.thrash = k; P.sw = T * 4; P.amp = 1 + 0.6 * k; P.rise = 0.5 + 0.5 * k; P.mo = 0.6 * k; P.hp = -0.3 * k; P.coil = T * 2.4;
     } else if (n === 'tsunami') {
@@ -464,7 +466,7 @@ const BEAST3 = (() => {
     if (n === 'dash3') {
       const go = mv.ph === 'go'; P.st = go ? 1 : 0.3 * sstep((mv.pt || 0) / 0.3); P.sp = go ? 0.15 : 1; P.fl = go ? 0.2 : 0.9; P.mo = go ? 0.6 : 0.3; P.hp = 0.2;
     } else if (n === 'tail' && B.sweeps.length) {
-      const sw = B.sweeps[0], d = groundDir(E.face, sw.ang); P.tail = [d[0], d[1], sw.t >= sw.tele ? 1 : sw.t / sw.tele]; P.fl = Math.sin(T * 9) * 0.5 + 0.5;
+      const sw = B.sweeps[0], d = gdir(E, sw.ang); P.tail = [d[0], d[1], sw.t >= sw.tele ? 1 : sw.t / sw.tele]; P.fl = Math.sin(T * 9) * 0.5 + 0.5;
     } else if (CAST[n] || n === 'tornado') {
       const k = env(t, 0.05, 0.35, 1.0, 1.4); P.sp = 0.8 + 0.2 * k; P.fl = Math.sin(T * (5 + 6 * k)) * 0.5 + 0.5; P.mo = k; P.hp = -0.5 * k; P.rise = 6 * k;
     }
@@ -534,7 +536,7 @@ const BEAST3 = (() => {
     for (let i = 0; i < N; i++) P.heads.push({ hp: Math.sin(T * 1.3 + i * 1.7) * 0.15, ya: headSpread(N, i) + Math.sin(T * 0.7 + i * 2.1) * 0.3, mo: Math.max(0, Math.sin(T * 0.9 + i * 2.5) - 0.8) * 2, lunge: 0 });
     if (n === 'breath3') {
       const k = env(t, 0, 0.4, 2.0, 2.3), a = mv.a0 != null && mv.dir != null ? mv.a0 + clamp((t - 0.55) / 1.75, 0, 1) * 1.0 * mv.dir : E.look, mid = (N - 1) / 2;
-      [-0.85, 0, 0.85].forEach((o, j) => { const h = P.heads[mid - 1 + j]; const d = groundDir(E.face, a + o); h.ya = lerp(h.ya, Math.atan2(d[0], d[1]), k); h.hp = lerp(h.hp, 0.45, k); h.mo = Math.max(h.mo, env(t, 0.45, 0.55, 2.05, 2.25)); h.lunge = 0.3 * k; });
+      [-0.85, 0, 0.85].forEach((o, j) => { const h = P.heads[mid - 1 + j]; const d = gdir(E, a + o); h.ya = lerp(h.ya, Math.atan2(d[0], d[1]), k); h.hp = lerp(h.hp, 0.45, k); h.mo = Math.max(h.mo, env(t, 0.45, 0.55, 2.05, 2.25)); h.lunge = 0.3 * k; });
       P.cr = 3 * k;
     } else if (n === 'regen') {
       const d = env(t, 0, 0.35, 0.8, 1.4); P.glow = env(t, 0.5, 0.9, 1.6, 2.2); P.heads.forEach((h, i) => { h.hp += 1.0 * d * (1 - i * 0.05); h.mo = 0; }); P.cr = 4 * d;
@@ -614,7 +616,7 @@ const BEAST3 = (() => {
     for (let i = 0; i < 3; i++) P.heads.push({ hp: Math.sin(T * 1.4 + i * 2) * 0.12, ya: (i - 1) * 0.45 + Math.sin(T * 0.8 + i * 2.3) * 0.2, mo: Math.max(0, Math.sin(T * 1.1 + i * 2.2) - 0.7) * 1.5 });
     if (n === 'breath3') {
       const k = env(t, 0, 0.4, 2.0, 2.3), a = mv.a0 != null && mv.dir != null ? mv.a0 + clamp((t - 0.55) / 1.75, 0, 1) * 1.0 * mv.dir : E.look;
-      [-0.85, 0, 0.85].forEach((o, j) => { const h = P.heads[j], d = groundDir(E.face, a + o); h.ya = lerp(h.ya, Math.atan2(d[0], d[1]), k); h.hp = lerp(h.hp, 0.35, k); h.mo = Math.max(h.mo, env(t, 0.45, 0.55, 2.05, 2.25)); });
+      [-0.85, 0, 0.85].forEach((o, j) => { const h = P.heads[j], d = gdir(E, a + o); h.ya = lerp(h.ya, Math.atan2(d[0], d[1]), k); h.hp = lerp(h.hp, 0.35, k); h.mo = Math.max(h.mo, env(t, 0.45, 0.55, 2.05, 2.25)); });
       P.cr = 3 * k;
     } else if (n === 'dash3' || n === 'firetrail' || n === 'charge') {
       if (mv.ph === 'go') { P.gal = 1; P.ph = T * 20; P.heads.forEach(h => { h.hp = 0.25; h.mo = 0.5; }); }
@@ -697,7 +699,7 @@ const BEAST3 = (() => {
   const VE = { W: { d: '#a090c0', m: '#f2ecfa', h: '#ffffff' }, vein: '#d84a6a', iris: '#8a3ae0', iris2: '#e02a4a', irisL: '#d0a0ff', irisL2: '#ffa0b0', T: { d: '#24103a', m: '#5a2a8a', h: '#a070d8' } };
   function vePose(B, T, E) {
     const n = mvName(B), mv = B.mv, t = mv ? mv.t : 0;
-    const d = groundDir(E.face, E.look);
+    const d = gdir(E, E.look);
     const P = { look: norm([d[0] + Math.sin(T * 0.9) * 0.25, 0.25 + Math.sin(T * 1.3) * 0.1, d[1]]), bob: Math.sin(T * 1.8) * 3, glow: 0, ps: 1, sp: 0.3 + Math.sin(T * 1.2) * 0.1, curl: 0, roll: 0 };
     if (n === 'laser' || n === 'laser3' || n === 'cross' || n === 'gaze') { const k = env(t, 0, 0.4, n === 'cross' ? 3.6 : n === 'gaze' ? 3 : 1.3, (n === 'cross' ? 3.6 : n === 'gaze' ? 3 : 1.3) + 0.4); P.glow = k; P.ps = 1 - 0.6 * k; P.sp = lerp(P.sp, 1, k); P.look = norm(V.mix(P.look, [d[0], 0.1, d[1]], k)); }
     else if (n === 'warp') { const k = env(t, 0, 0.3, 0.6, 1.2); P.curl = k; P.ps = 1 + 0.5 * k; }
@@ -928,9 +930,27 @@ const BEAST3 = (() => {
   // =============================================================
   const RIGS = { nightmare: [nmPose, nmBuild, 1.05], fenrir: [fnPose, fnBuild, 1.3], bonedragon: [bdPose, bdBuild, 1.2], leviathan: [lvPose, lvBuild, 1.1], quetzal: [qzPose, qzBuild, 1.1],
     hydra: [hyPose, hyBuild, 1.1], cerberus: [cbPose, cbBuild, 1.15], voideye: [vePose, veBuild, 1.1], clockmachine: [cmPose, cmBuild, 1.15], kraken: [krPose, krBuild, 1.1] };   // [pose, build, size]
+  // spinning attacks (指示: 触手だけでなく体ごと回る): while the arms / necks / tail sweep round, the whole body turns with them.
+  // psi = the way the body faces in the world; the view is the nearest of the four, the rest becomes a turn of the 3D model.
+  const FACE_ANG = { f: -PI / 2, r: 0, b: PI / 2, l: PI };
+  const wrapPI = a => ((a + PI) % TAU + TAU) % TAU - PI;
+  function spinPsi(B, E, st) {
+    const mv = B.mv, n = mvName(B);
+    if (!mv || !(n === 'tentacles' || n === 'tail')) return null;
+    const sw = B.sweeps[0];
+    if (!sw) return st.psiLast != null && mv === st.psiMv ? st.psiLast : null;
+    if (mv !== st.psiMv) { st.psiMv = mv; st.psi0 = n === 'tail' ? sw.ang + PI : E.look; st.ang0 = null; }
+    let psi;
+    if (sw.t < sw.tele) psi = st.psi0 - Math.sign(sw.vel || 1) * 0.35 * sstep(sw.t / sw.tele);   // winds up, turning back against the coming spin
+    else { if (st.ang0 == null) st.ang0 = sw.ang; psi = st.psi0 - Math.sign(sw.vel || 1) * 0.35 + (sw.ang - st.ang0) + Math.sign(sw.vel || 1) * 0.35 * sstep((sw.t - sw.tele) / 0.25); }
+    return (st.psiLast = psi);
+  }
   function faceOf(B, E) {
     const mv = B.mv, st = B.b3 || (B.b3 = {});
     let want;
+    SPIN = 0;
+    const psi = spinPsi(B, E, st);
+    if (psi != null) { want = face4(psi); const res = wrapPI(psi - FACE_ANG[want]); SPIN = want === 'r' ? -res : res; return (st.f = want); }
     if (B.type === 'clockmachine' && mv && mvName(B) === 'clock') want = 'f';   // the clock attack: it shows you its face
     else if (mv && /charge|dash3|firetrail/.test(mv.name) && mv.ph === 'go') want = face4(Math.atan2(B.vy || 0, B.vx || 0) || mv.a0 || 0);
     else if (mv && (mv.name === 'tail') && B.sweeps.length) want = face4(B.sweeps[0].ang + PI);   // the tail lashes the way the sweep goes: the head faces the other way
