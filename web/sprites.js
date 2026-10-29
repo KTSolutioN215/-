@@ -78,6 +78,12 @@ const SPR = (() => {
     w15: { blade: '#fff6c0', bladeH: '#ffffff', bladeLen: 19, wide: 1, rune: '#f2c14e', glow: 'rgba(255,240,170,0.65)' },
     w16: { blade: '#8ae070', bladeH: '#e8ffd8', bladeLen: 19, wide: 1, rune: '#f2c14e', glow: 'rgba(150,240,120,0.6)' },
     w17: { blade: '#a8d8ff', bladeH: '#ffffff', bladeLen: 20, wide: 1, rune: '#ff9ad8', glow: 'rgba(190,220,255,0.7)' },
+    // 指示3: the gear of the trials (31-35). shape = an extra silhouette on the blade
+    w18: { blade: '#f0d090', bladeH: '#fff8e0', bladeLen: 19, wide: 1, rune: '#3ac0b0', shape: 'curve' },                                   // desert scimitar
+    w19: { blade: '#ff8a8a', bladeH: '#ffe0e0', bladeLen: 19, wide: 1, rune: '#3ad0c8', glow: 'rgba(255,140,150,0.5)', shape: 'branch', deco: '#3ad0c8' },   // coral
+    w20: { blade: '#fff27a', bladeH: '#ffffff', bladeLen: 20, wide: 1, rune: '#4a5aff', glow: 'rgba(255,240,120,0.7)', shape: 'zig' },     // thunder
+    w21: { blade: '#4a2434', bladeH: '#ff5a6a', bladeLen: 20, wide: 1, rune: '#ff3a4a', glow: 'rgba(255,40,70,0.55)', shape: 'serrated' },  // demon-slayer
+    w22: { blade: '#c8d8ff', bladeH: '#ffffff', bladeLen: 20, wide: 1, rune: '#fff6a0', glow: 'rgba(170,190,255,0.7)', shape: 'star', deco: '#fff6a0' },     // starfall
   };
   const ARM = {
     a0: { plate: null, helm: '#b58a5a', helmS: '#7d5a36', helmH: '#e0c090', crest: '#a07040', shield: '#8a5a2a', shieldS: '#5a3618', emblem: '#d8a46a' },
@@ -97,6 +103,12 @@ const SPR = (() => {
     a15: { plate: '#7a5a34', plateS: '#4a3418', plateH: '#a8e078', scale: true, helm: '#8a6a3a', helmS: '#4a3418', helmH: '#b8f088', crest: '#6ad85a', shield: '#6a4a24', shieldS: '#3a2410', emblem: '#8ae070', cape: '#3a8a3a', capeS: '#1e5a22' },
     a16: { plate: '#eef2ff', plateS: '#8a9ad0', plateH: '#ffffff', helm: '#f4f6ff', helmS: '#8a9ad0', helmH: '#ffffff', crest: '#ffffff', shield: '#e8ecff', shieldS: '#f2c14e', emblem: '#7ab8ff', cape: '#4a7ae0', capeS: '#2a4aa0' },
     a14: { plate: '#fff8e0', plateS: '#e0c060', plateH: '#ffffff', helm: '#fffaf0', helmS: '#e0c060', helmH: '#ffffff', crest: '#f2c14e', shield: '#fff8e0', shieldS: '#f2c14e', emblem: '#f2c14e', cape: '#ffffff', capeS: '#c8c0e0' },
+    // 指示3: armour of the trials (31-35), each with one extra piece you can see: shoulder plates, a fin crest, sparks, horns, wings
+    a17: { plate: '#e0c078', plateS: '#a8823a', plateH: '#fff0c0', helm: '#e8c880', helmS: '#a8823a', helmH: '#fff4d0', crest: '#3ac0b0', shield: '#d8b060', shieldS: '#8a6a2a', emblem: '#3ac0b0', cape: '#e8dcc0', capeS: '#b09c78', pauldron: 1 },
+    a18: { plate: '#ff8a8a', plateS: '#c04a5a', plateH: '#ffd0d0', scale: true, helm: '#ff9a90', helmS: '#c04a5a', helmH: '#ffe0d8', crest: '#3ad0c8', shield: '#f07a80', shieldS: '#2a8a90', emblem: '#ffffff', cape: '#2aa8b0', capeS: '#16707a', fin: '#3ad0c8', finS: '#1a8a8a' },
+    a19: { plate: '#3a4ab8', plateS: '#222a70', plateH: '#8a9aff', helm: '#4050c8', helmS: '#222a70', helmH: '#a0b0ff', crest: '#ffe14a', shield: '#3a4ab8', shieldS: '#ffe14a', emblem: '#ffe14a', cape: '#ffd23a', capeS: '#c09010', spark: '#fff27a' },
+    a20: { plate: '#3a2030', plateS: '#1a0a14', plateH: '#8a4a5a', helm: '#40222e', helmS: '#1a0a14', helmH: '#8a4a58', crest: '#ff3a4a', shield: '#3a2030', shieldS: '#a01a2a', emblem: '#ff3a4a', cape: '#8a0a1e', capeS: '#46040e', horns: '#ece0c4', hornsS: '#9a8a6a' },
+    a21: { plate: '#22347a', plateS: '#101a46', plateH: '#7a9aff', helm: '#2a3e8a', helmS: '#101a46', helmH: '#9ab4ff', crest: '#ffffff', shield: '#22347a', shieldS: '#f2c14e', emblem: '#fff6a0', cape: '#eef0ff', capeS: '#9aa4d0', wings: '#f4f6ff', wingsS: '#a8b4e0' },
   };
   function gearVis(w, a) { return Object.assign({ cape: '#c0303a', capeS: '#80182a' }, WEAP[w] || WEAP.w0, ARM[a] || ARM.a0); }
   const HC = { hair: '#7a4a22', hairS: '#4e2c12', skin: '#f8d0a8', skinS: '#e0a078', eye: '#1e1830', mouth: '#b0504a', blush: '#f4a090',
@@ -122,6 +134,7 @@ const SPR = (() => {
       if (G.glow) { g.r(bx + ox - 1, top + oy - 1, w + 2, len + 2, G.glow); }
       R(bx, top, w, len, G.blade); R(bx, top + 1, 1, len - 2, G.bladeH); R(bx + (w > 2 ? 1 : 0), top - 1, w - (w > 2 ? 2 : 1), 1, G.blade);
       if (G.rune) { Pp(bx + w - 1, top + 4, G.rune); Pp(bx + w - 1, top + 8, G.rune); }
+      bladeDeco((u, v, col) => Pp(bx + v, top + u, col), len, w);
       R(bx - 2, top + len, w + 4, 1, HC.gold); Pp(bx - 2, top + len, HC.goldS); R(bx, top + len + 1, w, 2, HC.grip); Pp(bx, top + len + 3, HC.gold);
     };
     const helmet = (side) => {
@@ -135,7 +148,42 @@ const SPR = (() => {
         R(5, 4, 3, 4, G.helmS); R(11, 3, 3, 1, G.helmH); R(13, 4, 2, 2, G.helmH);
         R(5, 8, 13, 1, HC.gold); R(7, 1, 7, 1, G.crest); R(8, 0, 4, 1, G.crest); R(6, 2, 2, 1, G.crest);
       }
+      headX(side);
     };
+    const headX = (side) => {   // horns / fin crest of the 31-35 armour
+      if (G.horns) {
+        if (!side) for (const m of [0, 1]) { const X = v => m ? 23 - v : v; R(X(5), 5, 1, 2, G.hornsS); R(X(4), 3, 1, 3, G.horns); R(X(3), 1, 1, 3, G.horns); R(X(2), -1, 1, 3, G.horns); Pp(X(1), -2, G.horns); Pp(X(3), 2, G.hornsS); }
+        else { R(8, 1, 2, 2, G.hornsS); R(7, -1, 1, 3, G.horns); R(6, -3, 1, 3, G.horns); Pp(5, -4, G.horns); R(14, 1, 1, 2, G.hornsS); R(15, -1, 1, 2, G.horns); Pp(16, -2, G.horns); }
+      }
+      if (G.fin) {
+        if (!side) for (let i = -3; i <= 3; i++) { const hh = 5 - Math.abs(i); R(11 + i + (i > 0 ? 1 : 0), 3 - hh, 1, hh, i % 2 ? G.finS : G.fin); }
+        else for (let i = 0; i < 7; i++) { const hh = 2 + (i < 4 ? i : 7 - i) * 0.8; R(6 + i, 2 - Math.round(hh), 1, Math.round(hh), i % 2 ? G.finS : G.fin); }
+      }
+    };
+    // a blade's extra silhouette. P(u, v, col): u = px from the tip toward the hilt, v = px across (0..w-1 is the blade itself)
+    const bladeDeco = (P, len, w) => {
+      const D = G.deco || G.bladeH, mid = Math.floor((w - 1) / 2);
+      if (G.shape === 'curve') { for (let u = 0; u < len * 0.6; u++) P(u, w, G.blade); for (let u = 1; u < len * 0.45; u++) P(u, w + 1, G.blade); for (let u = 3; u < len * 0.3; u++) P(u, w + 2, G.bladeH); P(-1, w + 1, G.bladeH); }
+      else if (G.shape === 'branch') for (const [u, v] of [[3, -1], [2, -2], [7, w], [6, w + 1], [11, -1], [10, -2], [14, w]]) P(u, v, D);
+      else if (G.shape === 'zig') for (let u = 0; u < len - 4; u += 5) { P(u + 1, -1, G.bladeH); P(u + 2, -2, G.bladeH); P(u + 3, w, G.bladeH); P(u + 4, w + 1, G.bladeH); }
+      else if (G.shape === 'serrated') for (let u = 2; u < len - 1; u += 2) { P(u, -1, G.blade); P(u + 1, w, G.blade); }
+      else if (G.shape === 'star') { for (const [u, v] of [[-1, mid], [-2, mid], [-2, mid - 1], [-2, mid + 1], [-2, mid - 2], [-2, mid + 2], [-3, mid], [-4, mid]]) P(u, v, D); P(-2, mid, '#ffffff'); }
+    };
+    const wingsX = (dir) => {   // star armour: small white wings
+      if (!G.wings) return;
+      const W1 = G.wings, W2 = G.wingsS;
+      if (dir === 'right') { g.poly([[8 + ox, 15 + oy], [2 + ox, 9 + oy], [0 + ox, 14 + oy], [2 + ox, 20 + oy], [7 + ox, 21 + oy]], W1); R(3, 13, 3, 1, W2); R(3, 16, 3, 1, W2); return; }
+      const big = dir === 'up' ? 2 : 0;
+      for (const m of [0, 1]) { const X = v => m ? 24 - v : v; g.poly([[X(7) + ox, 15 + oy], [X(1 - big) + ox, 10 - big + oy], [X(-1 - big) + ox, 16 + oy], [X(1 - big) + ox, 21 + big + oy], [X(6) + ox, 22 + oy]], W1); R(Math.min(X(2), X(5)), 14, 3, 1, W2); R(Math.min(X(2), X(5)), 17, 3, 1, W2); }
+    };
+    const frontX = (dir) => {   // shoulder plates and crackling sparks
+      if (G.pauldron) {
+        if (dir === 'right') { R(11, 14, 6, 3, G.plate); R(11, 14, 6, 1, G.plateH); R(16, 15, 1, 2, G.plateS); }
+        else { R(2, 13, 6, 4, G.plate); R(2, 13, 6, 1, G.plateH); R(2, 16, 6, 1, G.plateS); R(16, 13, 6, 4, G.plateS); R(16, 13, 6, 1, G.plate); Pp(4, 15, G.emblem); Pp(19, 15, G.emblem); }
+      }
+      if (G.spark) { const P2 = (pose.wave || 0) ? [[21, 8], [2, 18], [9, -1], [20, 21]] : [[2, 10], [21, 16], [14, 0], [4, 22]]; for (const [a, b] of P2) { Pp(a, b, '#ffffff'); Pp(a - 1, b, G.spark); Pp(a + 1, b, G.spark); Pp(a, b - 1, G.spark); Pp(a, b + 1, G.spark); } }
+    };
+    wingsX(pose.dash && dir === 'up' ? 'up' : dir);
     if (pose.dash && dir === 'up') {
       // ---- charging away from the camera: sword thrust overhead, cape streaming ----
       const wv = pose.wave || 0;
@@ -203,9 +251,11 @@ const SPR = (() => {
         const L = G.bladeLen + 2, w = 2 + G.wide;
         if (G.glow) g.r(17 + ox, 18 + oy, L + 2, w + 2, G.glow);
         R(18, 19, L, w, G.blade); R(18, 19, L - 1, 1, G.bladeH); R(18 + L, 19 + (w > 2 ? 1 : 0), 1, w - (w > 2 ? 2 : 1), G.blade);
+        bladeDeco((u, v, col) => Pp(18 + L - 1 - u, 19 + v, col), L, w);
         R(17, 17, 1, w + 4, HC.gold); R(15, 19, 2, w, HC.grip);
       } else sword(16, 18 - G.bladeLen, G.bladeLen);
     }
+    frontX(dir);
     pixelize(c, OL);
     const out = pose.dir === 'left' ? flipX(c) : c;
     cache.set(key, out);
@@ -2846,6 +2896,32 @@ const SPR = (() => {
     if (P.flash) s = white(s);
     return s;
   }
+  // 指示3: the charms of the trials float beside the hero (16 x 16, anchor = centre)
+  function relic(id, f) {
+    const k = f % 4;
+    return mk('relic' + id + k, 16, 18, 8, 9, g => {
+      if (id === 'c11') {   // hourglass of the dunes: the sand runs
+        g.r(4, 2, 8, 2, '#a8823a'); g.r(4, 14, 8, 2, '#a8823a'); g.r(5, 2, 6, 1, '#e8c880'); g.r(5, 14, 6, 1, '#e8c880');
+        g.poly([[5, 4], [11, 4], [8.5, 9], [7.5, 9]], '#d8ecff'); g.poly([[5, 14], [11, 14], [8.5, 9], [7.5, 9]], '#d8ecff');
+        g.poly([[6, 4 + k * 0.6], [10, 4 + k * 0.6], [8.3, 8], [7.7, 8]], '#f0c060'); g.poly([[5.5, 14], [10.5, 14], [8, 14 - 1.5 - k]], '#f0c060'); g.r(8, 9, 1, 3, '#f0c060');
+      } else if (id === 'c12') {   // pearl of the sea in an open shell
+        g.poly([[1, 10], [8, 15], [15, 10], [12, 14], [4, 14]], '#ff8a9a'); g.poly([[2, 10], [8, 13], [14, 10]], '#ffc0c8'); for (const x of [4, 8, 12]) g.p(x, 12, '#c04a5a');
+        g.ell(8, 7, 4, 4, '#c8d0e8'); g.ell(7.5, 6.5, 3.2, 3.2, '#f4f6ff'); g.r(6, 5, 2, 1, '#ffffff'); g.p(9 + (k % 2), 8, '#b0f0ff');
+      } else if (id === 'c13') {   // thunder orb: crackles
+        g.ell(8, 8, 6, 6, '#283a9a'); g.ell(7.5, 7.5, 5, 5, '#4a6ae0'); g.ell(6, 6, 2, 1.6, '#a8c0ff');
+        const z = k % 2 ? [[5, 4], [9, 7], [7, 8], [11, 12]] : [[10, 4], [7, 7], [9, 8], [5, 12]];
+        for (let i = 0; i < 3; i++) g.line(z[i][0], z[i][1], z[i + 1][0], z[i + 1][1], 1, '#fff27a');
+        if (k === 1 || k === 3) { g.p(1, 3, '#fff27a'); g.p(14, 13, '#fff27a'); }
+      } else if (id === 'c14') {   // demon's eye: it looks around
+        g.ell(8, 8, 7, 5.5, '#4a0a1e'); g.ell(8, 8, 6, 4.5, '#f0e4d8'); const lx = [0, 2, 0, -2][k];
+        g.ell(8 + lx, 8, 2.8, 3.2, '#c01a3a'); g.ell(8 + lx, 8, 1, 2.4, '#140208'); g.p(7 + lx, 6, '#ffffff');
+        for (const [x, y] of [[2, 3], [14, 3], [8, 1]]) g.line(8, 4, x, y, 1, '#4a0a1e');
+      } else {   // shard of a shooting star, with a little tail
+        for (let i = 0; i < 3; i++) g.p(1 + i * 2, 15 - i * 2 - (k % 2), ['#6a7ad8', '#9aa8ff', '#d8e0ff'][i]);
+        g.poly([[10, 1], [12, 6], [16, 8], [12, 10], [10, 16], [8, 10], [4, 8], [8, 6]], '#ffd84a'); g.poly([[10, 3], [11, 7], [14, 8], [11, 9], [10, 13], [9, 9], [6, 8], [9, 7]], '#fff6c0'); g.p(10, 8, '#ffffff');
+      }
+    }, '#140c1c');
+  }
   // draw a sprite with its feet at (x, y) in logical px
   function draw(ctx, s, x, y, alpha) {
     if (!s) return;
@@ -3236,5 +3312,5 @@ const SPR = (() => {
   };
   function x0ring(g) { g.x.strokeStyle = '#e8f0ff'; g.x.lineWidth = 1; g.x.beginPath(); g.x.arc(8, 8, 4, 0, 7); g.x.stroke(); }
 
-  return { SCALE, shadeOf, stoneOf, part, hero: heroS, enemy, boss, draw, skeletonParts, ENV, floorTile, wallTile, dither, tileCanvas, shade: sh, seeded, cacheSize: () => cache.size, types: () => ({ enemies: Object.keys(EN), bosses: Object.keys(BOSS) }) };
+  return { SCALE, shadeOf, stoneOf, part, relic, hero: heroS, enemy, boss, draw, skeletonParts, ENV, floorTile, wallTile, dither, tileCanvas, shade: sh, seeded, cacheSize: () => cache.size, types: () => ({ enemies: Object.keys(EN), bosses: Object.keys(BOSS) }) };
 })();

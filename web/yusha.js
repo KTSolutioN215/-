@@ -58,6 +58,12 @@
     { id: 'w15', slot: 'weapon', name: 'ひかりの聖剣', atk: 350, price: 420000 },
     { id: 'w16', slot: 'weapon', name: 'せかいじゅの剣', atk: 420, price: 600000 },
     { id: 'w17', slot: 'weapon', name: 'てんくうの剣', atk: 500, price: 860000 },
+    // 指示3: the trials (31-35) had no gear of their own; one new tier per trial
+    { id: 'w18', slot: 'weapon', name: 'さきゅうの曲刀', atk: 540, price: 980000 },
+    { id: 'w19', slot: 'weapon', name: 'さんごの剣', atk: 585, price: 1150000 },
+    { id: 'w20', slot: 'weapon', name: 'らいめいの剣', atk: 630, price: 1350000 },
+    { id: 'w21', slot: 'weapon', name: 'まじんごろし', atk: 680, price: 1600000 },
+    { id: 'w22', slot: 'weapon', name: 'ほしふるの剣', atk: 735, price: 1900000 },
     { id: 'a0', slot: 'armor', name: '布の服', def: 0, price: 0 },
     { id: 'a1', slot: 'armor', name: '革のよろい', def: 3, price: 100 },
     { id: 'a2', slot: 'armor', name: 'くさりかたびら', def: 7, price: 380 },
@@ -75,6 +81,11 @@
     { id: 'a14', slot: 'armor', name: 'ひかりの聖よろい', def: 165, price: 390000 },
     { id: 'a15', slot: 'armor', name: 'せかいじゅのよろい', def: 192, price: 560000 },
     { id: 'a16', slot: 'armor', name: 'てんしのよろい', def: 222, price: 800000 },
+    { id: 'a17', slot: 'armor', name: 'すなかぜのよろい', def: 240, price: 920000 },
+    { id: 'a18', slot: 'armor', name: 'さんごのよろい', def: 259, price: 1080000 },
+    { id: 'a19', slot: 'armor', name: 'らいうんのよろい', def: 280, price: 1270000 },
+    { id: 'a20', slot: 'armor', name: 'まじんのよろい', def: 302, price: 1500000 },
+    { id: 'a21', slot: 'armor', name: 'ほしふるのよろい', def: 326, price: 1780000 },
     { id: 'b0', slot: 'boots', name: '旅人のくつ', ram: 1, price: 0 },
     { id: 'b1', slot: 'boots', name: '疾風のくつ', ram: 1.12, price: 320 },
     { id: 'b2', slot: 'boots', name: '天馬のくつ', ram: 1.25, price: 1500 },
@@ -93,6 +104,11 @@
     { id: 'c8', slot: 'charm', name: '竜王のメダル', atk: 40, def: 40, hp: 300, price: 150000 },
     { id: 'c9', slot: 'charm', name: 'ひかりの宝玉', atk: 60, def: 55, hp: 450, price: 400000 },
     { id: 'c10', slot: 'charm', name: 'せかいじゅのしずく', atk: 85, def: 75, hp: 650, price: 900000 },
+    { id: 'c11', slot: 'charm', name: 'さばくのすなどけい', atk: 92, def: 81, hp: 700, price: 1150000 },
+    { id: 'c12', slot: 'charm', name: 'うみなりのしんじゅ', atk: 99, def: 87, hp: 755, price: 1400000 },
+    { id: 'c13', slot: 'charm', name: 'いかずちのたま', atk: 107, def: 94, hp: 815, price: 1700000 },
+    { id: 'c14', slot: 'charm', name: 'まじんのめだま', atk: 115, def: 101, hp: 880, price: 2050000 },
+    { id: 'c15', slot: 'charm', name: 'ながれぼしのかけら', atk: 124, def: 109, hp: 950, price: 2500000 },
   ];
   // ---- equipment that monsters drop (never sold in the shop) ----
   // special effects. Kept mild, and the same effect on two items does not stack.
@@ -114,8 +130,8 @@
     buff: { v: 0.5, name: 'れんきん', note: 'ちから・まもりの くすりの こうか じかん+50%' },
   };
   // the shop tier a player usually has in each dungeon: drops are pinned to it
-  const DROP_WT = [1, 1, 2, 2, 3, 4, 5, 5, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 15, 15, 16, 16, 17, 17, 17, 17, 17, 17, 17];
-  const DROP_AT = [1, 1, 2, 2, 3, 4, 4, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 16, 16, 16, 16, 16];
+  const DROP_WT = [1, 1, 2, 2, 3, 4, 5, 5, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 15, 15, 16, 16, 17, 17, 18, 19, 20, 21, 22];
+  const DROP_AT = [1, 1, 2, 2, 3, 4, 4, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 18, 19, 20, 21];
   // ふるびた (common, a weaker copy of a shop item) and 名工の (rare, a stronger copy)
   for (const base of EQUIP.filter(e => (e.slot === 'weapon' || e.slot === 'armor') && e.price > 0)) {
     const k = base.slot === 'weapon' ? 'atk' : 'def';
@@ -358,15 +374,15 @@
       pal: { wall: '#0a0410', wallHi: '#2a0a3a', floor: '#2a1236', floorLn: '#1c0a26', light: '255,70,210', fog: 0.6 }, song: 'c3', key: 2, bpm: 156, boss: 'hakaishin', m: 67.66, a: 19.4, xp: 37629, gp: 448198 },
     // --- the trials beyond (31-35): new bosses built from moving parts ---
     { name: 'すなあらしの さきゅう', en: 'SANDSTORM DUNES', rec: 112, len: 4300, w: [0.6, 0.88], pool: { scorpion: 1.6, mummy: 1, fireelem: 0.6, harpy: 0.4, gargoyle: 0.4, toad: 0.3, basilisk: 1.5, minotaur: 1.1 }, groups: 17, rocks: 6, spikes: 5, chests: 2, crates: 3,
-      pal: { wall: '#4a3018', wallHi: '#8a6234', floor: '#d0a868', floorLn: '#b08a50', light: '255,220,150', fog: 0.36 }, song: 'mine', key: 4, bpm: 150, boss: 'sandworm', m: 72.4, a: 19.98, xp: 40080, gp: 546802 },
+      pal: { wall: '#4a3018', wallHi: '#8a6234', floor: '#d0a868', floorLn: '#b08a50', light: '255,220,150', fog: 0.36 }, song: 'mine', key: 4, bpm: 150, boss: 'sandworm', m: 79.64, a: 21.18, xp: 40080, gp: 546802 },
     { name: 'さんごの らせんどう', en: 'CORAL SPIRAL', rec: 116, len: 4300, w: [0.6, 0.86], pool: { angler: 1.3, jelly: 1.3, fishman: 1, ghostpirate: 0.7, mimic: 0.4, shark: 1.8 }, groups: 17, rocks: 5, spikes: 5, chests: 2, crates: 3,
-      pal: { wall: '#0a2a3a', wallHi: '#1a5a6a', floor: '#3a7a8a', floorLn: '#2a5e6c', light: '140,255,230', fog: 0.5 }, song: 'c8', key: 5, bpm: 150, boss: 'gigacrab', m: 77.47, a: 20.58, xp: 42620, gp: 667098 },
+      pal: { wall: '#0a2a3a', wallHi: '#1a5a6a', floor: '#3a7a8a', floorLn: '#2a5e6c', light: '140,255,230', fog: 0.5 }, song: 'c8', key: 5, bpm: 150, boss: 'gigacrab', m: 85.22, a: 21.81, xp: 42620, gp: 667098 },
     { name: 'らいうんの たかみ', en: 'THUNDERHEAD', rec: 120, len: 4400, w: [0.6, 0.88], pool: { harpy: 1.5, angel: 1, wyvern: 0.8, starspirit: 0.6, jelly: 0.5, crossbow: 0.5, stormeagle: 1.6, snowman: 1 }, groups: 17, rocks: 3, spikes: 5, chests: 2, crates: 3,
-      pal: { wall: '#2a2a4a', wallHi: '#5a5a8a', floor: '#8a8ab0', floorLn: '#6a6a90', light: '230,240,255', fog: 0.34 }, song: 'A', key: 7, bpm: 152, boss: 'raijin', m: 82.89, a: 21.2, xp: 45220, gp: 813860 },
+      pal: { wall: '#2a2a4a', wallHi: '#5a5a8a', floor: '#8a8ab0', floorLn: '#6a6a90', light: '230,240,255', fog: 0.34 }, song: 'A', key: 7, bpm: 152, boss: 'raijin', m: 91.18, a: 22.47, xp: 45220, gp: 813860 },
     { name: 'まじんの てのひら', en: "DEMON'S PALM", rec: 124, len: 4400, w: [0.6, 0.88], pool: { archdemon: 0.8, darkpriest: 1, magicmirror: 0.8, chaosbeast: 0.8, hellhound: 0.8, imp: 0.5, assassin: 1.3, dullahan: 1.2 }, groups: 18, rocks: 4, spikes: 5, chests: 2, crates: 3,
-      pal: { wall: '#1a0a1e', wallHi: '#3e1a44', floor: '#4a2a50', floorLn: '#361e3c', light: '220,120,255', fog: 0.58 }, song: 'c3', key: 2, bpm: 154, boss: 'demonhands', m: 88.69, a: 21.84, xp: 47890, gp: 992909 },
+      pal: { wall: '#1a0a1e', wallHi: '#3e1a44', floor: '#4a2a50', floorLn: '#361e3c', light: '220,120,255', fog: 0.58 }, song: 'c3', key: 2, bpm: 154, boss: 'demonhands', m: 97.56, a: 23.15, xp: 47890, gp: 992909 },
     { name: 'ほしふる てんくう', en: 'STARFALL SKY', rec: 128, len: 4400, w: [0.6, 0.88], pool: { starspirit: 1.4, fairy: 1, angel: 0.8, harpy: 0.6, bonewyvern: 0.6, baku: 0.5, stormeagle: 1.4, clown: 1 }, groups: 18, rocks: 3, spikes: 5, chests: 2, crates: 3,
-      pal: { wall: '#0a0e2a', wallHi: '#1e2a5a', floor: '#1a2250', floorLn: '#121a40', light: '170,200,255', fog: 0.5 }, song: 'gravity', key: 9, bpm: 154, boss: 'skywhale', m: 94.9, a: 22.49, xp: 50620, gp: 1211349 },
+      pal: { wall: '#0a0e2a', wallHi: '#1e2a5a', floor: '#1a2250', floorLn: '#121a40', light: '170,200,255', fog: 0.5 }, song: 'gravity', key: 9, bpm: 154, boss: 'skywhale', m: 104.39, a: 23.84, xp: 50620, gp: 1211349 },
   ];
 
   DUNGEONS.forEach((d, i) => Object.assign(d.pool, VAR_POOL[i] || {}));
@@ -457,15 +473,15 @@
       moves: ['twin', 'laser3', 'homing', 'warp', 'aimed5'], moves2: ['twin', 'cross', 'laser3', 'aimed5', 'warp', 'gapring'] },
     hakaishin: { name: 'はかいしん', hp: 44000, atk: 368, def: 90, r: 54, col: '#a03aff', wcol: '#ff4a9a', fcol: 'ghost', ocol: '255,90,210', song: 'M', key: 2, bpm: 158, rage: 1.4,
       moves: ['wave', 'laser3', 'rain:void', 'twin', 'homing', 'gapring', 'despair'], moves2: ['cross', 'spiral3', 'rain:meteor', 'mines', 'warp', 'despair', 'tentacles'] },
-    sandworm: { name: 'サンドワーム', hp: 52000, atk: 372, def: 92, r: 40, col: '#c89050', wcol: '#c89050', ocol: '240,200,130',
+    sandworm: { name: 'サンドワーム', hp: 60000, atk: 402, def: 101, r: 40, col: '#c89050', wcol: '#c89050', ocol: '240,200,130',
       moves: ['sandspit', 'slither', 'rocks', 'quake', 'gapring'], moves2: ['sandspit', 'slither', 'rocks', 'quake', 'triple', 'slither'] },
-    gigacrab: { name: 'ギガクラブ', hp: 50000, atk: 380, def: 94, r: 50, col: '#e0582a', wcol: '#e86030', ocol: '200,240,255',
+    gigacrab: { name: 'ギガクラブ', hp: 57000, atk: 410, def: 103, r: 50, col: '#e0582a', wcol: '#e86030', ocol: '200,240,255',
       moves: ['sidestep', 'bubbles', 'clawspin', 'bubbleshield', 'aimed5'], moves2: ['sidestep', 'bubbles', 'clawspin', 'bubbleshield', 'gapring', 'sidestep'] },
-    raijin: { name: 'らいじん', hp: 54000, atk: 388, def: 96, r: 44, col: '#3a8aa0', wcol: '#fff6a0', ocol: '255,240,140',
+    raijin: { name: 'らいじん', hp: 62000, atk: 419, def: 106, r: 44, col: '#3a8aa0', wcol: '#fff6a0', ocol: '255,240,140',
       moves: ['thunderdash', 'chainbolt', 'rain:bolt', 'gapring', 'homing'], moves2: ['thunderdash', 'chainbolt', 'rain:bolt', 'cross', 'triple', 'homing'] },
-    demonhands: { name: 'まじんのて', hp: 50000, atk: 396, def: 98, r: 40, col: '#5a1a6a', ocol: '220,140,255',
+    demonhands: { name: 'まじんのて', hp: 57000, atk: 428, def: 108, r: 40, col: '#5a1a6a', ocol: '220,140,255',
       moves: ['slam', 'fingerlaser', 'grab', 'flick', 'homing'], moves2: ['slam', 'fingerlaser', 'grab', 'flick', 'spiral3', 'slam'] },
-    skywhale: { name: 'そらくじら', hp: 52000, atk: 404, def: 100, r: 34, col: '#24427a', ocol: '255,230,120', rage: 1.4,
+    skywhale: { name: 'そらくじら', hp: 60000, atk: 436, def: 110, r: 34, col: '#24427a', ocol: '255,230,120', rage: 1.4,
       moves: ['inhale', 'rain:water', 'tailslam', 'swimby', 'starsong'], moves2: ['inhale', 'rain:water', 'tailslam', 'swimby', 'starsong', 'triple'] },
     maou: { name: 'まおう', hp: 27300, atk: 251, def: 72, r: 42, exp: 15000, gold: 15000, col: '#c04cff', song: 'M', key: 2, bpm: 150, rage: 1.45,
       moves: ['twin', 'spiral3', 'rain:meteor', 'warp', 'homing', 'laser3', 'gapring', 'clock'], moves2: ['cross', 'triple', 'rain:void', 'warp', 'dash3', 'mines', 'laser3', 'twin', 'spiral3', 'breath3'] },
@@ -3385,8 +3401,13 @@
       ctx.restore();
     }
     const giant = h.pw && h.pw.kind === 'giant', fy = y + h.r * 0.75;
+    const rel = save.eq.charm && /^c1[1-5]$/.test(save.eq.charm) ? save.eq.charm : null;   // the trial charms float beside you
+    const relA = globalT * 1.7, relX = x + Math.cos(relA) * 17, relY = y - 26 + Math.sin(relA * 2) * 3, relBehind = Math.sin(relA) < 0;
+    const drawRel = () => { const rs = SPR.relic(rel, Math.floor(globalT * 6)); ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(q(relX - 4.5), q(y + 4), 9, 3); SPR.draw(ctx, rs, relX, relY); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.18 + 0.1 * Math.sin(globalT * 5); ctx.fillStyle = '#fff6c0'; ctx.beginPath(); ctx.arc(relX, relY, 9, 0, 7); ctx.fill(); ctx.restore(); };
+    if (rel && relBehind) drawRel();
     if (giant) { ctx.save(); ctx.translate(x, fy); ctx.scale(1.55, 1.55); ctx.translate(-x, -fy); }
     SPR.draw(ctx, h.stun > 0 && h.stunKind === 'stone' ? SPR.stoneOf(spr) : spr, x, fy);
+    if (rel && !relBehind) drawRel();
     if (giant) {   // rainbow shimmer, faster as it runs out
       ctx.globalCompositeOperation = 'lighter'; SPR.draw(ctx, spr, x, fy, 0.25 + 0.2 * Math.sin(globalT * (h.pw.t < 2 ? 30 : 14))); ctx.restore();
       const hue = (globalT * 400) % 360; ctx.strokeStyle = `hsla(${hue},100%,70%,.7)`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, h.r + 6, 0, 7); ctx.stroke();
