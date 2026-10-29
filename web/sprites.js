@@ -3128,6 +3128,12 @@ const SPR = (() => {
   // Three-view humanoid parts. Geometry is shared only for armour joints; silhouettes,
   // heads, weapons and appendages preserve each monster's original design.
   const H3 = {
+    lich: { m: 1, w: 28, h: 28, a: ['#180c2c','#2a1a48','#4a3478'], skin: ['#a8a090','#e8e2cf','#fff8e4'], trim: '#f2c14e', eye: '#b48cff', weapon: 'staff', robe: true },
+    icequeen: { m: 1, w: 25, h: 28, a: ['#7ab8e0','#b8e8ff','#eaf8ff'], skin: ['#a8d0f0','#e8f4ff','#ffffff'], trim: '#9fe8ff', eye: '#3a6a9a', weapon: 'ice', robe: true },
+    pharaoh: { m: 1, w: 32, h: 29, a: ['#b8a888','#e8dcc0','#fff4d8'], skin: ['#c89a40','#e8c060','#fff0a0'], trim: '#f2c14e', eye: '#3ad8ff', weapon: 'crook', robe: true },
+    archmage: { m: 1, w: 29, h: 29, a: ['#141c4a','#2a3a8a','#5a78d8'], skin: ['#b8906a','#e8c8a0','#fff0d8'], trim: '#f2c14e', eye: '#7ad8ff', weapon: 'staff', robe: true },
+    colossus: { m: 1.15, w: 56, h: 34, a: ['#3a4250','#6e7a8a','#b8c4d4'], skin: ['#2a3040','#4e5868','#8a96a8'], trim: '#a0a8b8', eye: '#ffa23a', weapon: 'fist' },
+
     armor: { m: .6, w: 34, h: 30, a: ['#4a5470','#8a96b0','#d8e0f0'], skin: ['#4a5470','#8a96b0','#d8e0f0'], trim: '#c9a24a', eye: '#7ad8ff', weapon: 'sword', shield: true },
     shadowarmor: { m: .6, w: 34, h: 30, a: ['#21142e','#48315c','#8873a0'], skin: ['#21142e','#48315c','#8873a0'], trim: '#b89570', eye: '#b090ff', weapon: 'sword', shield: true },
     dwarf: { m: .6, w: 42, h: 26, a: ['#4a2a14','#7a4a24','#a87040'], skin: ['#c88a60','#f0b890','#ffe0c8'], trim: '#c9a24a', eye: '#211008', weapon: 'hammer' },
@@ -3147,6 +3153,29 @@ const SPR = (() => {
   function h3Head(type,P) {
     return h3mk(type,'head',P,92,72,46,60,(g,C,A,S) => {
       const side=P.v==='s', back=P.v==='b', eye=P.p2?'#ff3a5a':C.eye, trim=C.trim;
+      if(C.robe) {
+        const sx=side?4:0;
+        if(type==='lich') {
+          blob(g,0,-21,15,17,A);if(!back){g.ell(sx,-19,11,12,'#0c0614');blob(g,sx,-17,8,9,S);g.r(sx-6,-11,12,5,S.m);for(const x of(side?[8]:[-5,5])){g.ell(x,-20,2.5,3,'#140a1e');g.p(x,-20,eye);}for(let x=-4;x<=4;x+=2)g.p(sx+x,-8,A.d);g.p(sx,-14,A.d);}
+          g.r(-12,-33,24,3,trim);for(const x of[-9,0,9])g.poly([[x-2,-33],[x,-39],[x+2,-33]],trim);return;
+        }
+        if(type==='icequeen') {
+          g.poly([[-15,-32],[15,-32],[18,12],[8,7],[0,13],[-9,7],[-18,12]],'#d8f0ff');g.poly([[5,-30],[15,-30],[18,12],[8,7]],'#a8d0f0');
+          if(!back){blob(g,sx,-18,10,11,S);g.r(-9,-30,18,5,'#d8f0ff');for(const x of(side?[9]:[-5,5]))g.r(x-1,-20,3,2,eye);g.r(sx-1,-12,3,1,'#9a6aa8');}
+          g.r(-12,-33,24,3,trim);for(const [x,h]of[[-10,7],[-5,11],[0,17],[5,11],[10,7]])g.poly([[x-2,-33],[x,-33-h],[x+2,-33]],trim);g.p(0,-47,'#fff');return;
+        }
+        if(type==='pharaoh') {
+          const w=side?13:20;g.poly([[-w,-33],[w,-33],[w+4,4],[w-6,0],[-w+6,0],[-w-4,4]],trim);g.ell(0,-33,w,11,trim);for(let y=-39;y<2;y+=5)g.r(-w,y,w*2,2,'#2a4aa8');
+          if(!back){blob(g,sx,-20,10,12,S);for(const x of(side?[9]:[-6,5])){g.r(x-2,-23,5,2,'#1a1a3a');g.p(x,-23,eye);}g.r(sx-1,-19,2,5,S.d);g.r(sx-3,-11,6,1,S.d);g.r(sx-2,-8,4,8,'#2a4aa8');}
+          g.poly([[-3,-42],[0,-49],[3,-42]],trim);g.ell(0,-40,2,2,'#e04050');return;
+        }
+        // Archmage: crooked blue hat, long white beard and a readable side profile.
+        blob(g,0,-20,12,13,{d:'#a8a8c0',m:'#e0e0ec',h:'#ffffff'});if(!back){blob(g,sx,-22,9,9,S);g.poly([[sx-10,-19],[sx+10,-19],[sx+7,3],[sx,13],[sx-7,3]],'#e0e0ec');g.poly([[sx,-18],[sx+10,-19],[sx+7,3],[sx,13]],'#a8a8c0');for(const x of(side?[10]:[-5,5]))g.r(x-1,-25,3,2,eye);}
+        g.ell(0,-32,18,4,A.d);g.poly([[-14,-33],[14,-33],[8,-46],[17,-56],[3,-54],[-7,-45]],A.m);g.poly([[0,-33],[14,-33],[8,-46],[3,-54]],A.d);g.r(-12,-35,24,2,trim);g.p(-3,-43,'#fff27a');return;
+      }
+      if(type==='colossus') {
+        bevel(g,-16,-31,32,28,A);if(!back){g.r(side?3:-13,-22,side?12:26,7,'#16181e');g.r(side?4:-11,-20,side?10:22,3,eye);}else{g.r(-10,-23,20,3,A.d);g.r(-10,-16,20,3,A.d);}for(const x of[-11,10])g.r(x,-28,2,2,A.h);g.poly([[-4,-31],[0,-47],[4,-31]],A.d);return;
+      }
       if(type==='cyclops') {
         blob(g,0,-18,19,17,S); if(side) { blob(g,10,-13,9,9,S); g.ell(13,-22,7,8,'#fff'); g.ell(15,-22,4.5,5,eye); g.ell(16,-22,1.8,3,'#1a0a04'); }
         else if(!back) { g.ell(0,-23,10,8.5,S.d); g.ell(0,-23,9,7.5,'#fff'); g.ell(0,-23,5.5,5.5,eye); g.ell(0,-23,2.2,3.5,'#1a0a04'); g.p(-3,-26,'#fff'); }
@@ -3205,6 +3234,12 @@ const SPR = (() => {
     if(partName==='head')return h3Head(type,P);
     if(partName==='torso')return h3mk(type,partName,P,100,80,50,52,(g,C,A,S)=>{
       const s=P.v==='s', b=P.v==='b', w=s?C.w*.62:C.w, h=C.h;
+      if(type==='colossus'){
+        g.poly([[-w/2,-h],[w/2,-h],[w/2-4,4],[-w/2+4,4]],A.m);g.poly([[0,-h],[w/2,-h],[w/2-4,4],[0,4]],A.d);g.r(-w/2,-h,w,3,A.h);
+        if(!b){g.ell(s?5:0,-h/2,12,10,'#16181e');for(let x=-8;x<10;x+=5)g.r((s?5:0)+x,-h/2-7,3,14,P.p2?'#ff5a2a':'#ffa23a');g.ell(s?5:0,-h/2,4,4,'#fff2a0');}else for(let y=-h+7;y<-3;y+=6)g.r(-w/3,y,w*2/3,2,A.d);
+        for(const x of[-w/2+4,w/2-6])for(const y of[-h+5,-2])g.r(x,y,2,2,A.h);return;
+      }
+      if(C.robe){g.poly([[-w/2,-h],[w/2,-h],[w/2+2,4],[-w/2-2,4]],A.m);g.poly([[0,-h],[w/2,-h],[w/2+2,4],[0,4]],A.d);g.r(-2,-h,4,h+3,C.trim);if(type==='pharaoh'){g.ell(0,-h+4,w/2+3,7,C.trim);g.ell(0,-h+3,w/2-1,4,'#3ad8a0');}if(type==='icequeen')g.ell(s?4:0,-h+8,3,5,C.trim);return;}
       if(type==='cyclops'){blob(g,0,-h*.5,w*.5,h*.65,S);if(!b){g.r(-1,-h+4,2,h-7,S.d);for(const y of[-15,-9])for(const x of[-7,3])g.r(x,y,4,1,S.d);}g.poly([[-w/2,-3],[w/2,-3],[w/2+4,10],[w/3,7],[w/6,14],[0,8],[-w/6,14],[-w/3,7],[-w/2-4,10]],'#6a4a2a');g.r(-w/2,-4,w,3,'#3a2410');return;}
       g.poly([[-w/2,-h],[w/2,-h],[w/2-2,4],[-w/2+2,4]],A.m);g.poly([[0,-h],[w/2,-h],[w/2-2,4],[0,4]],A.d);g.line(-w/2+2,-h+3,-w/2+4,1,1,A.h);
       g.r(-w/2,-4,w,3,type==='dwarf'?'#2a1a0a':C.trim);if(!b)g.r(-3,-5,6,5,C.trim);
@@ -3215,9 +3250,11 @@ const SPR = (() => {
       if(type==='angel'&&!b){g.poly([[-3,-h+4],[3,-h+4],[4,12],[0,16],[-4,12]],'#8aa0d8');g.r(-2,0,4,2,C.trim);}
     });
     if(['upper','fore','thigh','shin'].includes(partName))return h3mk(type,partName,P,36,24,7,12,(g,C,A,S)=>{
+      if(type==='colossus'){bevel(g,0,-6,13,12,A);g.r(8,-5,2,10,A.d);g.p(3,-4,A.h);return;}
       const arm=partName==='upper'||partName==='fore', L=partName==='upper'?12:partName==='fore'?11:13, r=type==='cyclops'?6.2:arm?4.2:4.7, pal=type==='cyclops'||(type==='dwarf'&&arm)?S:A;
       tube(g,[[0,0,r],[L,0,r*.83]],pal);if(type!=='cyclops'&&!(type==='dwarf'&&arm)){g.r(L-3,-r,2,r*2,C.trim);g.line(1,-r+1,L-4,-r+1,1,pal.h);}
     });
+    if(partName==='hand' && type==='colossus')return h3mk(type,partName,P,28,24,14,12,(g,C,A)=>{bevel(g,-8,-7,16,14,A);for(const x of[-5,0,5])g.r(x,3,2,3,A.d);});
     if(partName==='hand')return h3mk(type,partName,P,22,22,11,11,(g,C,A,S)=>blob(g,0,0,type==='cyclops'?5.3:3.6,type==='cyclops'?5:3.6,S));
     if(partName==='pauld')return h3mk(type,partName,P,40,28,20,14,(g,C,A,S)=>{
       blob(g,0,0,type==='cyclops'?8:8,5.5,A);if(type!=='cyclops'){g.r(-6,3,12,1,C.trim);g.line(-5,-3,5,-3,1,A.h);}if(type==='demongeneral')for(const x of[-5,0,5])spike(g,x,-3,-Math.PI/2+x*.07,8,2,{d:'#8a7a5a',m:'#e8dcc0',h:'#fff'});
@@ -3228,6 +3265,10 @@ const SPR = (() => {
       g.poly(s?[[-5,-2],[7,-2],[16,3],[16,7],[-5,7]]:[[-7,-2],[7,-2],[9,6],[-9,6]],pal.m);g.r(s?-5:-8,5,s?21:16,2,pal.d);g.r(s?-4:-6,-2,s?10:12,1,pal.h);
     });
     if(partName==='cape'||partName==='skirt')return h3mk(type,partName,P,90,96,45,3,(g,C,A)=>{
+      if(C.robe){const s=P.v==='s',w=s?17:27,h=44;g.poly([[-w*.65,0],[w*.65,0],[w,h-3],[w*.6,h],[0,h-2],[-w*.6,h],[-w,h-3]],A.m);g.poly([[0,0],[w*.65,0],[w,h-3],[w*.6,h],[0,h-2]],A.d);g.r(-2,0,4,h-4,C.trim);
+        if(type==='lich'){for(let x=-w;x<w;x+=7)g.poly([[x,h-5],[x+3,h+2],[x+7,h-5]],A.d);g.line(-w+3,h-8,w-3,h-8,2,C.trim);}
+        else if(type==='icequeen'){for(const [x,y]of[[-10,18],[7,29],[-5,36]]){g.r(x-2,y,5,1,'#fff');g.r(x,y-2,1,5,'#fff');}}
+        else{g.line(-w+2,h-4,w-2,h-4,3,C.trim);if(type==='pharaoh'){g.r(-5,0,10,h-6,'#2a4aa8');for(let y=9;y<h-5;y+=7)g.line(-w+4,y,w-4,y+1,1,A.d);}else for(const x of[-13,12]){g.r(x,24,5,1,'#fff27a');g.r(x+2,22,1,5,'#fff27a');}}return;}
       const s=P.v==='s',sk=partName==='skirt',co=C.cape||C.a, w=s?18:sk?42:48, h=sk?(type==='fallenangel'?48:24):64;
       const pts=s?[[-9,0],[9,0],[3,h],[-24,h-4],[-17,h*.5]]:[[-w*.35,0],[w*.35,0],[w*.58,h-4],[w*.4,h-8],[w*.22,h+1],[0,h-5],[-w*.22,h+1],[-w*.4,h-8],[-w*.58,h-4]];
       g.poly(pts,co[1]);g.line(s?-5:-9,8,s?-18:-15,h-7,2,co[0]);g.line(s?3:10,7,s?-3:16,h-6,2,co[0]);
@@ -3248,6 +3289,11 @@ const SPR = (() => {
       const s=P.v==='s',b=P.v==='b',w=s?7:23;g.poly([[-w/2,-15],[w/2,-15],[w/2,8],[0,17],[-w/2,8]],A.d);g.line(-w/2,-14,w/2,-14,2,A.h);
       if(b){g.line(-w/3,-6,w/3,7,3,'#6a4020');}else{g.r(-1,-12,2,22,C.weapon==='shadow'?'#8a6aff':C.trim);if(!s)g.r(-8,-4,16,2,C.weapon==='shadow'?'#8a6aff':C.trim);}
     });
+    if(partName==='offweapon')return h3mk(type,partName,P,54,34,12,17,(g,C)=>{g.line(-5,0,18,0,3,C.trim);for(const y of[-7,0,7]){g.line(18,0,28,y,1.5,'#2a4aa8');g.ell(28,y,2,2,C.trim);}});
+    if(partName==='weapon' && C.robe)return h3mk(type,partName,P,104,40,30,20,(g,C)=>{
+      const W=C.weapon,c=P.p2?'#ff5a8a':type==='icequeen'?'#9fe8ff':C.eye;g.line(-26,0,46,0,type==='pharaoh'?3:2.5,type==='icequeen'?'#c8d8f0':type==='pharaoh'?C.trim:'#4a3020');
+      if(W==='crook'){g.line(46,0,52,-7,3,C.trim);g.line(52,-7,46,-12,3,C.trim);g.line(46,-12,40,-7,3,C.trim);}else{g.poly([[44,0],[52,-7],[63,0],[52,7]],c);g.poly([[44,0],[52,-7],[52,2]],'#e0f8ff');g.line(43,-7,43,7,2,C.trim);if(type==='lich'){g.r(45,-9,2,3,'#e8e2cf');g.r(45,6,2,3,'#e8e2cf');}}
+    });
     if(partName==='weapon')return h3mk(type,partName,P,80,38,12,19,(g,C,A)=>{
       const W=C.weapon,G=C.trim;
       if(W==='club'){tube(g,[[-3,0,3.5],[23,0,5.5],[43,0,10]],{d:'#5a3818',m:'#8a5a2a',h:'#b88a50'});for(let i=0;i<6;i++){const a=i*Math.PI/3;g.r(43+Math.cos(a)*10-1,Math.sin(a)*10-1,3,3,'#c8ccd4');}return;}
@@ -3259,7 +3305,7 @@ const SPR = (() => {
     });
     if(partName==='rock')return h3mk(type,partName,P,32,30,16,15,(g)=>{g.poly([[-9,-6],[-3,-11],[7,-9],[12,0],[6,9],[-8,7]],'#8a7a6a');g.poly([[-9,-6],[-3,-11],[7,-9],[2,0],[-7,2]],'#aa9a8a');g.line(-5,-4,2,-6,1,'#d0c0a8');});
   }
-  for(const type of Object.keys(H3))for(const name of ['torso','head','pauld','cape','skirt','tail','neck','wings','foot','thigh','shin','upper','fore','hand','weapon','shield','rock'])PARTS['h3_'+type+'_'+name]=P=>h3Part(type,name,P);
+  for(const type of Object.keys(H3))for(const name of ['torso','head','pauld','cape','skirt','tail','neck','wings','foot','thigh','shin','upper','fore','hand','weapon','shield','rock','offweapon'])PARTS['h3_'+type+'_'+name]=P=>h3Part(type,name,P);
 
   function part(name, P = {}) {
     const f = PARTS[name]; if (!f) return null;

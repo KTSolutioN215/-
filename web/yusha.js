@@ -3783,6 +3783,12 @@
     else if (n === 'charge' || n === 'dash3' || n === 'firetrail') p = mv.ph === 'go' ? Object.assign({}, WRP.thrust, runLB(B, 16)) : keysAt(q => q === 'rest' ? def.rest : WRP[q], mv.ph === 'rest' ? [[0, 'thrust'], [0.5, 'rest']] : [[0, mv.k ? 'thrust' : 'rest'], [0.35, 'ready']], mv.pt || 0);
     else if (n === 'stalk') { const s = Math.sin(t * 7); p = Object.assign({}, WRP.ready, { ht: WRP.ready.ht + s * 0.15, ca: WRP.ready.ca + s * 0.25 }, runLB(B, 9), { cr: 3 }); }
     else if (n === 'jump') p = mv.n === 0 ? K([[0, 'rest'], [0.3, 'up']]) : mv.n === 1 ? keysAt(q => q === 'rest' ? def.rest : WRP[q], [[0, 'up'], [0.3, 'slam', 'in']], t - mv.t1) : keysAt(q => q === 'rest' ? def.rest : WRP[q], [[0, 'slam'], [0.35, 'slam'], [0.8, 'rest']], t - mv.t1 - 0.3);
+    else if (def.caster && n === 'soulstorm') p = K(hits(p2?[.5,1.6]:[.5],'up','point',.22));
+    else if (def.caster && n === 'icecage') p = K([[0,'point'],[.9,'up'],[1.6,'slam','in'],[2.2,'rest']]);
+    else if (def.caster && n === 'quicksand') p = K([[0,'point'],[.9,'up'],[1.2,'slam','in'],[2.5,'point'],[3.1,'rest']]);
+    else if (def.caster && n === 'illusion') p = K([[0,'ready'],[.3,'up'],[1.4,'point','in'],[1.7,'point'],[2.1,'rest']]);
+    else if (def.caster && n === 'scythe') p = K([[0,'sideB'],[.75,'sideF','in'],[1.5,'sideB'],[2.25,'sideF','in'],[2.9,'rest']]);
+    else if (def.unarmed && n === 'rocketfist') p = K(hits(p2?[.6,1.7]:[.6],'punchBack','punch',.3));
     else if (n === 'cannons') p = K(p2 ? [[0, 'rest'], [0.15, 'up'], [0.35, 'point', 'in'], [1.3, 'point'], [1.55, 'up'], [1.95, 'point', 'in'], [2.9, 'point'], [3.3, 'rest']] : hold(0.35, 1.3));
     else if (n === 'laser' || n === 'laser3') p = K(hold(0.45, 1.3));
     else if (n === 'cross') p = K(hold(0.6, 3.6));
@@ -3836,6 +3842,11 @@
   };
   // Additional humanoids: normalized motion scales with body size, while combat stays in world units.
   const H3R = {
+    lich: { motion: 1, hipY: -46, hipX: 8, L1: 13, L2: 13, ank: -4, shY: -27, shX: 15, neckY: -31, A1: 12, A2: 12, reach: 47, legs: false, skirt: true, caster: true, float: true, pose: { base: { drop: 0, wid: 7, stride: 4 }, rest: { hd: [1,17,5], sw: [0,-1,.1], oh: [-3,12,6] }, ready: { hd: [0,10,9], sw: [0,-.98,.15] }, up: { hd: [0,-12,6], sw: [0,-1,.1], oh: [-5,-13,12], pitch: -.05 }, point: { hd: [0,-3,17], sw: [0,-.8,.6], oh: [-3,-6,21] }, slam: { hd: [1,14,14], sw: [0,-.75,.65], oh: [-4,10,16], pitch: .1, drop: 2 } } },
+    icequeen: { motion: 1, hipY: -46, hipX: 8, L1: 13, L2: 13, ank: -4, shY: -27, shX: 15, neckY: -31, A1: 12, A2: 12, reach: 47, legs: false, skirt: true, caster: true, float: true, pose: { base: { drop: 0, wid: 7, stride: 4 }, rest: { hd: [1,17,5], sw: [0,-1,.1], oh: [-3,12,6] }, ready: { hd: [0,10,9], sw: [0,-.98,.15] }, up: { hd: [0,-12,6], sw: [0,-1,.1], oh: [-5,-13,12], pitch: -.05 }, point: { hd: [0,-3,17], sw: [0,-.8,.6], oh: [-3,-6,21] }, slam: { hd: [1,14,14], sw: [0,-.75,.65], oh: [-4,10,16], pitch: .1, drop: 2 } } },
+    pharaoh: { motion: 1, hipY: -46, hipX: 8, L1: 13, L2: 13, ank: -4, shY: -27, shX: 15, neckY: -31, A1: 12, A2: 12, reach: 47, legs: false, skirt: true, caster: true,  offWeapon: true, pose: { base: { drop: 0, wid: 7, stride: 4 }, rest: { hd: [1,17,5], sw: [0,-1,.1], oh: [-3,12,6] }, ready: { hd: [0,10,9], sw: [0,-.98,.15] }, up: { hd: [0,-12,6], sw: [0,-1,.1], oh: [-5,-13,12], pitch: -.05 }, point: { hd: [0,-3,17], sw: [0,-.8,.6], oh: [-3,-6,21] }, slam: { hd: [1,14,14], sw: [0,-.75,.65], oh: [-4,10,16], pitch: .1, drop: 2 } } },
+    archmage: { motion: 1, hipY: -46, hipX: 8, L1: 13, L2: 13, ank: -4, shY: -27, shX: 15, neckY: -31, A1: 12, A2: 12, reach: 47, legs: false, skirt: true, caster: true, float: true, pose: { base: { drop: 0, wid: 7, stride: 4 }, rest: { hd: [1,17,5], sw: [0,-1,.1], oh: [-3,12,6] }, ready: { hd: [0,10,9], sw: [0,-.98,.15] }, up: { hd: [0,-12,6], sw: [0,-1,.1], oh: [-5,-13,12], pitch: -.05 }, point: { hd: [0,-3,17], sw: [0,-.8,.6], oh: [-3,-6,21] }, slam: { hd: [1,14,14], sw: [0,-.75,.65], oh: [-4,10,16], pitch: .1, drop: 2 } } },
+    colossus: { motion: 1.15, hipY: -34, hipX: 14, L1: 15, L2: 15, ank: -5, shY: -36, shX: 33, neckY: -39, A1: 19, A2: 18, reach: 12, unarmed: true, skirtOccludesLegs: true, pose: { base: { wid: 13, stride: 7 }, rest: { hd: [0,26,2], oh: [-1,26,2] }, up: { hd: [-3,-17,5], oh: [3,-17,5], pitch: -.07 }, slam: { hd: [-4,14,20], oh: [4,14,20], drop: 6, pitch: .18 }, point: { hd: [-2,0,28], oh: [-3,12,12], pitch: .08 }, punchBack: { hd: [0,-4,-8], oh: [2,-4,-8], yaw: .1 }, punch: { hd: [-4,-5,30], oh: [4,-5,30], drop: 3, pitch: .14 } } },
     armor: { enemy: true, motion: .6, hipY: -15, hipX: 5, L1: 7.8, L2: 7.8, ank: -3, shY: -17, shX: 10, neckY: -17, A1: 7.2, A2: 6.6, reach: 21, shield: true, height: 58, pose: { base: { oh: [-2,8,14], wid: 7, stride: 6 }, rest: { sw: [0,-.7,.7] } } },
     dwarf: { enemy: true, motion: .6, hipY: -13, hipX: 5, L1: 7.8, L2: 7.8, ank: -3, shY: -14, shX: 12, neckY: -14, A1: 7.2, A2: 6.6, reach: 20, height: 54, pose: { base: { wid: 9, stride: 5 }, up: { hd: [0,-18,-2], pitch: -.08 }, slam: { drop: 4, pitch: .18, stride: 11 } } },
     angel: { enemy: true, motion: .55, hipY: -15, hipX: 5, L1: 7.2, L2: 7.2, ank: -3, shY: -20, shX: 10, neckY: -22, A1: 6.6, A2: 6.05, reach: 27, wings: true, float: true, height: 66, pose: { base: { wid: 7, stride: 4, drop: 0 }, rest: { sw: [.2,-.7,.6] } } },
@@ -3923,6 +3934,12 @@
       for(let i=0;i<(p2?3:2);i++){const at=.6+i*.5;keys.push([at-.25,'rockUp'],[at,'rockThrow','in'],[at+.12,'rockThrow']);}
       keys.push([2.3,'rest']);p=K(keys);
     }
+    else if (def.caster && n === 'soulstorm') p = K(hits(p2?[.5,1.6]:[.5],'up','point',.22));
+    else if (def.caster && n === 'icecage') p = K([[0,'point'],[.9,'up'],[1.6,'slam','in'],[2.2,'rest']]);
+    else if (def.caster && n === 'quicksand') p = K([[0,'point'],[.9,'up'],[1.2,'slam','in'],[2.5,'point'],[3.1,'rest']]);
+    else if (def.caster && n === 'illusion') p = K([[0,'ready'],[.3,'up'],[1.4,'point','in'],[1.7,'point'],[2.1,'rest']]);
+    else if (def.caster && n === 'scythe') p = K([[0,'sideB'],[.75,'sideF','in'],[1.5,'sideB'],[2.25,'sideF','in'],[2.9,'rest']]);
+    else if (def.unarmed && n === 'rocketfist') p = K(hits(p2?[.6,1.7]:[.6],'punchBack','punch',.3));
     else if (n === 'cannons') p = K(hits(p2?[.2,1.8]:[.2],'up','point',.18));
     else if (n === 'pillars') p = K(hits(p2?[.2,1.2,2.2]:[.2,1.2],'up','point',.18));
     else if (n === 'mirror') p = K([[0,'point'],[.7,'point'],[1,'sideF','in'],[1.5,'rest']]);
@@ -4003,7 +4020,7 @@
       seg(def.p + '_thigh', hp, kn, def.L1, d); seg(def.p + '_shin', kn, an, def.L2, d + 0.05);
       spr(def.p + '_foot', { v }, an, 0, d + 0.1);
     }
-    spr(def.p + '_torso', { v }, hip, v === 's' ? mir * p.pitch : 0, 0);
+    spr(def.p + '_torso', { v, p2: P2 }, hip, v === 's' ? mir * p.pitch : 0, 0);
     if(def.carriedHead) {
       spr(def.p+'_neck',{v,f:animF},T([0,def.neckY,0]),0,1);
       if(!B.headOut) spr(def.p+'_head',{v,p2:P2},V3.add(hO,[0,8,0]),0,dp(hO)+1.8);
@@ -4023,12 +4040,13 @@
     let ang = Math.atan2(Tp[1] - H[1], Tp[0] - H[0]), sc = Math.max(0.25, Math.hypot(Tp[0] - H[0], Tp[1] - H[1]) / (def.reach * K));
     if (p.sweep && p.sweep.t >= p.sweep.tele) { ang = -p.sweep.ang; sc = Math.max(1, (p.sweep.len - Math.hypot(H[0] - x, H[1] - (yFeet - 40 * K))) / (def.reach * K)); }
     const ghosts = B.r3G || (B.r3G = []);
-    add(dp(V3.add(hS, V3.mul(swd, 14))) + 1.25, () => {
+    if(!def.unarmed) add(dp(V3.add(hS, V3.mul(swd, 14))) + 1.25, () => {
       for (let i = 0; i < ghosts.length; i++) { const g0 = ghosts[i]; if (Math.abs(g0[2] - ang) > 0.2) pd(P_(def.sword, {}, false), g0[0], g0[1], g0[2], g0[3], 1, 0.22 / (i + 1)); }
       pd(P_(def.sword, {p2:P2}, fl), H[0], H[1], ang, sc, 1);
       ghosts.unshift([H[0], H[1], ang, sc]); if (ghosts.length > 2) ghosts.length = 2;
     });
     add(dp(hS) + 1.4, () => { pd(P_(def.hand, {}, fl), H[0], H[1]); });   // the fist closes over the grip
+    if(def.offWeapon) spr(def.p+'_offweapon',{},hO,Math.atan2(Tp[1]-H[1],Tp[0]-H[0]),dp(hO)+1.25);
     if(def.dual) {
       const d=norm3(R(p.osw||p.sw)), O=S(hO), tip=S(V3.add(hO,V3.mul(d,def.reach))), second=B.sweeps[1];
       let a=Math.atan2(tip[1]-O[1],tip[0]-O[0]), k=Math.max(.25,Math.hypot(tip[0]-O[0],tip[1]-O[1])/(def.reach*K));
@@ -4064,7 +4082,10 @@
     const hov = FLOAT[B.type] ? 12 + Math.sin(globalT * 2.2) * 4 : 0;
     const lk = Math.round((((-look) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / (Math.PI / 4)) % 8;
     const spr = SPR.boss(B.type, { f: Math.floor(globalT * (B.type === 'thunderbird' ? 8 : 4)), act: B.mv && B.mv.t < 0.7 ? 1 : 0, p2: B.phase === 2, look: lk, air: (B.z || 0) > 0.05, flash: hurt, noArm: WR[B.type] ? 1 : 0 });
-    for (const d of B.decoys || []) SPR.draw(ctx, spr, d.x, sy(d.y) + r * 0.7 - hov, 0.92);   // illusions (no shadow)
+    for (const d of B.decoys || []) {
+      if(R3[B.type]) { ctx.save();ctx.globalAlpha*=.72;drawR3(Object.assign({},B,{r3G:[]}),R3[B.type],d.x,sy(d.y)+r*.7-hov,hurt);ctx.restore(); }
+      else SPR.draw(ctx, spr, d.x, sy(d.y) + r * 0.7 - hov, 0.92);
+    }   // illusions (no shadow)
     if (B.regen) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(120,255,100,${0.18 + 0.12 * Math.sin(globalT * 9)})`; ctx.beginPath(); ctx.arc(x, y, r * 1.5, 0, 7); ctx.fill(); ctx.restore(); }
     if (R3[B.type]) drawR3(B, R3[B.type], x, by + r * 0.7 - z - hov, hurt);
     else if (B.type === 'cyclops') drawCyclops(B, x, by + r * 0.7 - z, y, hurt);

@@ -25,7 +25,7 @@ const headAI = between("        case 'dullahan':", "        case 'shark':");
 vm.runInContext(code + enemyData + '\nthis.renderRig = drawR3; this.renderEnemy = typeof drawR3Enemy === "function" ? drawR3Enemy : null; this.poseRig = r3Pose; this.faceRig = r3Face; this.moveRig = runMove; this.defs = R3; this.enemyDefs=EN;' +
   '\nthis.tickEnemy=(e,dt)=>{e.t+=dt;e.cd-=dt;const h=hero,dx=h.x-e.x,dy=h.y-e.y,d=Math.hypot(dx,dy),ux=dx/(d||1),uy=dy/(d||1);let want=0,wx=0,wy=0;switch(e.ai){'+swingAI+headAI+'}};', world);
 const bossType = process.env.BOSS || 'goblinking', dirs = ['f', 'r', 'l', 'b'], dirName = ['正面', '右向き', '左向き', '後ろ'];
-const names={deathknight:'デスナイト',goblinking:'ゴブリンキング',ghostcaptain:'ゆうれいせんちょう',cyclops:'サイクロプス',shadowhero:'かげの勇者',demongeneral:'まぐんしょうぐん',fallenangel:'だてんし',armor:'さまようよろい',shadowarmor:'やみのよろい',dwarf:'ドワーフせんし',angel:'てんしへい',dullahan:'デュラハン'};
+const names={lich:'リッチ',icequeen:'こおりの女王',pharaoh:'ファラオ',archmage:'だいまどうし',colossus:'くろがねの巨兵',deathknight:'デスナイト',goblinking:'ゴブリンキング',ghostcaptain:'ゆうれいせんちょう',cyclops:'サイクロプス',shadowhero:'かげの勇者',demongeneral:'まぐんしょうぐん',fallenangel:'だてんし',armor:'さまようよろい',shadowarmor:'やみのよろい',dwarf:'ドワーフせんし',angel:'てんしへい',dullahan:'デュラハン'};
 const bossName = names[bossType] || bossType, isEnemy=!!world.defs[bossType].enemy;
 const angles = [-Math.PI / 2, 0, Math.PI, Math.PI / 2];
 const plan = process.env.PLAN ? JSON.parse(process.env.PLAN) : [['idle', 1.2, '待機'], ['stalk', 1.5, '歩く'], ['quake', 2.7, '地響き'], ['rocks', 2.5, '岩飛ばし'], ['bombs', 3.1, '爆弾投げ'], ['sweep', 3.1, '大振り'], ['charge', 2.8, '突進'], ['dash3', 4.1, '三連突進'], ['mines', 3.1, '爆弾の合図'], ['ringaimed', 1.8, '衝撃波']];
