@@ -134,7 +134,7 @@ const BEAST3 = (() => {
     tube([nb, nt], [10, 7], C, 1);
     const hd = norm(yaw(pitch([0, 0.5, 1], bodyPitch * 0.5 - P.hp + toss), P.hy));
     for (let i = 0; i < 7; i++) flame(V.add(V.mix(nb, nt, i / 6), pitch([0, -7, -3], bodyPitch * 0.6)), 4 + (i % 2), T + i, F, 0.5, VIEW === 's' ? -3 * DIRX : 0);   // the mane
-    nmHead(nt, hd, P, p2, F);
+    nmHead(nt, hd, P, p2, F); MOUTHS.push(V.add(nt, V.mul(hd, 21)));
     // tail of dream-fire
     let tp = V.add(hip, pitch([0, -8, -13], bodyPitch));
     for (let i = 0; i < 7; i++) { flame(tp, 5 - i * 0.4, T + i * 0.7, F, -0.5, VIEW === 's' ? -3 * DIRX : 0); tp = V.add(tp, pitch([Math.sin(T * 2.4 + i * 0.8) * 2.4, 3.2 + i * 0.3, -3.2], bodyPitch * 0.5)); }
@@ -182,7 +182,7 @@ const BEAST3 = (() => {
     } else if (n === 'breath' || n === 'breath3') {
       const k = env(t, 0, 0.35, 2.0, 2.3); P.sit = 1 - 0.6 * k; P.cr = 3 * k; P.hp = 0.35 * k; P.mo = env(t, 0.4, 0.5, 2.05, 2.25);
       const a = mv.dir != null && mv.a0 != null ? mv.a0 + (n === 'breath' ? clamp((t - 0.5) / 1.6, 0, 1) * 1.8 : clamp((t - 0.55) / 1.75, 0, 1) * 1.0) * mv.dir : E.look;
-      const d = gdir(E, a); P.hy = clamp(Math.atan2(d[0], d[1]), -1.1, 1.1) * k;
+      const d = gdir(E, a); P.hy = clamp(Math.atan2(d[0], d[1]), -1.45, 1.45) * k;
     } else if (CAST[n] || n === 'packhunt') {
       const k = env(t, 0.05, 0.4, 1.0, 1.4); P.howl = k; P.mo = k; P.hp = -0.9 * k; P.cr = -1.5 * k;   // throws its head back and howls
     }
@@ -232,7 +232,7 @@ const BEAST3 = (() => {
     const nt = V.add(nb, yaw(pitch([0, -18, 8], -P.hp * 0.8), P.hy * 0.6));
     tube([nb, nt], [11, 9], C, 2.6);
     const hd = norm(yaw(pitch([0, 0.25, 1], -P.hp - P.howl * 0.3), P.hy));
-    fnHead(nt, hd, P, p2);
+    fnHead(nt, hd, P, p2); MOUTHS.push(V.add(nt, V.mul(hd, 19)));
     if (P.mo > 0.2 && !P.howl && VIEW !== 'b') for (let i = 0; i < 3; i++) { const k = ((T * 2 + i / 3) % 1), m = V.add(nt, V.mul(hd, 18 + k * 16)); piece(m, 3, (x, y) => g.ell(x, y, 3 + k * 4, 2 + k * 3, `rgba(230,248,255,${0.8 - k * 0.6})`)); }   // frost on the breath
   }
   function fnHead(at, hd, P, p2) {
@@ -276,7 +276,7 @@ const BEAST3 = (() => {
     if (n === 'breath' || n === 'breath3') {
       const k = env(t, 0, 0.35, 2.0, 2.3); P.lean = 6 * k; P.hp = 0.5 * k; P.mo = env(t, 0.4, 0.5, 2.05, 2.25); P.sp = 0.6 + 0.3 * k;
       const a = mv.dir != null && mv.a0 != null ? mv.a0 + (n === 'breath' ? clamp((t - 0.5) / 1.6, 0, 1) * 1.8 : clamp((t - 0.55) / 1.75, 0, 1) * 1.0) * mv.dir : E.look;
-      const d = gdir(E, a); P.hy = clamp(Math.atan2(d[0], d[1]), -1.1, 1.1) * k;
+      const d = gdir(E, a); P.hy = clamp(Math.atan2(d[0], d[1]), -1.45, 1.45) * k;
     } else if (n === 'tail' && B.sweeps.length) {
       const sw = B.sweeps[0], d = gdir(E, sw.ang); P.tail = [d[0], d[1], sw.t >= sw.tele ? 1 : sw.t / sw.tele]; P.lean = 4; P.cr = 3; P.sp = 0.9; P.fl = 0.6;
     } else if (n === 'quake') {
@@ -345,7 +345,7 @@ const BEAST3 = (() => {
     for (let i = 0; i <= 5; i++) { const k = i / 5; nk.push(V.add(nb, yaw(pitch([0, -16 * k - 4 * k * k, 4 * k + 12 * k * k], -P.hp * k * 1.2 + P.roar * 0.4 * k), P.hy * k))); }
     tube(nk, nk.map((_, i) => 3.2 - i * 0.2), C, 1);
     const hd = norm(yaw(pitch([0, 0.2, 1], -P.hp - P.roar * 0.5), P.hy));
-    bdHead(nk[5], hd, P, p2, G);
+    bdHead(nk[5], hd, P, p2, G); MOUTHS.push(V.add(nk[5], V.mul(hd, 20)));
     flame(V.add(chest, [0, -2, -4]), 3, T, G, -0.6);
   }
   function bdHead(at, hd, P, p2, G) {
@@ -390,7 +390,7 @@ const BEAST3 = (() => {
     if (n === 'breath' || n === 'breath3') {
       const k = env(t, 0, 0.35, 2.0, 2.3), pull = env(t, 0, 0.3, 0.35, 0.55); P.lean = 1.2 * k - 0.5 * pull; P.H = 1 - 0.18 * k + 0.1 * pull; P.hp = 0.55 * k; P.mo = env(t, 0.4, 0.5, 2.05, 2.25); P.amp = 1 - 0.6 * k;
       const a = mv.dir != null && mv.a0 != null ? mv.a0 + (n === 'breath' ? clamp((t - 0.5) / 1.6, 0, 1) * 1.8 : clamp((t - 0.55) / 1.75, 0, 1) * 1.0) * mv.dir : E.look;
-      const d = gdir(E, a); P.hy = clamp(Math.atan2(d[0], d[1]), -1.2, 1.2) * k;
+      const d = gdir(E, a); P.hy = clamp(Math.atan2(d[0], d[1]), -1.45, 1.45) * k;
     } else if (n === 'tentacles') {
       const k = env(t, 0, 0.6, 3.5, 4); P.H = 1 + 0.15 * k; P.thrash = k; P.sw = T * 4; P.amp = 1 + 0.6 * k; P.rise = 0.5 + 0.5 * k; P.mo = 0.6 * k; P.hp = -0.3 * k; P.coil = T * 2.4;
     } else if (n === 'tsunami') {
@@ -425,7 +425,7 @@ const BEAST3 = (() => {
     for (let i = 3; i < N - 1; i += 2) piece(sp[i], VIEW === 'b' ? 0.5 : -0.2, (x, y) => U.spike(g, x + (VIEW === 's' ? -rs[i] * 0.7 * DIRX : 0), y - rs[i] * 0.6, VIEW === 's' ? (DIRX > 0 ? PI * 1.1 : -PI * 0.1) : -PI / 2, 8, 3, LV.fin));
     piece(sp[0], 0.3, (x, y) => { g.ell(x, y + 1, 18, 4, LV.foam); g.ell(x, y + 1, 12, 2.4, '#d0f0ff'); });
     const at = sp[N - 1], hd = norm(yaw(pitch([0, 0.15, 1], -P.hp), P.hy));
-    lvHead(at, hd, P, p2);
+    lvHead(at, hd, P, p2); MOUTHS.push(V.add(at, V.mul(hd, 20)));
   }
   function lvHead(at, hd, P, p2) {
     const C = LV.B, E = p2 ? LV.eye2 : LV.eye, Fn = LV.fin;
@@ -500,7 +500,7 @@ const BEAST3 = (() => {
       tube([root, el, wr], [3, 2.6, 2], C, -2.5);
     }
     const hd = norm(yaw(pitch(norm(V.sub(sp[0], sp[2])), -P.hp * 0.8), P.hy));
-    qzHead(sp[0], hd, P, p2);
+    qzHead(sp[0], hd, P, p2); MOUTHS.push(V.add(sp[0], V.mul(hd, 17)));
   }
   function qzHead(at, hd, P, p2) {
     const C = QZ.B, E = p2 ? QZ.eye2 : QZ.eye;
@@ -575,7 +575,7 @@ const BEAST3 = (() => {
       for (let j = 0; j <= 6; j++) { const k = j / 6; pts.push(V.add(base, yaw([sx * 1.3 * k, -44 * k + 6 * k * k + h.lunge * 16 * k * k - Math.sin(T * 1.8 + i) * 3 * k, 8 * k + 12 * k * k + h.lunge * 20 * k * k], h.ya * k * 0.8))); }
       tube(pts, [7, 6.5, 6, 5.5, 5.2, 5, 4.8], C, 1 + (VIEW === 's' ? i * 0.01 : 0), { belly });
       const hd = norm(yaw(pitch([0, 0.2, 1], -h.hp), h.ya));
-      serpentHead(pts[6], hd, h.mo, p2 ? HY.eye2 : HY.eye, C, HY.belly.c, HY.horn, 2);
+      serpentHead(pts[6], hd, h.mo, p2 ? HY.eye2 : HY.eye, C, HY.belly.c, HY.horn, 2); MOUTHS[i] = V.add(pts[6], V.mul(hd, 15));
     }
   }
   // a dragon / serpent head for many-headed beasts, front / side / back
@@ -661,7 +661,7 @@ const BEAST3 = (() => {
       piece(V.mix(base, top, 0.45), 2.1 + (i === 1 ? 0.2 : 0), (x, y) => { g.ell(x, y, 9, 3.4, CB.col.d); g.ell(x, y - 1, 9, 2.4, CB.col.m); for (let k = -2; k <= 2; k++) U.spike(g, x + k * 4, y + 1, PI / 2, 4, 1.4, CB.col); });
       flame(V.add(top, [0, -9, -4]), 4, T + i * 2, F, 1.9, VIEW === 's' ? -3 * DIRX : 0);
       const hd = norm(yaw(pitch([0, 0.25, 1], -h.hp), h.ya));
-      houndHead(top, hd, h.mo, p2, 2.5 + (i === 1 ? 0.3 : 0));
+      houndHead(top, hd, h.mo, p2, 2.5 + (i === 1 ? 0.3 : 0)); MOUTHS[i] = V.add(top, V.mul(hd, 22));
     }
   }
   function houndHead(at, hd, mo, p2, d0) {
@@ -736,7 +736,7 @@ const BEAST3 = (() => {
       for (let j = 0; j <= 4; j++) { const b = 0.55 + j * 0.2, p = V.add(C, V.mul(norm(V.add(V.mul(L, Math.cos(b)), V.mul(side, Math.sin(b)))), R * 0.98)); if (prev) line(prev, p, 1, VE.vein, 0.2); prev = p; }
     }
     // the iris and the slit pupil, laid on the ball where it is looking
-    const ic = V.add(C, V.mul(L, R * 0.93)), IR = p2 ? VE.iris2 : VE.iris, IL = p2 ? VE.irisL2 : VE.irisL;
+    const ic = V.add(C, V.mul(L, R * 0.93)); MOUTHS.push(V.add(ic, V.mul(L, 2))); const IR = p2 ? VE.iris2 : VE.iris, IL = p2 ? VE.irisL2 : VE.irisL;
     if (P.glow) piece(ic, 0.3, (x, y) => { g.ell(x, y, 15 + P.glow * 6, 15 + P.glow * 6, `rgba(255,140,255,${0.25 * P.glow})`); });
     poly(discPts(ic, L, 12, 1, 1), IL, 0.4); poly(discPts(V.add(ic, V.mul(L, 0.3)), L, 10, 1, 1), IR, 0.45);
     poly(discPts(V.add(ic, V.mul(L, 0.6)), L, 10, 0.22 * P.ps, 0.85, 12), '#120818', 0.5);
@@ -807,7 +807,7 @@ const BEAST3 = (() => {
       piece(hd, 0.8, (x, y) => { g.ell(x, y, 4, 4, Br.m); for (let i = -1; i <= 1; i++) g.line(x, y, x + i * 3, y + 6, 1.6, Dk.m); });
     }
     // head: a dome with a red eye, the bell and the striking hammer on top
-    const hc = V.add(C, [0, -R - 7, 0]);
+    const hc = V.add(C, [0, -R - 7, 0]); MOUTHS.push(V.add(F, V.mul(nF, 2)));
     sph(hc, 10, Br, 0.2);
     if (VIEW !== 'b') piece(V.add(hc, [0, 1, VIEW === 'f' ? 9 : 0]), VIEW === 'f' ? 1 : 0.3, (x, y) => { g.r(Math.round(x - (VIEW === 's' ? (DIRX > 0 ? 0 : 7) : 6)), Math.round(y - 2), VIEW === 's' ? 7 : 12, 4, Dk.d); g.r(Math.round(x - (VIEW === 's' ? (DIRX > 0 ? -2 : 5) : 4)), Math.round(y - 1), VIEW === 's' ? 4 : 8, 2, CM.eye); });
     const bell = V.add(hc, [0, -13, 0]);
@@ -853,7 +853,7 @@ const BEAST3 = (() => {
       const ep = [s * 11, -30 * sw, 15 - j * 4];
       piece(ep, 0.6 + (s > 0 ? 0.01 : 0), (x, y) => { if (VIEW === 'b') return; g.ell(x, y, 5, 4.4, C.d); g.ell(x, y, 4, 3.6, E); g.r(Math.round(x - 3), Math.round(y), 6, 1, '#120818'); g.p(Math.round(x - 2), Math.round(y - 2), '#ffffff'); });
     }
-    const si = [14, -26, 4];
+    const si = [14, -26, 4]; MOUTHS.push([0, -24, 16]);
     piece(si, 0.55, (x, y) => { if (VIEW === 'b') return; g.ell(x, y, 3, 2.4, C.d); if (P.squeeze > 0.3) for (let i = 0; i < 3; i++) g.ell(x + (6 + i * 5) * DIRX, y - 2 + i, 3 - i * 0.6, 2.4 - i * 0.5, '#120818'); });
   }
   // =============================================================
@@ -891,7 +891,7 @@ const BEAST3 = (() => {
       face(ep, (x, y, w) => { g.ell(x, y, 5 * w + 0.5, 6, '#ffffff'); g.ell(x + m * w, y + 1, 2.6 * w + 0.4, 3.4, E); g.p(Math.round(x), Math.round(y - 2), '#ffffff');
         if (P.angry) g.line(x - 6 * w, y - 8 + (m > 0 ? -1.5 : 1.5) * w, x + 6 * w, y - 8 + (m > 0 ? 1.5 : -1.5) * w, 2, C.d); });
     }
-    const mp = surf(0, cy + 10);
+    const mp = surf(0, cy + 10); MOUTHS.push(mp);
     face(mp, (x, y, w) => { const o = P.mo; g.ell(x, y + o * 2, 7 * w + 1, 2 + o * 5, KS.mouth); if (o > 0.2) g.ell(x, y + o * 3, 4 * w, 1 + o * 2.5, '#f08090'); });
     // the crown on top, turning with the body
     const top = [0, cy - ry + 4, lean * 0.3];
@@ -926,7 +926,7 @@ const BEAST3 = (() => {
     }
     tube([base, mid, top], [15, 13, 12], Bk, 0);
     // a face carved in the bark: only on the front of the trunk
-    const fz = 12, fc = V.add(mid, [0, -6, fz]), E = p2 ? TR.eye2 : TR.eye;
+    const fz = 12, fc = V.add(mid, [0, -6, fz]), E = p2 ? TR.eye2 : TR.eye; MOUTHS.push(V.add(fc, [0, 8, 2]));
     if (dp(fc) > dp(mid) - 1) piece(fc, 0.5, (x, y) => { const w = clamp((dp(fc) - dp(mid)) / fz, 0.25, 1);
       for (const m of [-1, 1]) { g.ell(x + m * 6 * w, y - 4, 3.5 * w + 0.5, 3.5, '#120804'); g.ell(x + m * 6 * w, y - 4, 1.6 * w + 0.3, 1.6, E); }
       g.ell(x, y + 8, 6 * w + 1, 3 + P.mo * 4, '#120804'); for (let i = -1; i <= 1; i++) g.r(Math.round(x + i * 3 * w), Math.round(y + 6), 1, 2, Bk.h); });
@@ -979,7 +979,7 @@ const BEAST3 = (() => {
       tube([hip, kn], [3.6, 3], C, -1 + (s > 0 ? 0.02 : 0)); tube([kn, an], [3, 1.6], C, -1 + (s > 0 ? 0.02 : 0)); sph(kn, 3.4, SQ.crys, -0.9, 0);
     }
     // fangs, eyes, crown
-    const head = V.add(body, [0, -2, 12]), E = p2 ? SQ.eye2 : SQ.eye;
+    const head = V.add(body, [0, -2, 12]), E = p2 ? SQ.eye2 : SQ.eye; MOUTHS.push(V.add(head, [0, 4, 4]));
     if (dp(head) > dp(body) - 4) piece(head, 1, (x, y) => {
       const w = VIEW === 's' ? 0.5 : 1;
       for (let i = 0; i < 6; i++) { const ex = (i % 3 - 1) * 5 * w, ey = Math.floor(i / 3) * 4 - 4; g.ell(x + ex, y + ey, 2 + P.glow, 2 + P.glow, E); }
@@ -1000,7 +1000,7 @@ const BEAST3 = (() => {
     const P = { fl: 0.3 + Math.sin(T * 1.8) * 0.15, sp: 0.75, cr: Math.sin(T * 2) * 0.6, lean: 0, hp: Math.sin(T * 1.3) * 0.08, hy: 0, mo: 0, roar: 0, run: 0, ph: 0, tailHide: false };
     if (n === 'breath') {
       const k = env(t, 0, 0.35, 1.8, 2.1); P.lean = 6 * k; P.hp = 0.45 * k; P.mo = env(t, 0.4, 0.5, 2.05, 2.25); P.sp = 0.75 + 0.2 * k;
-      const a = mv.dir != null && mv.a0 != null ? mv.a0 + clamp((t - 0.5) / 1.6, 0, 1) * 1.8 * mv.dir : E.look, d = gdir(E, a); P.hy = clamp(Math.atan2(d[0], d[1]), -1.1, 1.1) * k;
+      const a = mv.dir != null && mv.a0 != null ? mv.a0 + clamp((t - 0.5) / 1.6, 0, 1) * 1.8 * mv.dir : E.look, d = gdir(E, a); P.hy = clamp(Math.atan2(d[0], d[1]), -1.45, 1.45) * k;
     } else if (n === 'tail') { P.tailHide = !!(B.sweeps.length && B.sweeps[0].t >= B.sweeps[0].tele); P.lean = 3; P.sp = 1; P.fl = 0.6; P.mo = 0.5; }
     else if (n === 'charge' || n === 'dash3') { if (mv.ph === 'go') { P.run = 1; P.ph = T * 18; P.lean = 10; P.sp = 0.3; P.fl = 0.1; P.mo = 0.6; P.hp = 0.3; } else { const k = sstep((mv.pt || 0) / 0.3); P.cr = 5 * k; P.lean = 3 * k; P.fl = 0.3 + 0.5 * k; } }
     else if (n === 'fireball') { for (const T0 of [0.5, 0.9, 1.3]) { const k = env(t, T0 - 0.2, T0 - 0.02, T0, T0 + 0.2); P.hp = Math.max(P.hp, 0.4 * k) - 0.3 * env(t, T0 - 0.35, T0 - 0.2, T0 - 0.18, T0 - 0.05); P.mo = Math.max(P.mo, k); } }
@@ -1037,7 +1037,7 @@ const BEAST3 = (() => {
     for (let i = 0; i <= 4; i++) { const k = i / 4; nk.push(V.add(nb, yaw(pitch([0, -14 * k - 4 * k * k, 4 * k + 10 * k * k], -P.hp * k * 1.2 + P.roar * 0.4 * k), P.hy * k))); }
     tube(nk, [9, 8, 7.5, 7, 6.5], C, 1, { belly });
     const hd = norm(yaw(pitch([0, 0.2, 1], -P.hp - P.roar * 0.5), P.hy));
-    serpentHead(nk[4], hd, P.mo, p2 ? DR.eye2 : DR.eye, C, DR.belly.c, DR.horn, 3);
+    serpentHead(nk[4], hd, P.mo, p2 ? DR.eye2 : DR.eye, C, DR.belly.c, DR.horn, 3); MOUTHS.push(V.add(nk[4], V.mul(hd, 18)));
     if (P.mo > 0.4 && VIEW !== 'b') flame(V.add(nk[4], V.mul(hd, 20)), 3 + P.mo * 2, T, DR.fire, 3.1);
   }
 
@@ -1076,7 +1076,7 @@ const BEAST3 = (() => {
       if (Math.sin(T * 13 + s) > 1 - P.spark) { const a = V.mix(el, wr, 0.5); piece(a, 0, (x, y) => { let px = x, py = y; for (let k = 0; k < 4; k++) { const nx = px + (Math.random() - 0.5) * 10, ny = py + 6; g.line(px, py, nx, ny, 1.2, '#fff6a0'); px = nx; py = ny; } }); }
     }
     // head: crest, beak
-    const E = p2 ? TB.eye2 : TB.eye;
+    const E = p2 ? TB.eye2 : TB.eye; MOUTHS.push(V.add(head, pitch([0, 3, 13], -P.dive * 0.9)));
     piece(head, 2, (x, y) => {
       for (let i = -2; i <= 2; i++) U.spike(g, x + i * 2.5, y - 8, -PI / 2 + i * 0.35 + (VIEW === 's' ? -0.5 * DIRX : 0), 10 - Math.abs(i), 2.4, TB.W);
       g.ell(x, y, 10, 9, C.m); g.ell(x + 2, y + 1, 7, 7, C.d);
@@ -1091,7 +1091,7 @@ const BEAST3 = (() => {
   //  lagging a little behind the turn; the game only keeps the faint motion blur of the swing.
   // =============================================================
   const OUTL = '#120a14';
-  let ANCHS = [];   // model points the swinging limbs grow from (set by the builds)
+  let ANCHS = [], MOUTHS = [];   // MOUTHS: model points where breath / shots come out (one per head)   // model points the swinging limbs grow from (set by the builds)
   function limbTube(gc, pts, rs, C, opt) {   // pts in art px
     U.tube(gc, pts.map((p, i) => [p[0], p[1], rs[i] + 1]), { d: OUTL, m: OUTL, h: OUTL });
     U.tube(gc, pts.map((p, i) => [p[0], p[1], rs[i]]), C, opt || {});
@@ -1196,7 +1196,7 @@ const BEAST3 = (() => {
     E = Object.assign({}, E); E.look = Math.atan2(E.hero.y - B.y, E.hero.x - B.x);
     const f = faceOf(B, E); E.face = f;
     const P = R[0](B, E.t, E);
-    OPS = []; ANCHS = []; cx.clearRect(0, 0, CW, CH);
+    OPS = []; ANCHS = []; MOUTHS = []; cx.clearRect(0, 0, CW, CH);
     R[1](B, P, E.t, B.phase === 2);
     OPS.sort((a, b) => a[0] - b[0]);
     const sz = R[2] || 1; cx.setTransform(sz, 0, 0, sz, OX * (1 - sz), OY * (1 - sz));   // drawn bigger about the feet: more pixels, not bigger pixels
@@ -1211,6 +1211,8 @@ const BEAST3 = (() => {
     }
     const X0 = Math.round(x / K - OX) * K, Y0 = Math.round(yFeet / K - OY) * K;
     const anchors = ANCHS.map(a => { if (!a) return null; const q = pr(a); return [X0 + (OX + (q[0] - OX) * sz) * K, Y0 + (OY + (q[1] - OY) * sz) * K]; });
+    // where shots come out, in world coordinates, for the game to fire from (指示: ブレスや光弾は口から)
+    if (E.by != null) { B.mouths = MOUTHS.filter(Boolean).map(a => { const q = pr(a), sx = X0 + (OX + (q[0] - OX) * sz) * K, sy = Y0 + (OY + (q[1] - OY) * sz) * K; return { x: sx, y: B.y - (sy - E.by) }; }); B.mouthT = E.t; }
     E.x = x; if (E.cy == null) E.cy = yFeet;
     sweepLimbs(ctx, B, E, anchors, true);
     ctx.imageSmoothingEnabled = false;

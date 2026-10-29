@@ -2625,7 +2625,7 @@
         }
         z.dead = z.t > z.tele + 0.3;
       } else {
-        if (z.boss) { z.x = z.boss.x; z.y = z.boss.y; }
+        if (z.boss) { const M = mouthOf(z.boss); z.x = M.x; z.y = M.y; }   // beams come out of the eye / mouth
         if (z.hand) { z.x = z.hand.x; z.y = z.hand.y + z.hand.z * 80 + 20; }
         if (z.track) {   // a gaze that turns after the hero at a limited speed
           const want = Math.atan2(h.y - z.y, h.x - z.x); let da = ((want - z.ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
@@ -2651,6 +2651,14 @@
     return { x: arena.cx, y: arena.cy };
   }
 
+  // where a boss's shots come out: its mouth (or eye) as last drawn, else its centre. i = which head (breath3)
+  function mouthOf(B, i = 0) {
+    const m = B.mouths;
+    if (!m || !m.length || globalT - (B.mouthT || -9) > 0.3) return { x: B.x, y: B.y, at: false };
+    const p = m[clamp(i, 0, m.length - 1)];
+    return { x: p.x, y: p.y, at: true };
+  }
+  const aimFrom = p => Math.atan2(hero.y - p.y, hero.x - p.x);
   function runMove(B, dt, ang, sp) {
     const mv = B.mv; mv.t += dt;
     const done = cd => {
@@ -2690,7 +2698,8 @@
         const n = name === 'aimed3' ? 3 : 5, waves = name === 'rocks' ? 3 : 2;
         if (mv.t > 0.45 + mv.n * 0.45 && mv.n < waves) {
           mv.n++;
-          for (let i = 0; i < n; i++) { const a = ang + (i - (n - 1) / 2) * 0.22; shoot(B.x, B.y, Math.cos(a), Math.sin(a), name === 'rocks' ? 220 : 240, B.atk, name === 'rocks' ? 'rock' : 'fire'); }
+          const M = name === 'rocks' ? { x: B.x, y: B.y } : mouthOf(B), a0 = name === 'rocks' ? ang : aimFrom(M);
+          for (let i = 0; i < n; i++) { const a = a0 + (i - (n - 1) / 2) * 0.22; shoot(M.x, M.y, Math.cos(a), Math.sin(a), name === 'rocks' ? 220 : 240, B.atk, name === 'rocks' ? 'rock' : 'fire'); }
           A.sfx('magic');
         }
         if (mv.t > 0.6 + waves * 0.45) done(1.1);
@@ -2700,7 +2709,7 @@
         const arms = name === 'spiral3' ? 3 : 2, dur = 2.6;
         if (mv.t > 0.4 && mv.t < 0.4 + dur) {
           mv.acc += dt;
-          while (mv.acc > 0.1) { mv.acc -= 0.1; mv.n++; for (let k = 0; k < arms; k++) { const a = mv.a0 + mv.n * 0.32 + k * Math.PI * 2 / arms; shoot(B.x, B.y, Math.cos(a), Math.sin(a), 135, B.atk, 'orb', 3.5); } }
+          while (mv.acc > 0.1) { mv.acc -= 0.1; mv.n++; const M = mouthOf(B); for (let k = 0; k < arms; k++) { const a = mv.a0 + mv.n * 0.32 + k * Math.PI * 2 / arms; shoot(M.x, M.y, Math.cos(a), Math.sin(a), 135, B.atk, 'orb', 3.5); } }
         }
         if (mv.t > dur + 0.8) done(1.2);
         break;
@@ -2708,7 +2717,7 @@
       case 'wave': {   // three wobbling streams
         if (mv.t > 0.4 && mv.t < 2.2) {
           mv.acc += dt;
-          while (mv.acc > 0.09) { mv.acc -= 0.09; mv.n++; const w = Math.sin(mv.n * 0.55) * 0.38; for (const o of [-0.7, 0, 0.7]) { const a = mv.a0 + o + w; shoot(B.x, B.y, Math.cos(a), Math.sin(a), 175, B.atk, 'orb', 3.5); } }
+          while (mv.acc > 0.09) { mv.acc -= 0.09; mv.n++; const w = Math.sin(mv.n * 0.55) * 0.38; const M = mouthOf(B); for (const o of [-0.7, 0, 0.7]) { const a = mv.a0 + o + w; shoot(M.x, M.y, Math.cos(a), Math.sin(a), 175, B.atk, 'orb', 3.5); } }
         }
         if (mv.t > 2.6) done(1.2);
         break;
@@ -2716,7 +2725,7 @@
       case 'homing':   // slow seekers that curve after the hero
         if (mv.t > 0.5 && !mv.n) {
           mv.n = 1; const n = p2 ? 7 : 5;
-          for (let i = 0; i < n; i++) { const a = ang + Math.PI + (i - (n - 1) / 2) * 0.5; const b = { x: B.x, y: B.y, vx: Math.cos(a) * 150, vy: Math.sin(a) * 150, r: 9, dmg: B.atk, kind: 'homing', life: 4.6, t: 0 }; bullets.push(b); }
+          const M = mouthOf(B); for (let i = 0; i < n; i++) { const a = ang + Math.PI + (i - (n - 1) / 2) * 0.5; const b = { x: M.x, y: M.y, vx: Math.cos(a) * 150, vy: Math.sin(a) * 150, r: 9, dmg: B.atk, kind: 'homing', life: 4.6, t: 0 }; bullets.push(b); }
           A.sfx('magic2');
         }
         if (mv.t > 1.3) done(1.3);
@@ -2741,7 +2750,7 @@
         if (mv.t > 2.6) done(1.1);
         break;
       case 'laser': case 'laser3':   // aimed beams across the whole room
-        if (!mv.n) { mv.n = 1; for (const o of name === 'laser3' ? [-0.38, 0, 0.38] : [0]) addBeam(B, ang + o, { tele: 0.85, act: 0.5, w: 15, boss: B }); }
+        if (!mv.n) { mv.n = 1; const aB = aimFrom(mouthOf(B)); for (const o of name === 'laser3' ? [-0.38, 0, 0.38] : [0]) addBeam(B, aB + o, { tele: 0.85, act: 0.5, w: 15, boss: B }); }
         if (mv.t > 1.6) done(1.1);
         break;
       case 'cross': {  // four beams that slowly rotate: walk around with them
@@ -2768,7 +2777,7 @@
         else if (mv.t < 2.3) {
           B.tele = null; mv.acc += dt;
           const a = mv.a0 + (mv.t - 0.55) / 1.75 * 1.0 * mv.dir;
-          while (mv.acc > 0.05) { mv.acc -= 0.05; for (const o of [-0.85, 0, 0.85]) { const aa = a + o + rnd(-0.1, 0.1); shoot(B.x + Math.cos(aa) * B.r, B.y + Math.sin(aa) * B.r, Math.cos(aa), Math.sin(aa), 270, B.atk, 'flame', 1.1); } }
+          while (mv.acc > 0.05) { mv.acc -= 0.05; const nm = (B.mouths || []).length, c0 = Math.max(0, Math.round((nm - 1) / 2) - 1); [-0.85, 0, 0.85].forEach((o, j) => { const M = mouthOf(B, nm >= 3 ? c0 + j : 0), aa = a + o + rnd(-0.1, 0.1), off = M.at ? 6 : B.r; shoot(M.x + Math.cos(aa) * off, M.y + Math.sin(aa) * off, Math.cos(aa), Math.sin(aa), 270, B.atk, 'flame', 1.1); }); }
         } else done(1.1);
         break;
       }
@@ -2829,11 +2838,11 @@
         else if (mv.t < 2.1) {
           B.tele = null; mv.acc += dt;
           const a = mv.a0 + (mv.t - 0.5) / 1.6 * 1.8 * mv.dir;
-          while (mv.acc > 0.035) { mv.acc -= 0.035; const aa = a + rnd(-0.12, 0.12); shoot(B.x + Math.cos(aa) * B.r, B.y + Math.sin(aa) * B.r, Math.cos(aa), Math.sin(aa), 280, B.atk, 'flame', 1.2); }
+          while (mv.acc > 0.035) { mv.acc -= 0.035; const aa = a + rnd(-0.12, 0.12), M = mouthOf(B), off = M.at ? 6 : B.r; shoot(M.x + Math.cos(aa) * off, M.y + Math.sin(aa) * off, Math.cos(aa), Math.sin(aa), 280, B.atk, 'flame', 1.2); }
         } else done(1.1);
         break;
       case 'fireball':
-        if (mv.t > 0.5 && mv.n < (p2 ? 3 : 2) && mv.t > 0.5 + mv.n * 0.4) { mv.n++; const a = Math.atan2(hero.y - B.y, hero.x - B.x); bullets.push({ x: B.x, y: B.y, vx: Math.cos(a) * 170, vy: Math.sin(a) * 170, r: 14, dmg: B.atk, kind: 'big', life: 5, t: 0, fuse: 1.2 }); A.sfx('magic'); }
+        if (mv.t > 0.5 && mv.n < (p2 ? 3 : 2) && mv.t > 0.5 + mv.n * 0.4) { mv.n++; const M = mouthOf(B), a = aimFrom(M); bullets.push({ x: M.x, y: M.y, vx: Math.cos(a) * 170, vy: Math.sin(a) * 170, r: 14, dmg: B.atk, kind: 'big', life: 5, t: 0, fuse: 1.2 }); A.sfx('magic'); }
         if (mv.t > 1.8) done(1.1);
         break;
       case 'summon':
@@ -2949,7 +2958,7 @@
         if (mv.t > 2.6) done(1.2);
         break;
       case 'gaze':         // void eye: a beam that follows you
-        if (!mv.n) { mv.n = 1; addBeam(B, ang, { tele: 0.9, act: 3.2, w: 13, track: p2 ? 0.95 : 0.7, boss: B }); if (p2) addBeam(B, ang + Math.PI, { tele: 0.9, act: 3.2, w: 13, track: 0.6, boss: B }); }
+        if (!mv.n) { mv.n = 1; const aB = aimFrom(mouthOf(B)); addBeam(B, aB, { tele: 0.9, act: 3.2, w: 13, track: p2 ? 0.95 : 0.7, boss: B }); if (p2) addBeam(B, aB + Math.PI, { tele: 0.9, act: 3.2, w: 13, track: 0.6, boss: B }); }
         if (mv.t > 4.3) done(1.1);
         break;
       case 'regen':        // hydra: the heads drop venom pools, then it regrows its wounds unless you hit it
@@ -3934,7 +3943,7 @@
     const y = by - z;
     ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, by + r * 0.7, r * (1 - B.z * 0.4), r * 0.4 * (1 - B.z * 0.4), 0, 0, 7); ctx.fill();
     if (B.mv && (B.mv.name === 'jump' || B.mv.name === 'split') && B.mv.n === 0) { ctx.strokeStyle = 'rgba(255,60,60,.7)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(B.mv.tx, sy(B.mv.ty), r, 0, 7); ctx.stroke(); }
-    if (B.tele != null) { ctx.strokeStyle = 'rgba(255,60,60,.55)'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(B.tele) * 300, y - Math.sin(B.tele) * 300); ctx.stroke(); ctx.setLineDash([]); }
+    if (B.tele != null) { const M = B.mv && /^breath/.test(B.mv.name) ? mouthOf(B) : { at: false }, tx = M.at ? M.x : x, ty = M.at ? sy(M.y) : y; ctx.strokeStyle = 'rgba(255,60,60,.55)'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(tx + Math.cos(B.tele) * 300, ty - Math.sin(B.tele) * 300); ctx.stroke(); ctx.setLineDash([]); }
     drawSweeps(B, x, y, r);
     const hurt = B.hurt > 0, look = Math.atan2(hero.y - B.y, hero.x - B.x);
     ctx.save();
@@ -3953,7 +3962,7 @@
     const spr = SPR.boss(B.type, { f: Math.floor(globalT * (B.type === 'thunderbird' ? 8 : 4)), act: B.mv && B.mv.t < 0.7 ? 1 : 0, p2: B.phase === 2, look: lk, air: (B.z || 0) > 0.05, flash: hurt, noArm: WR[B.type] ? 1 : 0 });
     for (const d of B.decoys || []) SPR.draw(ctx, spr, d.x, sy(d.y) + r * 0.7 - hov, 0.92);   // illusions (no shadow)
     if (B.regen) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(120,255,100,${0.18 + 0.12 * Math.sin(globalT * 9)})`; ctx.beginPath(); ctx.arc(x, y, r * 1.5, 0, 7); ctx.fill(); ctx.restore(); }
-    if (typeof BEAST3 !== 'undefined' && BEAST3.has(B.type)) BEAST3.draw(ctx, B, x, by + r * 0.7 - z - hov, hurt, { t: globalT, hero, cy: y });   // beasts in three views (beasts3.js)
+    if (typeof BEAST3 !== 'undefined' && BEAST3.has(B.type)) BEAST3.draw(ctx, B, x, by + r * 0.7 - z - hov, hurt, { t: globalT, hero, cy: y, by });   // beasts in three views (beasts3.js)
     else if (B.type === 'cyclops') drawCyclops(B, x, by + r * 0.7 - z, y, hurt);
     else if (R3[B.type]) drawR3(B, R3[B.type], x, by + r * 0.7 - z - hov, hurt);
     else if (WR[B.type]) drawWeaponBoss(B, WR[B.type], x, by + r * 0.7 - z - hov, y, spr, hurt);
