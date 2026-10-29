@@ -6,6 +6,7 @@
 //   python3 tools/anim/label.py out/frames out/labeled && ffmpeg -framerate 30 -i out/labeled/f%04d.png -pix_fmt yuv420p out/boss.mp4
 //
 // MODE=sheet : one still per facing x a few move moments -> OUT/s_<facing>_<n>.png
+// P2=1      : the boss in its second phase (angry form)
 // MODE=video : PLAN = [[facing, [[move, seconds], ...]], ...]; facing f|r|l|b (where the hero stands). OUT/f0000.png ... + labels.json
 // The hero is pinned (invincible) on the chosen side of the boss, the boss is pinned at the arena centre between moves.
 const path = require('path'), fs = require('fs');
@@ -28,8 +29,8 @@ fs.mkdirSync(OUT, { recursive: true });
     return p.evaluate((h0) => { const Y = __yusha, B = Y.boss, h = Y.hero; window.__h0 = h0; for (let k = 0; k < (window.__warm ? 60 : 300); k++) { h.inv = 9; h.x = h0[0]; h.y = h0[1]; h.vx = h.vy = 0; B.mv = null; B.cd = 9; B.x = 180; B.y = -25; Y.update(1 / 60); } window.__warm = 1; }, DIRS[dir]); };
   const shot = async (file) => p.screenshot({ path: file, clip });
   const step = async () => p.evaluate(() => { const Y = __yusha, B = Y.boss, h = Y.hero; for (let k = 0; k < 2; k++) { h.inv = 9; h.hp = h.s.maxHp; h.x = __h0[0]; h.y = __h0[1]; h.vx = h.vy = 0; if (!B.mv) { B.cd = 99; B.x = 180; B.y = -25; } Y.update(1 / 60); } Y.render(); });
-  const start = async (m) => p.evaluate((m) => { const Y = __yusha, B = Y.boss; B.x = 180; B.y = -25; B.sweeps = []; B.z = 0; B.alpha = 1; for (const bl of Y.bullets) bl.life = 0; Y.zones.length = 0; B.waveT = 999; Y.enemies.forEach(e => e.dead = true);
-    B.mv = m === 'idle' ? null : { name: m, t: 0, a0: Math.atan2(__h0[1] - B.y, __h0[0] - B.x), n: 0, acc: 0 }; B.cd = 99; }, m);
+  const start = async (m) => p.evaluate(([m, p2]) => { const Y = __yusha, B = Y.boss; B.x = 180; B.y = -25; B.sweeps = []; B.z = 0; B.alpha = 1; for (const bl of Y.bullets) bl.life = 0; Y.zones.length = 0; B.waveT = 999; Y.enemies.forEach(e => e.dead = true);
+    if (p2) { B.phase = 2; B.grow = B.grow != null ? 1 : B.grow; B.sizeK = B.sizeK && 1; if (B.r0) B.r = B.r0; } B.mv = m === 'idle' ? null : { name: m, t: 0, a0: Math.atan2(__h0[1] - B.y, __h0[0] - B.x), n: 0, acc: 0 }; B.cd = 99; }, [m, !!process.env.P2]);
   let f = 0; const labels = [];
   if (MODE === 'sheet') {
     const moments = JSON.parse(process.env.MOMENTS || '[["idle",0.5],["quake",0.38],["quake",0.5],["darkwave",0.3],["darkwave",0.55],["stalk",0.4]]');

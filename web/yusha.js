@@ -2602,7 +2602,7 @@
       }
       if (z.type === 'cone') {   // gorgon's gaze: a wedge from the boss; inside it when it fires = petrified
         if (z.src && !z.fired && (z.src.dead || (z.src.st !== 'wind' && z.src.st !== 'gaze'))) { z.dead = true; continue; }   // hit the basilisk and the stare is broken
-        if (z.boss) { z.x = z.boss.x; z.y = z.boss.y; }
+        if (z.boss) { const M = mouthOf(z.boss); z.x = M.x; z.y = M.y; }   // from her eyes
         if (z.track && z.t < z.tele - 0.3) { const want = Math.atan2(h.y - z.y, h.x - z.x); let da = ((want - z.ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI; z.ang += clamp(da, -z.track * dt, z.track * dt); }
         if (z.t >= z.tele && !z.fired) {
           z.fired = true; flash = 0.45; flashCol = '200,255,170'; A.sfx('boom');
@@ -3012,7 +3012,7 @@
       case 'rocketfist':   // colossus: its fists fly out and come back
         if (mv.t > 0.6 && mv.n < (p2 ? 2 : 1) && mv.t > 0.6 + mv.n * 1.1) {
           mv.n++; const a = Math.atan2(hero.y - B.y, hero.x - B.x);
-          for (const o of [-0.28, 0.28]) bullets.push({ x: B.x + Math.cos(a + o * 3) * B.r, y: B.y + Math.sin(a + o * 3) * B.r, vx: Math.cos(a + o) * 420, vy: Math.sin(a + o) * 420, r: 18, dmg: B.atk, kind: 'fist', life: 5, t: 0, ret: 0.8, pierce: true });
+          for (const o of [-0.28, 0.28]) { const M = mouthOf(B, o < 0 ? 2 : 1), fx = M.at ? M.x : B.x + Math.cos(a + o * 3) * B.r, fy = M.at ? M.y : B.y + Math.sin(a + o * 3) * B.r; bullets.push({ x: fx, y: fy, vx: Math.cos(a + o) * 420, vy: Math.sin(a + o) * 420, r: 18, dmg: B.atk, kind: 'fist', life: 5, t: 0, ret: 0.8, pierce: true }); }
           A.sfx('boom'); shake = 8;
         }
         if (mv.t > (p2 ? 3.4 : 2.4)) done(1.1);
@@ -3085,7 +3085,7 @@
         break;
       case 'petrify': {    // gorgon: a wide cone of petrifying gaze; be outside it when her eyes flash
         if (!mv.n) { mv.n = 1; for (const o of p2 ? [0, Math.PI] : [0]) zones.push({ type: 'cone', boss: B, ang: ang + o, spread: 0.52, len: arena.R * 2.2, tele: 1.2, act: 0.3, track: 0.55, dmg: B.atk * 0.8, t: 0 }); A.sfx('magic2'); }
-        if (mv.t > 1.7 && mv.n === 1) { mv.n = 2; for (const o of [-0.3, 0, 0.3]) { const b = shoot(B.x, B.y, Math.cos(ang + o), Math.sin(ang + o), 210, B.atk, 'orb'); b.col = SHOTCOL.poison; } A.sfx('magic'); }
+        if (mv.t > 1.7 && mv.n === 1) { mv.n = 2; const M = mouthOf(B), a0 = aimFrom(M); for (const o of [-0.3, 0, 0.3]) { const b = shoot(M.x, M.y, Math.cos(a0 + o), Math.sin(a0 + o), 210, B.atk, 'orb'); b.col = SHOTCOL.poison; } A.sfx('magic'); }
         if (mv.t > 2.3) done(1.1);
         break;
       }
@@ -3969,7 +3969,7 @@
     const spr = SPR.boss(B.type, { f: Math.floor(globalT * (B.type === 'thunderbird' ? 8 : 4)), act: B.mv && B.mv.t < 0.7 ? 1 : 0, p2: B.phase === 2, look: lk, air: (B.z || 0) > 0.05, flash: hurt, noArm: WR[B.type] ? 1 : 0 });
     for (const d of B.decoys || []) { if (typeof BEAST3 !== 'undefined' && BEAST3.has(B.type)) { ctx.save(); ctx.globalAlpha *= 0.92; BEAST3.draw(ctx, Object.assign({}, B, { x: d.x, y: d.y, sweeps: [], b3: B.b3d || (B.b3d = {}) }), d.x, sy(d.y) + r * 0.7 - hov, false, { t: globalT, hero, cy: sy(d.y) }); ctx.restore(); } else SPR.draw(ctx, spr, d.x, sy(d.y) + r * 0.7 - hov, 0.92); }   // illusions (no shadow)
     if (B.regen) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(120,255,100,${0.18 + 0.12 * Math.sin(globalT * 9)})`; ctx.beginPath(); ctx.arc(x, y, r * 1.5, 0, 7); ctx.fill(); ctx.restore(); }
-    if (typeof BEAST3 !== 'undefined' && BEAST3.has(B.type)) BEAST3.draw(ctx, B, x, by + r * 0.7 - z - hov, hurt, { t: globalT, hero, cy: y, by });   // beasts in three views (beasts3.js)
+    if (typeof BEAST3 !== 'undefined' && BEAST3.has(B.type)) BEAST3.draw(ctx, B, x, by + r * 0.7 - z - hov, hurt, { t: globalT, hero, cy: y, by, fistOut: B.type === 'colossus' && bullets.some(b => b.kind === 'fist') });   // beasts in three views (beasts3.js)
     else if (B.type === 'cyclops') drawCyclops(B, x, by + r * 0.7 - z, y, hurt);
     else if (R3[B.type]) drawR3(B, R3[B.type], x, by + r * 0.7 - z - hov, hurt);
     else if (WR[B.type]) drawWeaponBoss(B, WR[B.type], x, by + r * 0.7 - z - hov, y, spr, hurt);
