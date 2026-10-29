@@ -495,7 +495,7 @@
   // ---------------------------------------------------------------
   const DEF_SAVE = () => ({ v: 1, lv: 1, exp: 0, gold: 40, hp: null, items: { herb: 3, potion: 0, hipotion: 0, elixir: 0, power: 0, guard: 0 },
     eq: { weapon: 'w0', armor: 'a0', boots: 'b0', charm: null }, owned: ['w0', 'a0', 'b0'], cleared: Array(35).fill(false), layout10: true, layout15: true, layout25: true,
-    kills: 0, skills: [], skill: null, settings: { bgm: 0.8, sfx: 0.8 } });
+    kills: 0, skills: [], skill: null, settings: { bgm: 0.8, sfx: 0.8, fps: 0, pad: 1 } });
   let save = DEF_SAVE();
   function loadSave() {
     try {
@@ -857,7 +857,7 @@
   function enterBossRoom() {
     const B = BOSSES[D.boss];
     state = 'boss';
-    arena = { cx: W / 2, cy: 0, R: 300 };   // much wider than the screen; the camera follows the hero
+    arena = { cx: W / 2, cy: 0, R: 360 };   // much wider than the screen (1.2x the old 300); the camera follows the hero
     enemies = []; bullets = []; drops = []; rings = []; props = []; zones = []; freezeT = 0; darkT = 0; shades = []; twisters = [];
     evs = []; ev = { qT: 30 };   // ハテナ箱: first after 30 s, then every 60 s
     hero.x = W / 2; hero.y = -arena.R + 70; hero.vx = 0; hero.vy = 0;
@@ -899,7 +899,7 @@
 
   function bossDefeated() {
     const B = boss;
-    B.dead = 0.01;
+    B.dead = 0.01; A.sfx('bossKill');   // ズバーン！
     hitStop = 0.25; slowMo = 1.5; shake = 26; flash = 1; flashCol = '255,255,255';
     bullets = []; B.sweeps = []; rings = [];
     for (const e of enemies) e.dead = true;
@@ -2861,7 +2861,7 @@
         if (mv.t > 0.2 + mv.n * 1.6 && mv.n < vol) {
           const a = (mv.n ? mv.dir + Math.PI / 2 : (mv.dir = rnd(0, 6.28))), ux = Math.cos(a), uy = Math.sin(a), px = -uy, py = ux; mv.n++;
           const lanes = [], safe = Math.floor(rnd(1, 5));
-          for (let o = -250; o <= 250; o += 72) lanes.push(o);
+          for (let o = -arena.R * 0.83; o <= arena.R * 0.83 + 1; o += arena.R * 0.24) lanes.push(o);
           lanes.forEach((o, i) => {
             if (i === safe || i === safe + 1) return;
             const half = Math.sqrt(Math.max(0, arena.R * arena.R - o * o)), x0 = arena.cx + px * o - ux * half, y0 = arena.cy + py * o - uy * half;
@@ -3807,21 +3807,26 @@
   function safeTop() { return 0; }
   function drawPad() {
     if (!drag.down || paused || (state !== 'play' && state !== 'boss')) return;
-    const dx = drag.px - drag.ox, dy = drag.py - drag.oy, d = hyp(dx, dy), k = Math.min(1, d / PAD_R);
-    const kx = d > PAD_R ? drag.ox + dx / d * PAD_R : drag.px, ky = d > PAD_R ? drag.oy + dy / d * PAD_R : drag.py;
     const charge = hero && heroSpeed() > RAM_MIN;
-    ctx.fillStyle = 'rgba(19,24,58,.35)'; ctx.beginPath(); ctx.arc(drag.ox, drag.oy, PAD_R, 0, 7); ctx.fill();
-    ctx.strokeStyle = 'rgba(243,236,218,.55)'; ctx.lineWidth = 2; ctx.stroke();
+    padShape(ctx, drag.ox, drag.oy, drag.px, drag.py, PAD_R, charge, hero ? clamp(RAM_MIN / (PAD_MAX * hero.s.ram), 0, 1) : 0);
+  }
+  // the pad itself; every alpha is scaled by せってい → スライドパッドの こさ
+  function padShape(c, ox, oy, px, py, R, charge, ringK) {
+    const S2 = save.settings.pad || 1, al = v => Math.min(1, v * S2).toFixed(3);
+    const dx = px - ox, dy = py - oy, d = hyp(dx, dy), k = Math.min(1, d / R);
+    const kx = d > R ? ox + dx / d * R : px, ky = d > R ? oy + dy / d * R : py;
+    c.fillStyle = `rgba(19,24,58,${al(0.35)})`; c.beginPath(); c.arc(ox, oy, R, 0, 7); c.fill();
+    c.strokeStyle = `rgba(243,236,218,${al(0.55)})`; c.lineWidth = 2; c.stroke();
     // the outer band = charge zone
-    ctx.strokeStyle = charge ? 'rgba(255,170,60,.9)' : 'rgba(255,170,60,.35)'; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.arc(drag.ox, drag.oy, PAD_R - 4, 0, 7); ctx.stroke();
-    if (hero) {   // where a charge starts: outside this ring the hero is fast enough to ram
-      const rr = 6 + clamp(RAM_MIN / (PAD_MAX * hero.s.ram), 0, 1) * (PAD_R - 6);
-      ctx.strokeStyle = charge ? 'rgba(255,170,60,.55)' : 'rgba(243,236,218,.28)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 5]);
-      ctx.beginPath(); ctx.arc(drag.ox, drag.oy, rr, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+    c.strokeStyle = `rgba(255,170,60,${al(charge ? 0.9 : 0.35)})`; c.lineWidth = 4;
+    c.beginPath(); c.arc(ox, oy, R - 4, 0, 7); c.stroke();
+    if (ringK) {   // where a charge starts: outside this ring the hero is fast enough to ram
+      const rr = 6 + ringK * (R - 6);
+      c.strokeStyle = charge ? `rgba(255,170,60,${al(0.55)})` : `rgba(243,236,218,${al(0.28)})`; c.lineWidth = 1.5; c.setLineDash([4, 5]);
+      c.beginPath(); c.arc(ox, oy, rr, 0, 7); c.stroke(); c.setLineDash([]);
     }
-    ctx.fillStyle = charge ? 'rgba(255,170,60,.9)' : `rgba(243,236,218,${0.55 + k * 0.3})`;
-    ctx.beginPath(); ctx.arc(kx, ky, 22, 0, 7); ctx.fill();
+    c.fillStyle = charge ? `rgba(255,170,60,${al(0.9)})` : `rgba(243,236,218,${al(0.55 + k * 0.3)})`;
+    c.beginPath(); c.arc(kx, ky, Math.min(22, R * 0.3), 0, 7); c.fill();
   }
 
   function drawBanner() {
@@ -4308,14 +4313,18 @@
 
   function openGate() {
     const unlocked = i => i === 0 || save.cleared[i - 1];
+    let open = 0; while (open < DUNGEONS.length - 1 && unlocked(open + 1)) open++;
+    const cur = save.lastGate != null && unlocked(save.lastGate) ? save.lastGate : open;   // the last dungeon you went to (or the newest)
     openPanel('ダンジョンを えらぶ', DUNGEONS.map((d, i) => {
       const ok = unlocked(i), warn = save.lv < d.rec;
-      return `<div class="row ${ok ? '' : 'lock'}"><span class="nm">${i + 1}. ${ok ? d.name : '？？？'} ${save.cleared[i] ? '<span class="tag">★せいは</span>' : ''}</span>
+      return `<div class="row ${ok ? '' : 'lock'}" ${i === cur ? 'data-cur="1" style="background:rgba(242,193,78,.14);border-radius:6px"' : ''}><span class="nm">${i + 1}. ${ok ? d.name : '？？？'} ${save.cleared[i] ? '<span class="tag">★せいは</span>' : ''}</span>
         <span class="sub">${ok ? `${d.en}・すいしょう Lv ${d.rec}${warn ? '<span class="hpc">（きけん）</span>' : ''}・ボス：${BOSSES[d.boss].name}` : 'まえのダンジョンを せいはすると いける'}</span>
         <span class="act"><button class="sbtn" data-go="${i}" ${ok ? '' : 'disabled'}>いく</button></span></div>`;
     }).join('') + `<p style="font-size:13px;color:var(--muted);margin-top:6px">かいふくアイテム ${save.items.herb + save.items.potion + save.items.elixir}こ・やられると この ぼうけんで ひろった ゴールドの はんぶんを おとす</p>`,
       [['街に もどる', closePanel]], 'gate');
-    panelBody.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { A.sfx('confirm'); const i = +b.dataset.go; transition = { t: 0, mid: 0.4, fn: () => enterDungeon(i) }; closePanel(); }));
+    panelBody.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { A.sfx('confirm'); const i = +b.dataset.go; save.lastGate = i; persist(); transition = { t: 0, mid: 0.4, fn: () => enterDungeon(i) }; closePanel(); }));
+    const row = panelBody.querySelector('[data-cur]');   // open the list where you left off: that row in the middle
+    if (row) { panelBody.scrollTop = Math.max(0, row.offsetTop - panelBody.offsetTop - (panelBody.clientHeight - row.offsetHeight) / 2); const bt = row.querySelector('[data-go]'); if (bt && !bt.disabled) bt.focus({ preventScroll: true }); }
   }
 
   // ---- music room: listen to every arrangement you have reached ----
@@ -4356,10 +4365,20 @@
   function openOptions() {
     openPanel('せってい', `<label class="sl" for="optBgm">BGM<input id="optBgm" type="range" min="0" max="1" step="0.1" value="${save.settings.bgm}"></label>
       <label class="sl" for="optSfx">こうかおん<input id="optSfx" type="range" min="0" max="1" step="0.1" value="${save.settings.sfx}"></label>
+      <div class="optg">がめんの なめらかさ（リフレッシュレート）<div class="tabs" id="optFps">${[[0, 'じどう'], [30, '30'], [60, '60'], [90, '90'], [120, '120']].map(([v, l]) => `<button data-v="${v}" aria-pressed="${save.settings.fps === v}">${l}</button>`).join('')}</div>
+        <span class="optn">じどう＝がめんに あわせる（この がめんは やく ${Math.round(1000 / rafMs / 10) * 10}Hz）。かずを へらすと でんちが もつ</span></div>
+      <div class="optg">スライドパッドの こさ<div class="tabs" id="optPad">${[[0.4, 'うすい'], [0.7, 'ややうすい'], [1, 'ふつう'], [1.5, 'こい']].map(([v, l]) => `<button data-v="${v}" aria-pressed="${save.settings.pad === v}">${l}</button>`).join('')}</div>
+        <canvas id="optPadPrev" width="150" height="74" style="display:block;margin:6px auto 0;border-radius:8px;background:#2a2a3e"></canvas></div>
       <p style="font-size:13px;color:var(--muted);margin-top:8px">セーブは このブラウザに じどうで ほぞんされます。</p>`,
       [['もどる', openHouse, true], ['データをけす', () => openPanel('ほんとうに けしますか？', '<p>レベル・そうび・ゴールドが すべて さいしょに もどります。</p>', [['けす', () => { save = DEF_SAVE(); persist(); goTown(); }], ['やめる', openOptions, true]], 'house')]], 'house');
     const apply = () => { save.settings.bgm = +$('optBgm').value; save.settings.sfx = +$('optSfx').value; if (audioOn) FMusic.setVolume(save.settings.bgm, save.settings.sfx); persist(); };
     $('optBgm').addEventListener('input', apply); $('optSfx').addEventListener('input', apply);
+    const seg = (id, key, after) => $(id).querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+      save.settings[key] = +b.dataset.v; persist(); A.sfx('select');
+      $(id).querySelectorAll('button').forEach(o => o.setAttribute('aria-pressed', String(o === b))); if (after) after();
+    }));
+    const prev = () => { const c = $('optPadPrev'), x = c.getContext('2d'); x.clearRect(0, 0, c.width, c.height); padShape(x, 75, 37, 105, 30, 30, false, 0.6); };
+    seg('optFps', 'fps', () => { nextT = 0; }); seg('optPad', 'pad', prev); prev();
   }
 
   function openHelp() {
@@ -4498,18 +4517,21 @@
     if (state === 'town' && townPage !== 1) { townSwipeTo(1); return true; }
     return false;   // gate page in town: let Android close the app
   };
-  let last = performance.now();
+  let last = performance.now(), lastRaf = last, rafMs = 16.7, nextT = 0;
   const perfWin = { n: 0, sum: 0 };
   function frame(now) {
     requestAnimationFrame(frame);
+    const rd = now - lastRaf; lastRaf = now; if (rd > 2 && rd < 100) rafMs += (rd - rafMs) * 0.05;   // the display's own refresh interval
     if (sleeping) { last = now; return; }   // nothing runs while the app is hidden
+    const cap = save.settings.fps ? 1000 / save.settings.fps : 0;   // せってい: refresh rate cap
+    if (cap) { if (now < nextT - 1) return; nextT = Math.max(nextT + cap, now - cap); }
     const raw = now - last;
     const dt = Math.min(0.05, raw / 1000); last = now;
     // auto quality: if gameplay runs under ~45fps for 1.5 seconds, render fewer pixels
     if ((state === 'play' || state === 'boss') && !paused && raw < 250) {
       perfWin.n++; perfWin.sum += raw;
       if (perfWin.sum >= 1500) {
-        if (perfWin.sum / perfWin.n > 22 && quality > 0.5) { quality = Math.max(0.5, quality - 0.25); resize(); }
+        if (perfWin.sum / perfWin.n > Math.max(22, cap * 1.3) && quality > 0.5) { quality = Math.max(0.5, quality - 0.25); resize(); }
         perfWin.n = 0; perfWin.sum = 0;
       }
     }
@@ -4522,5 +4544,5 @@
   requestAnimationFrame(frame);
   // test hooks
   window.__yusha = { get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
-    enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN }, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt };
+    enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN }, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt, openOptions };
 })();

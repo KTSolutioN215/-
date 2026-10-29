@@ -1109,6 +1109,14 @@ const FMusic = (() => {
     magic2(t, d) { for (const f of [700, 742]) { const g = G(d), o = ac.createOscillator(); o.frequency.value = f; o.connect(g); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.06, t + 0.08); g.gain.linearRampToValueAtTime(0, t + 0.55); vib(t, [o], 7, 40, 0.01, t + 0.6); o.start(t); o.stop(t + 0.6); } },
     summon(t, d) { sweep(t, d, 'sine', 80, 220, 0.5, 0.25); const g = G(d), fl = F('bandpass', 900, 2, g); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.4, t + 0.45); g.gain.linearRampToValueAtTime(0, t + 0.55); N(t, 0.6, fl); I.glass(t + 0.45, 91, 0.8, 0.4, d); },
     warp(t, d) { sweep(t, d, 'sine', 1800, 260, 0.18, 0.12); sweep(t + 0.18, d, 'sine', 260, 1800, 0.18, 0.12); I.glass(t + 0.36, 98, 0.6, 0.35, d); },
+    bossKill(t, d) {   // ズバーン！ — one big cut, then the blast
+      nz(t, 0.16, d, 'bandpass', 1200, 1.5, 0.9, 0.05, 9000); nz(t, 0.05, d, 'highpass', 5000, 0.7, 0.5, 0.012);
+      ring(t + 0.02, d, 2400, 0.08, 0.5); ring(t + 0.02, d, 3150, 0.05, 0.35);
+      const T = t + 0.12;
+      thump(T, d, 140, 28, 1.1, 0.32); P.bd(T, 1.3, d); P.ti(T, 1.1, d, 36); P.gg(T, 1.2, d);
+      nz(T, 1.6, d, 'lowpass', 5000, 0.7, 0.9, 0.45, 90); nz(T, 1.2, d, 'highpass', 6000, 0.7, 0.25, 0.4);
+      for (const m of [36, 43, 48, 55]) I.brass(T, m, 0.7, 0.8, d);
+    },
   };
   // effects go dry to the bus and a little into the room
   let sfxIn = null;
@@ -1118,13 +1126,18 @@ const FMusic = (() => {
     return sfxIn;
   }
   // loudness trims (measured peaks -> impacts ~0.7, chimes and UI ~0.35)
-  const SFX_GAIN = { select: 2.5, confirm: 1.4, coin: 1.67, buy: 1.67, equip: 2.06, hit: 0.67, crit: 0.54, bosshit: 0.64, block: 0.9, hurt: 0.65, kill: 1.06, levelup: 1.25, heal: 1.3, spring: 1.3, buff: 0.72, chest: 1.21, item: 2.06, crate: 1.01, door: 0.68, bossAppear: 0.63, roar: 1.35, down: 0.67, quake: 0.47, boom: 0.5, magic: 4.0, magic2: 2.92, summon: 1.6, warp: 2.92 };
+  const SFX_GAIN = { select: 2.5, confirm: 1.4, coin: 1.67, buy: 1.67, equip: 2.06, hit: 0.67, crit: 0.54, bosshit: 0.64, block: 0.9, hurt: 0.65, kill: 1.06, levelup: 1.25, heal: 1.3, spring: 1.3, buff: 0.72, chest: 1.21, item: 2.06, crate: 1.01, door: 0.68, bossAppear: 0.63, bossKill: 0.36, roar: 1.35, down: 0.67, quake: 0.47, boom: 0.5, magic: 4.0, magic2: 2.92, summon: 1.6, warp: 2.92 };
   function sfx(name, arg) {
     if (!bind() || !SFX[name]) return;
     try { const g = ac.createGain(); g.gain.value = SFX_GAIN[name] || 1; g.connect(sfxRevIn()); SFX[name](ac.currentTime + 0.005, g, arg); setTimeout(() => { try { g.disconnect(); } catch (e) { } }, 4000); } catch (e) { }
   }
 
   // calibration: play an instrument alone (8 notes around middle C) and return its RMS / peak in dB
+  async function _calSfx(name, oc) {   // render one effect offline and return its RMS / peak in dB (for SFX_GAIN)
+    const keep = [ac, out, S]; ac = oc; S = null;
+    try { out = oc.destination; const g = oc.createGain(); g.connect(oc.destination); SFX[name](0.05, g); const L = (await oc.startRendering()).getChannelData(0); let ss = 0, pk = 0; for (const x of L) { ss += x * x; if (Math.abs(x) > pk) pk = Math.abs(x); } return [+(10 * Math.log10(ss / L.length)).toFixed(1), +(20 * Math.log10(pk)).toFixed(1)]; }
+    finally { [ac, out, S] = keep; }
+  }
   async function _cal(name, oc, base = 60) {
     const keep = [ac, out, S]; ac = oc; S = null;
     try {
@@ -1141,5 +1154,5 @@ const FMusic = (() => {
     } finally { [ac, out, S] = keep; }
   }
 
-  return { init, resume, suspend, setVolume, sfx, SFX, _cal, THEMES, MODES, play, stop, fadeOut, setLayer, setRage, pollEvents, jingle, render, I, P, get playing() { return !!(S && S.playing); }, get arr() { return S && S.arr; }, get layer() { return S && (S.pendingLayer || S.layer); }, get rage() { return !!(S && S.rage); } };
+  return { init, resume, suspend, setVolume, sfx, SFX, _cal, _calSfx, THEMES, MODES, play, stop, fadeOut, setLayer, setRage, pollEvents, jingle, render, I, P, get playing() { return !!(S && S.playing); }, get arr() { return S && S.arr; }, get layer() { return S && (S.pendingLayer || S.layer); }, get rage() { return !!(S && S.rage); } };
 })();
