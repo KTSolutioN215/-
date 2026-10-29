@@ -9,3 +9,5 @@ local.properties
 *.keystore
 !app/debug.keystore
 _test.html
+out/
+ButsukariYusha.apk

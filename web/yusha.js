@@ -2750,7 +2750,7 @@
         break;
       }
       case 'sweep':   // club / sword swung all the way round
-        if (!mv.n) { mv.n = 1; addSweep(B, { ang: ang + Math.PI * 0.75, vel: (Math.random() < 0.5 ? 1 : -1) * 2.5, len: 170, w: 13, left: Math.PI * 1.7, col: B.wcol || '#c99a5a', kind: 'club', own: B.type === 'cyclops' || !!WR[B.type] }); }
+        if (!mv.n) { mv.n = 1; addSweep(B, { ang: ang + Math.PI * 0.75, vel: (Math.random() < 0.5 ? 1 : -1) * 2.5, len: 170, w: 13, left: Math.PI * 1.7, col: B.wcol || '#c99a5a', kind: 'club', own: B.type === 'cyclops' || !!(WR[B.type] || R3[B.type]) }); }
         if (mv.t > 2.6) done(1.1);
         break;
       case 'tentacles': {   // kraken: four tentacles swing round together
@@ -2781,7 +2781,7 @@
         if (mv.t > 2.6) done(1.1);
         break;
       case 'twin':
-        if (!mv.n) { mv.n = 1; const v = (Math.random() < 0.5 ? 1 : -1) * 2.2; for (const o of [0, Math.PI]) addSweep(B, { ang: ang + o, vel: v, len: 200, w: 10, left: Math.PI * 2, col: B.wcol || '#ff5aa0', kind: 'blade', own: !o && !!WR[B.type] }); }
+        if (!mv.n) { mv.n = 1; const v = (Math.random() < 0.5 ? 1 : -1) * 2.2; for (const o of [0, Math.PI]) addSweep(B, { ang: ang + o, vel: v, len: 200, w: 10, left: Math.PI * 2, col: B.wcol || '#ff5aa0', kind: 'blade', own: !o && !!(WR[B.type] || R3[B.type]) }); }
         if (mv.t > 3.6) done(1.1);
         break;
       case 'charge': case 'dash3': case 'firetrail': {   // rush to the wall (dash3 = three times in a row; firetrail leaves burning ground)
