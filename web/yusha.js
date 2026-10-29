@@ -2782,7 +2782,7 @@
         break;
       }
       case 'scythe':
-        if (!mv.n) { mv.n = 1; addSweep(B, { ang: ang + Math.PI, vel: 2.8, len: 190, w: 10, left: Math.PI * 2.3, col: '#d8c8ff', kind: 'scythe' }); }
+        if (!mv.n) { mv.n = 1; addSweep(B, { ang: ang + Math.PI, vel: 2.8, len: 190, w: 10, left: Math.PI * 2.3, col: '#d8c8ff', kind: 'scythe', own: B.type === 'lich' }); }
         if (mv.t > 2.8) done(1.1);
         break;
       case 'tail':
@@ -2995,7 +2995,7 @@
           B.decoys = spots.filter((_, i) => i !== real).slice(0, p2 ? 3 : 2).map(pt => ({ x: pt.x, y: pt.y, hx: pt.x, hy: pt.y, t: 0, ph: rnd(0, 6) }));
           for (const pt of spots) burst(pt.x, pt.y, 16, '#c8b8ff', 180);
         }
-        if (mv.t > 1.4 && mv.n === 1) { mv.n = 2; for (const o of [-0.25, 0, 0.25]) shoot(B.x, B.y, Math.cos(ang + o), Math.sin(ang + o), 190, B.atk, 'orb'); }
+        if (mv.t > 1.4 && mv.n === 1) { mv.n = 2; const M = mouthOf(B), a0 = aimFrom(M); for (const o of [-0.25, 0, 0.25]) shoot(M.x, M.y, Math.cos(a0 + o), Math.sin(a0 + o), 190, B.atk, 'orb'); }
         if (mv.t > 2) done(1.2);
         break;
       case 'tornado':      // quetzalcoatl: tornadoes that wander after you
@@ -3960,7 +3960,7 @@
     const hov = FLOAT[B.type] ? 12 + Math.sin(globalT * 2.2) * 4 : 0;
     const lk = Math.round((((-look) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / (Math.PI / 4)) % 8;
     const spr = SPR.boss(B.type, { f: Math.floor(globalT * (B.type === 'thunderbird' ? 8 : 4)), act: B.mv && B.mv.t < 0.7 ? 1 : 0, p2: B.phase === 2, look: lk, air: (B.z || 0) > 0.05, flash: hurt, noArm: WR[B.type] ? 1 : 0 });
-    for (const d of B.decoys || []) SPR.draw(ctx, spr, d.x, sy(d.y) + r * 0.7 - hov, 0.92);   // illusions (no shadow)
+    for (const d of B.decoys || []) { if (typeof BEAST3 !== 'undefined' && BEAST3.has(B.type)) { ctx.save(); ctx.globalAlpha *= 0.92; BEAST3.draw(ctx, Object.assign({}, B, { x: d.x, y: d.y, sweeps: [], b3: B.b3d || (B.b3d = {}) }), d.x, sy(d.y) + r * 0.7 - hov, false, { t: globalT, hero, cy: sy(d.y) }); ctx.restore(); } else SPR.draw(ctx, spr, d.x, sy(d.y) + r * 0.7 - hov, 0.92); }   // illusions (no shadow)
     if (B.regen) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(120,255,100,${0.18 + 0.12 * Math.sin(globalT * 9)})`; ctx.beginPath(); ctx.arc(x, y, r * 1.5, 0, 7); ctx.fill(); ctx.restore(); }
     if (typeof BEAST3 !== 'undefined' && BEAST3.has(B.type)) BEAST3.draw(ctx, B, x, by + r * 0.7 - z - hov, hurt, { t: globalT, hero, cy: y, by });   // beasts in three views (beasts3.js)
     else if (B.type === 'cyclops') drawCyclops(B, x, by + r * 0.7 - z, y, hurt);

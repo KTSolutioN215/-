@@ -1086,6 +1086,167 @@ const BEAST3 = (() => {
     });
   }
   // =============================================================
+  //  ROBED CASTERS (リッチ・こおりの女王・ファラオ・だいまどうし): one humanoid rig — a robe that flares to the floor, arms with
+  //  wide sleeves, a staff in the right hand whose head is where the spells come out — and a head drawn for each view.
+  //  The arms are posed in 3D (raise the staff, thrust it at you, strike the floor, spread both arms) and timed to each spell.
+  // =============================================================
+  const CPOSE = {   // hs / ho: right (staff) / left hand from its shoulder; sd: staff direction (bottom -> head); lean: + = bowing in
+    rest: { hs: [3, 18, 7], ho: [-3, 18, 5], sd: [0.05, -1, 0.12], lean: 0 },
+    raise: { hs: [4, -12, 5], ho: [-9, 2, 12], sd: [0.12, -1, 0.25], lean: -0.1 },
+    point: { hs: [1, 1, 20], ho: [-5, 10, 8], sd: [0, -0.42, 1], lean: 0.16 },
+    plant: { hs: [3, 12, 14], ho: [-10, -6, 8], sd: [0, -1, 0.05], lean: 0.2 },
+    summon: { hs: [10, -15, 4], ho: [-10, -15, 4], sd: [0.4, -1, 0.1], lean: -0.15 },
+    reap: { hs: [16, -4, 6], ho: [-6, 4, 10], sd: [1, -0.1, 0.1], lean: 0.05 },
+  };
+  const casterKeys = n => {
+    const H = (pairs, end) => { const k = [[0, 'rest']]; for (const [T0, a, b] of pairs) k.push([T0 - 0.2, a], [T0, b, 'in']); k.push([end, k[k.length - 1][1]], [end + 0.4, 'rest']); return k; };
+    switch (n) {
+      case 'spiral': case 'spiral3': return [[0, 'rest'], [0.3, 'raise'], [3.0, 'raise'], [3.4, 'rest']];
+      case 'wave': return [[0, 'rest'], [0.3, 'point'], [2.2, 'point'], [2.6, 'rest']];
+      case 'homing': return H([[0.5, 'raise', 'point']], 0.9);
+      case 'triple': return H([[0.4, 'raise', 'plant'], [0.72, 'raise', 'plant'], [1.04, 'raise', 'plant']], 1.3);
+      case 'ring': case 'ringaimed': return H([[0.55, 'raise', 'plant']], 0.9);
+      case 'gapring': return H([[0.5, 'raise', 'plant'], [1.25, 'raise', 'plant']], 1.5);
+      case 'aimed3': case 'aimed5': return H([[0.45, 'raise', 'point'], [0.9, 'raise', 'point']], 1.1);
+      case 'laser': case 'laser3': return [[0, 'rest'], [0.45, 'raise'], [0.85, 'point', 'in'], [1.3, 'point'], [1.6, 'rest']];
+      case 'cross': return [[0, 'rest'], [0.5, 'summon'], [3.6, 'summon'], [4.0, 'rest']];
+      case 'rain': return H([[0.5, 'raise', 'plant']], 1.3);
+      case 'warp': return [[0, 'rest'], [0.3, 'summon'], [0.8, 'summon'], [1.2, 'rest']];
+      case 'summon': return [[0, 'rest'], [0.35, 'summon'], [0.8, 'summon'], [1.1, 'rest']];
+      case 'illusion': return [[0, 'rest'], [0.3, 'summon'], [1.15, 'raise'], [1.4, 'point', 'in'], [1.7, 'point'], [2.0, 'rest']];
+      case 'soulstorm': case 'icecage': case 'quicksand': case 'despair': return [[0, 'rest'], [0.4, 'summon'], [2.2, 'summon'], [2.6, 'rest']];
+      default: return H([[0.5, 'raise', 'point']], 0.9);
+    }
+  };
+  function casterPose(B, T, E) {
+    const n = mvName(B), mv = B.mv, t = mv ? mv.t : 0;
+    let P;
+    if (n === 'scythe') { P = Object.assign({}, CPOSE.reap); P.reaping = !!(B.sweeps[0] && B.sweeps[0].t >= B.sweeps[0].tele); }   // the whole body spins with the scythe (spinPsi)
+    else if (mv) {
+      const keys = casterKeys(n); let a = CPOSE[keys[0][1]], b = a, k = 0;
+      for (let i = 1; i < keys.length; i++) { if (t <= keys[i][0]) { a = CPOSE[keys[i - 1][1]]; b = CPOSE[keys[i][1]]; const k0 = (t - keys[i - 1][0]) / Math.max(0.001, keys[i][0] - keys[i - 1][0]); k = keys[i][2] === 'in' ? k0 * k0 * k0 : sstep(k0); break; } a = b = CPOSE[keys[i][1]]; k = 1; }
+      P = { hs: V.mix(a.hs, b.hs, k), ho: V.mix(a.ho, b.ho, k), sd: norm(V.mix(a.sd, b.sd, k)), lean: lerp(a.lean, b.lean, k) };
+      if ((n === 'spiral' || n === 'spiral3') && t > 0.3) { const w = (t - 0.3) * 7; P.sd = norm(V.add(P.sd, [Math.cos(w) * 0.5, 0, Math.sin(w) * 0.5])); }   // stirs the air with the staff
+    } else P = Object.assign({}, CPOSE.rest);
+    P.glow = mv ? clamp(t / 0.4, 0, 1) * (n === 'warp' ? 0.5 : 1) : 0.3 + Math.sin(T * 3) * 0.15;
+    P.sway = Math.sin(T * 1.7) * 2 + (mv ? Math.sin(T * 9) * P.glow * 1.2 : 0);
+    P.br = Math.sin(T * 2) * 0.6;
+    return P;
+  }
+  // an A-line robe / torso: a shaded trapezoid between two horizontal rings (the body only turns about its vertical axis,
+  // so the rings keep their screen width), with a rounded hem
+  function cone(top, bot, rt, rb, C, d0, folds) {
+    op(d0, () => {
+      const a = pr(top), b = pr(bot), lx = (k, y) => [lerp(a[0] - rt, b[0] - rb, k), y], E = rb * SL;
+      g.ell(b[0], b[1], rb, E, C.d);
+      g.poly([[a[0] - rt, a[1]], [a[0] + rt, a[1]], [b[0] + rb, b[1]], [b[0] - rb, b[1]]], C.m);
+      g.ell(b[0], b[1] - 1, rb - 1.5, E * 0.7, C.m);
+      g.poly([[a[0] + rt * 0.35, a[1]], [a[0] + rt, a[1]], [b[0] + rb, b[1]], [b[0] + rb * 0.35, b[1]]], C.d);
+      g.poly([[a[0] - rt, a[1]], [a[0] - rt * 0.7, a[1]], [b[0] - rb * 0.72, b[1]], [b[0] - rb, b[1]]], C.h);
+      if (folds) for (const f of [-0.35, 0.15]) g.line(a[0] + rt * f, a[1] + 2, b[0] + rb * f * 1.2, b[1] + E * 0.6, 1, C.d);
+    });
+  }
+  function casterBuild(D) {
+    return function (B, P, T, p2) {
+      const C = D.robe, lean = P.lean, waist = [0, -46 + P.br * 0.3, 0];
+      const up = q => V.add(waist, pitch(q, -lean));   // the upper body bends at the waist
+      // the robe: a cone to the floor, its hem trailing the sway
+      const hem = [P.sway, -3, -lean * 10], mid = V.add(V.mix(waist, hem, 0.5), [P.sway * 0.4, 0, 0]);
+      cone(waist, hem, 12.5, D.flare, C, -0.5, true);
+      if (D.hem) for (let i = 0; i < 12; i++) { const a = i / 12 * TAU, p = V.add(hem, [Math.cos(a) * D.flare, 0, Math.sin(a) * D.flare * 0.9]); piece(p, 0.05, (x, y) => D.hem(x, y, i, T)); }
+      if (D.feet) for (const s of [-1, 1]) { const f = [s * 6, -2, 8 + Math.sin(T * 2 + s) * 0.5]; piece(f, 0.3, (x, y) => { g.ell(x, y + 1, 4, 2.4, D.feet.d); g.ell(x, y, 3, 1.6, D.feet.m); }); }
+      // the front trim / stripe runs down the robe where it faces us
+      const tr0 = up([0, -16, 10]), tr1 = V.add(hem, [0, 0, D.flare * 0.95]);
+      if (D.trim) { line(tr0, V.add(waist, [0, 0, 10.5]), 2.4, D.trim, 0.3); line(V.add(waist, [0, 0, 10.5]), tr1, D.trimW || 2.4, D.trim, 0.3); }
+      const chest = up([0, -18, 0]);
+      cone(chest, waist, 15, 12.5, D.body || C, -0.4); sph(V.add(chest, [0, 2, 0]), 14, D.body || C, -0.45);
+      if (D.collar) piece(up([0, -17, 6]), 0.4, (x, y) => D.collar(x, y));
+      // arms: shoulder -> elbow -> hand, wide sleeves; the staff in the right hand
+      const shR = up([13, -18, 0]), shL = up([-13, -18, 0]);
+      const [elR, hR] = ik(shR, V.add(shR, P.hs), 12, 12, [0.6, 0.6, -0.5]), [elL, hL] = ik(shL, V.add(shL, P.ho), 12, 12, [-0.6, 0.6, -0.5]);
+      for (const [sh, el, h] of [[shR, elR, hR], [shL, elL, hL]]) {
+        tube([sh, el], [5.6, 6.2], D.sleeve || C, 0.6); tube([el, V.mix(el, h, 0.8)], [6.4, 8.6], D.sleeve || C, 0.62);
+        sph(h, 3, D.hand, 0.7, 0);
+      }
+      const sd = P.sd, sb = V.add(hR, V.mul(sd, -D.staff[0])), st = V.add(hR, V.mul(sd, D.staff[1]));
+      if (P.reaping) ANCHS[0] = hR;   // the staff has become the scythe: drawn out along the sweep (sweepLimbs)
+      else { line(sb, st, 3, '#1a1008', 0.65); line(sb, st, 1.8, D.staffCol || '#7a4a20', 0.66); D.staffHead(st, sd, P, p2, T); }
+      MOUTHS.push(V.add(st, V.mul(sd, 4)));
+      if (P.glow > 0.5 && B.mv) piece(st, 0.9, (x, y) => { g.ell(x, y, 6 + P.glow * 5, 6 + P.glow * 5, `rgba(${D.glowRGB},${0.25 * P.glow})`); });
+      sph(hR, 3.2, D.hand, 0.71, 0);   // the fist closes over the staff
+      // the head (hand-drawn for front / side / back)
+      const hc = up([0, -38, 1]);
+      piece(hc, 1, (x, y) => { cx.translate(x, y); cx.scale(1.35, 1.35); D.head(p2, T, P); });   // big chibi heads, like the rest of the game
+    };
+  }
+  const flick = (T, i) => Math.sin(T * 5 + i * 1.7) * 2;
+  // ---- リッチ: a hooded skeleton king, ghost-tattered hem, a staff with a soul gem ----
+  const LICH = {
+    robe: { d: '#140a24', m: '#2e1a4a', h: '#5a3a80' }, sleeve: { d: '#140a24', m: '#2a1844', h: '#4e3474' }, hand: { d: '#a89c80', m: '#e8e2cf', h: '#ffffff' }, flare: 25, trim: '#f2c14e', glowRGB: '200,150,255',
+    staff: [30, 14], staffCol: '#3a2a20',
+    hem(x, y, i, T) { g.poly([[x - 4, y - 2], [x + 4, y - 2], [x + 1, y + 5 + flick(T, i)]], '#2e1a4a'); },
+    staffHead(st, sd, P, p2) { piece(st, 0.8, (x, y) => { g.ell(x, y - 1, 6, 4, '#3a2a20'); for (const m of [-1, 1]) g.line(x + m * 4, y, x + m * 6, y - 7, 1.6, '#3a2a20'); g.ell(x, y - 5, 4.4, 4.4, p2 ? '#ff4a8a' : '#b48cff'); g.ell(x - 1, y - 6, 1.6, 1.6, '#ffffff'); }); },
+    head(p2, T) {
+      const E = p2 ? '#ff3a5a' : '#c8a0ff', H = { d: '#0c0618', m: '#241438', h: '#46306a' };
+      if (VIEW === 'b') { g.ell(0, -1, 13, 14, H.d); g.ell(-1, -2, 11, 12, H.m); g.poly([[-6, -14], [6, -14], [0, -20]], '#f2c14e'); return; }
+      if (VIEW === 's') { const d = DIRX; g.ell(-2 * d, -1, 13, 14, H.d); g.ell(-3 * d, -2, 11, 12, H.m); g.ell(3 * d, 1, 7, 8, '#e8e2cf'); g.ell(5 * d, 0, 2, 2, '#1a0a10'); g.p(5 * d, 0, E); g.r(2 * d - 1, 6, 6, 2, '#b4ab90');
+        for (let i = -1; i <= 1; i++) g.poly([[i * 4 - 2, -13], [i * 4, -19], [i * 4 + 2, -13]], '#f2c14e'); g.r(-7, -14, 14, 2, '#c08a2a'); return; }
+      g.ell(0, -1, 13, 14, H.d); g.ell(0, 0, 9, 10, '#0c0618');
+      g.ell(0, 1, 7, 8, '#e8e2cf'); for (const m of [-1, 1]) { g.ell(m * 3, 0, 2.2, 2.4, '#1a0a10'); g.p(m * 3, 0, E); } g.p(0, 4, '#1a0a10'); for (let i = -2; i <= 2; i++) g.r(i * 2, 7, 1, 2, '#ffffff');
+      for (let i = -1; i <= 1; i++) g.poly([[i * 4 - 2, -12], [i * 4, -19], [i * 4 + 2, -12]], '#f2c14e'); g.r(-7, -13, 14, 2, '#c08a2a'); g.p(0, -15, '#e04050');
+    },
+  };
+  // ---- こおりの女王: a gown of ice, long white hair, a crown of icicles, a crystal staff ----
+  const ICEQ = {
+    robe: { d: '#5a90c0', m: '#bfe6ff', h: '#ffffff' }, body: { d: '#5a90c0', m: '#d8f0ff', h: '#ffffff' }, sleeve: { d: '#6aa0d0', m: '#cfeeff', h: '#ffffff' }, hand: { d: '#b0c8e0', m: '#f0f8ff', h: '#ffffff' }, flare: 27, glowRGB: '160,230,255',
+    staff: [30, 16], staffCol: '#9ad0f0', trim: '#ffffff', trimW: 1.4,
+    hem(x, y, i) { if (i % 2) g.poly([[x - 3, y - 1], [x + 3, y - 1], [x, y + 5]], '#e8f8ff'); },
+    collar(x, y) { for (let i = -2; i <= 2; i++) g.poly([[x + i * 4 - 2, y + 1], [x + i * 4, y - 6 - (i === 0 ? 2 : 0)], [x + i * 4 + 2, y + 1]], '#e8f8ff'); },
+    staffHead(st, sd, P, p2) { piece(st, 0.8, (x, y) => { g.poly([[x, y - 12], [x + 5, y - 4], [x, y + 2], [x - 5, y - 4]], p2 ? '#ff90c0' : '#9ae8ff'); g.poly([[x, y - 12], [x, y + 2], [x - 5, y - 4]], p2 ? '#ffc0e0' : '#e0faff'); g.p(Math.round(x - 1), Math.round(y - 7), '#ffffff'); }); },
+    head(p2, T) {
+      const E = p2 ? '#ff4a7a' : '#3a7ad8', hair = '#f4fbff', hairS = '#b8d8f0';
+      const crown = () => { for (let i = -2; i <= 2; i++) g.poly([[i * 4 - 2, -10], [i * 4, -20 - (i === 0 ? 4 : Math.abs(i) === 1 ? 1 : -2)], [i * 4 + 2, -10]], '#9ae8ff'); };
+      if (VIEW === 'b') { const wv = Math.sin(T * 2) * 1.2; g.ell(0, -1, 11, 12, hairS); g.poly([[-11, 0], [11, 0], [13, 19 + wv], [7, 23], [0, 20 - wv], [-7, 23], [-13, 19 + wv]], hairS); g.ell(-1, -2, 9, 10, hair); g.poly([[-9, 0], [8, 0], [10, 17 + wv], [6, 20], [0, 17 - wv], [-6, 20], [-11, 17 + wv]], hair); for (let i = -2; i <= 2; i++) g.line(i * 3.5, 2, i * 4.2, 16, 1, hairS); crown(); return; }
+      if (VIEW === 's') { const d = DIRX; g.poly([[-9 * d, -6], [2 * d, -8], [-4 * d, 22], [-12 * d, 20]], hairS); g.ell(-1 * d, -1, 10, 11, hair); g.ell(3 * d, 1, 6, 8, '#eaf4ff'); g.p(6 * d, 0, E); g.p(5 * d, 0, E); g.r(Math.min(5 * d, 7 * d), 5, 2, 1, '#c07090'); crown(); return; }
+      g.poly([[-11, -6], [11, -6], [13, 20], [-13, 20]], hairS); g.ell(0, -1, 10, 11, hair); g.ell(0, 2, 7, 8.5, '#eaf4ff');
+      for (const m of [-1, 1]) { g.r(m * 3 - 1, 0, 2, 2, E); g.p(m * 3 - 1, 0, '#ffffff'); g.line(m * 1.5, -3, m * 5, -4, 1, '#9ab8d0'); } g.r(-1, 6, 3, 1, '#c07090'); g.poly([[-8, -6], [8, -6], [6, -1], [-6, -1]], hair); crown();
+    },
+  };
+  // ---- ファラオ: striped nemes and a golden mask, linen robe with a blue-and-gold apron; the crook is its staff ----
+  const PHAR = {
+    robe: { d: '#a89a78', m: '#e8dcc0', h: '#ffffff' }, body: { d: '#a89a78', m: '#e0d4b4', h: '#fff8e8' }, sleeve: { d: '#a08a60', m: '#d8c8a0', h: '#fff4d8' }, hand: { d: '#7a5a30', m: '#c0905a', h: '#e8c090' }, flare: 20, glowRGB: '255,220,120',
+    staff: [16, 26], staffCol: '#2a4ab8', trim: '#2a4ab8', trimW: 6, feet: { d: '#7a5a30', m: '#c0905a' },
+    collar(x, y) { g.ell(x, y + 1, 12, 6, '#2a4ab8'); g.ell(x, y, 11, 5, '#f2c14e'); g.ell(x, y - 1, 8, 3, '#3ac0b0'); g.ell(x, y - 2, 5, 2, '#f2c14e'); },
+    staffHead(st, sd, P, p2) { piece(st, 0.8, (x, y) => { const d = VIEW === 's' ? DIRX : 1; g.line(x, y, x, y - 4, 3, '#f2c14e'); g.line(x, y - 4, x + 5 * d, y - 8, 3, '#f2c14e'); g.line(x + 5 * d, y - 8, x + 8 * d, y - 4, 3, '#2a4ab8'); g.ell(x, y - 1, 2, 2, p2 ? '#ff3a3a' : '#3ac0b0'); }); },
+    head(p2) {
+      const G = '#f2c14e', Bl = '#2a4ab8', E = p2 ? '#ff3a3a' : '#1a1020';
+      const stripes = (x0, y0, w, h) => { for (let yy = y0; yy < y0 + h; yy += 4) g.r(Math.round(x0), Math.round(yy), Math.round(w), 1, Bl); };
+      if (VIEW === 'b') { g.poly([[-13, -10], [13, -10], [15, 18], [-15, 18]], G); stripes(-15, -8, 30, 26); g.ell(0, -8, 12, 7, G); g.r(-2, 14, 4, 10, G); return; }
+      if (VIEW === 's') { const d = DIRX; g.poly([[-13 * d, -10], [8 * d, -12], [6 * d, 16], [-14 * d, 18]], G); stripes(Math.min(-14 * d, 6 * d), -8, 20, 24); g.ell(-2 * d, -10, 11, 6, G);
+        g.poly([[4 * d, -4], [12 * d, -2], [11 * d, 8], [5 * d, 12]], '#e8b040'); g.p(9 * d, 0, E); g.r(Math.min(8 * d, 10 * d), 10, 2, 6, Bl); return; }
+      g.poly([[-15, -8], [15, -8], [17, 20], [-17, 20]], G); stripes(-17, -6, 34, 26); g.ell(0, -9, 13, 7, G); g.p(0, -16, '#e04050');
+      g.poly([[-8, -6], [8, -6], [7, 8], [0, 12], [-7, 8]], '#e8b040'); g.r(-8, -6, 16, 2, Bl);
+      for (const m of [-1, 1]) { g.r(m * 4 - 2, -1, 4, 2, '#ffffff'); g.p(m * 4 - (m > 0 ? 1 : 0), -1, E); g.r(m * 4 - 2, -3, 4, 1, Bl); } g.r(-1, 11, 3, 6, Bl); g.r(-1, 11, 3, 1, G);
+    },
+  };
+  // ---- だいまどうし: a starry blue robe and pointed hat, a long white beard, a staff crowned with a crystal ----
+  const ARCH = {
+    robe: { d: '#141a5a', m: '#2a3a9a', h: '#5a70e0' }, sleeve: { d: '#141a5a', m: '#283696', h: '#5068d8' }, hand: { d: '#c08a60', m: '#f0c8a0', h: '#ffe8d0' }, flare: 25, trim: '#f2c14e', glowRGB: '140,190,255',
+    staff: [30, 14], staffCol: '#6a4020',
+    hem(x, y, i, T) { if (i % 3 === 0) { g.p(Math.round(x), Math.round(y - 6), '#fff6a0'); } },
+    staffHead(st, sd, P, p2) { piece(st, 0.8, (x, y) => { g.ell(x, y, 4, 3, '#6a4020'); g.poly([[x, y - 13], [x + 5, y - 5], [x, y], [x - 5, y - 5]], p2 ? '#ff3a6a' : '#3ac0ff'); g.poly([[x, y - 13], [x, y], [x - 5, y - 5]], p2 ? '#ff90a8' : '#a0e8ff'); }); },
+    head(p2, T) {
+      const Hm = '#2a3a9a', Hd = '#141a5a', E = p2 ? '#ff3a3a' : '#2a2a40';
+      const hat = (tilt) => { g.ell(0, -8, 16, 4, Hd); g.poly([[-11, -9], [11, -9], [4 + tilt, -28], [tilt * 2.2, -36]], Hm); g.poly([[3, -9], [11, -9], [4 + tilt, -28], [tilt * 2.2, -36]], Hd); g.r(-10, -11, 20, 2, '#f2c14e'); g.p(-3, -18, '#fff6a0'); g.p(2, -24, '#fff6a0'); };
+      if (VIEW === 'b') { g.ell(0, 3, 10, 12, '#c8c8d8'); g.ell(-1, 1, 8.5, 10, '#e8e8f0'); for (let i = -2; i <= 2; i++) g.line(i * 3, 4, i * 3.4, 13, 1, '#c8c8d8'); hat(-2); return; }
+      if (VIEW === 's') { const d = DIRX; g.poly([[-8 * d, -6], [2 * d, -6], [-2 * d, 12], [-10 * d, 10]], '#e8e8f0'); g.ell(2 * d, 0, 7, 8, '#f0c8a0'); g.p(6 * d, -1, E); g.ell(9 * d, 2, 2, 2, '#e0a080');
+        g.poly([[1 * d, 3], [9 * d, 4], [6 * d, 22 + Math.sin(T * 2) * 1.5], [0, 14]], '#f4f4fa'); cx.scale(d, 1); hat(-4); return; }
+      g.poly([[-9, -6], [9, -6], [10, 10], [-10, 10]], '#e8e8f0'); g.ell(0, 0, 7.5, 8, '#f0c8a0');
+      for (const m of [-1, 1]) { g.r(m * 3 - 1, -1, 2, 2, E); g.line(m * 1, -4, m * 6, -5, 2, '#f4f4fa'); } g.ell(0, 3, 1.6, 1.4, '#e0a080');
+      g.poly([[-7, 4], [7, 4], [4, 18], [0, 26 + Math.sin(T * 2) * 1.5], [-4, 18]], '#f4f4fa'); g.poly([[0, 4], [7, 4], [4, 18], [0, 26 + Math.sin(T * 2) * 1.5]], '#d0d0e0'); hat(-2);
+    },
+  };
+  // =============================================================
   //  WHOLE-BODY SWEEPS (指示: ダメージバーではなく体で攻撃): during a sweep the beast's own arms / necks / tail / hands are
   //  the weapon. They are drawn in screen space from where they grow out to the sweep's full length (= the real hit area),
   //  lagging a little behind the turn; the game only keeps the faint motion blur of the swing.
@@ -1105,6 +1266,7 @@ const BEAST3 = (() => {
     bonedragon: () => ({ from: 0, C: BD.B, r: [3.4, 1.4], actOnly: true, tip: 'blade', spikes: true }),
     quetzal: () => ({ from: 0, C: QZ.B, belly: QZ.belly, r: [6, 2.2], actOnly: true, tip: 'feathers' }),
     clockmachine: (B, i) => ({ hand: i === 0 ? 'hour' : 'minute' }),
+    lich: () => ({ from: 0, scythe: true, actOnly: true }),
     dragon: () => ({ from: 0, C: DR.B, belly: DR.belly, r: [9, 2.4], actOnly: true, tip: 'flame' }),
   };
   function tipSerpent(gc, ctx, p, q, sp, open) {   // a snake / dragon head at the end of a lashing neck or tail
@@ -1138,6 +1300,15 @@ const BEAST3 = (() => {
       }
       const r0 = spec.rim || 26, A = spec.from != null && anchors[spec.from] ? [anchors[spec.from][0] / K, anchors[spec.from][1] / K] : [cxA + cth * r0, cyA + sth * r0 * 0.75];   // from the body's edge, so nothing passes through it
       if (spec.actOnly && !act) return;
+      if (spec.scythe) {   // the lich's staff grown into a scythe as long as the sweep: pole from its hand, a curved blade at the end
+        const tip = [cxA + cth * len, cyA + sth * len], bl = -sg;
+        gc.line(A[0], A[1], tip[0], tip[1], 4, OUTL); gc.line(A[0], A[1], tip[0], tip[1], 2.2, '#3a2a20');
+        ctx.save(); ctx.translate(tip[0], tip[1]); ctx.rotate(th); ctx.scale(1.6, 1.6);
+        const Bd = [[0, 0], [-6, bl * 6], [-22, bl * 16], [-40, bl * 18], [-26, bl * 9], [-8, bl * 2]];
+        gc.poly(Bd.map(([x, y]) => [x + (x < 0 ? -1 : 1), y + bl]), OUTL); gc.poly(Bd, '#d8d0f0'); gc.line(-4, bl * 3, -34, bl * 16, 1, '#ffffff');
+        gc.ell(0, 0, 3.4, 3.4, '#b48cff'); ctx.restore();
+        return;
+      }
       const k0 = act ? 1 : sstep(sw.t / sw.tele), lay = act ? (spec.actOnly ? 1 : sstep((sw.t - sw.tele) / 0.14)) : 0;
       const tip = [cxA + cth * len, cyA + sth * len], nx = -sth * sg, ny = cth * sg, pts = [], rs = [];
       for (let i = 0; i <= n; i++) {
@@ -1162,12 +1333,13 @@ const BEAST3 = (() => {
   // =============================================================
   const RIGS = { nightmare: [nmPose, nmBuild, 1.05], fenrir: [fnPose, fnBuild, 1.3], bonedragon: [bdPose, bdBuild, 1.2], leviathan: [lvPose, lvBuild, 1.1], quetzal: [qzPose, qzBuild, 1.1],
     hydra: [hyPose, hyBuild, 1.1], cerberus: [cbPose, cbBuild, 1.15], voideye: [vePose, veBuild, 1.1], clockmachine: [cmPose, cmBuild, 1.15], kraken: [krPose, krBuild, 1.1],
+    lich: [casterPose, casterBuild(LICH), 1.2], icequeen: [casterPose, casterBuild(ICEQ), 1.2], pharaoh: [casterPose, casterBuild(PHAR), 1.25], archmage: [casterPose, casterBuild(ARCH), 1.15],
     kingslime: [ksPose, ksBuild, 1.15], treant: [trPose, trBuild, 1.2], spiderqueen: [sqPose, sqBuild, 1.15], dragon: [drPose, drBuild, 1.2], thunderbird: [tbPose, tbBuild, 1.15] };   // [pose, build, size]
   // spinning attacks (指示: 触手だけでなく体ごと回る): while the arms / necks / tail sweep round, the whole body turns with them
   const wrapPI = a => ((a + PI) % TAU + TAU) % TAU - PI;
   function spinPsi(B, E, st) {
     const mv = B.mv, n = mvName(B);
-    if (!mv || !(n === 'tentacles' || n === 'tail')) return null;
+    if (!mv || !(n === 'tentacles' || n === 'tail' || n === 'scythe')) return null;
     const sw = B.sweeps[0];
     if (!sw) return st.psiLast != null && mv === st.psiMv ? st.psiLast : null;
     const sg = Math.sign(sw.vel || 1);
