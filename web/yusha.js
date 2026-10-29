@@ -236,6 +236,17 @@
     bonewyvern: { name: 'ボーンワイバーン', hp: 46, atk: 14, def: 3, r: 16, mass: 1.4, spd: 85, exp: 20, gold: 18, ai: 'breath', col: '#d8d0b8', fly: true, mod: { ghost: 1 } },
     darkpriest: { name: 'やみのしんかん', hp: 34, atk: 14, def: 2, r: 14, mass: 1, spd: 0, exp: 20, gold: 20, ai: 'caster', col: '#3a1a4a', mod: { homing: 1 } },
     archdemon: { name: 'アークデーモン', hp: 90, atk: 17, def: 5, r: 22, mass: 4, spd: 32, exp: 30, gold: 28, ai: 'slam', col: '#8a2a4a' },
+    // 指示2: ten more, each with a big readable wind-up
+    bomber: { name: 'ゴブリンボマー', hp: 30, atk: 12, def: 2, r: 13, mass: 1, spd: 55, exp: 13, gold: 13, ai: 'lob', col: '#7fb04a' },
+    minotaur: { name: 'ミノタウロス', hp: 72, atk: 15, def: 5, r: 18, mass: 3, spd: 50, exp: 22, gold: 20, ai: 'charge', col: '#8e4c26' },
+    mantis: { name: 'カマキリナイト', hp: 40, atk: 13, def: 3, r: 14, mass: 1.3, spd: 75, exp: 16, gold: 14, ai: 'swing', col: '#5ab03a', mod: { double: 1, leap: 1, reach: 84 } },
+    snowman: { name: 'ゆきだるま', hp: 46, atk: 12, def: 3, r: 16, mass: 2, spd: 35, exp: 15, gold: 14, ai: 'roll', col: '#eaf2fa' },
+    assassin: { name: 'かげのアサシン', hp: 34, atk: 14, def: 2, r: 13, mass: 0.9, spd: 95, exp: 18, gold: 18, ai: 'assassin', col: '#24243e', mod: { crit: 0.4 } },
+    stormeagle: { name: 'いかずちワシ', hp: 38, atk: 13, def: 2, r: 16, mass: 1.2, spd: 90, exp: 17, gold: 16, ai: 'thunder', col: '#2a5ad0', fly: true },
+    dullahan: { name: 'デュラハン', hp: 66, atk: 15, def: 6, r: 16, mass: 2.2, spd: 50, exp: 22, gold: 22, ai: 'dullahan', col: '#3e3658' },
+    shark: { name: 'ブレードシャーク', hp: 44, atk: 14, def: 2, r: 16, mass: 1.5, spd: 120, exp: 17, gold: 15, ai: 'shark', col: '#5a7a9a' },
+    basilisk: { name: 'バジリスク', hp: 56, atk: 13, def: 4, r: 17, mass: 2.4, spd: 45, exp: 19, gold: 17, ai: 'gaze', col: '#6a8a3a' },
+    clown: { name: 'あくむのピエロ', hp: 36, atk: 12, def: 1, r: 14, mass: 1, spd: 60, exp: 16, gold: 18, ai: 'juggle', col: '#8a3ad8' },
   };
 
   // colour variants of existing monsters: tougher, worth more, and each with a twist on its attack
@@ -296,65 +307,65 @@
       pal: { wall: '#121a21', wallHi: '#2c3b47', floor: '#4a5a66', floorLn: '#36444f', light: '140,220,255', fog: 0.62 }, song: 'warp', key: 9, bpm: 132, boss: 'lich', m: 1.9, a: 1.65, xp: 511, gp: 641 },
     { name: 'しゃくねつの溶岩洞', en: 'MAGMA DEPTHS', rec: 12, len: 3200, w: [0.62, 0.9], pool: { lizard: 3, golem: 0.9, imp: 1, bat: 0.8 }, groups: 12, rocks: 7, spikes: 6, chests: 2, crates: 4,
       pal: { wall: '#240e0b', wallHi: '#4e2218', floor: '#6e3a28', floorLn: '#552c1e', light: '255,120,60', fog: 0.46 }, song: 'c18', key: 4, bpm: 132, boss: 'dragon', m: 3.05, a: 2.39, xp: 895, gp: 929 },
-    { name: 'こおりの塔', en: 'FROZEN SPIRE', rec: 16, len: 3300, w: [0.62, 0.9], pool: { wolf: 2, ghost: 1.5, golem: 0.8, mage: 1, knight: 0.5 }, groups: 12, rocks: 6, spikes: 6, chests: 2, crates: 4,
+    { name: 'こおりの塔', en: 'FROZEN SPIRE', rec: 16, len: 3300, w: [0.62, 0.9], pool: { wolf: 2, ghost: 1.2, golem: 0.6, mage: 0.8, knight: 0.5, snowman: 1.4 }, groups: 12, rocks: 6, spikes: 6, chests: 2, crates: 4,
       pal: { wall: '#16283a', wallHi: '#365a78', floor: '#8aa8c0', floorLn: '#6a8aa4', light: '190,240,255', fog: 0.4 }, song: 'laser', key: 7, bpm: 134, boss: 'icequeen', m: 3.94, a: 2.87, xp: 1428, gp: 1348 },
     { name: '天空の遺跡', en: 'SKY RUINS', rec: 20, len: 3400, w: [0.62, 0.9], pool: { harpy: 2, imp: 1.5, archer: 1.2, mage: 0.8, knight: 0.6 }, groups: 13, rocks: 5, spikes: 6, chests: 2, crates: 4,
       pal: { wall: '#2a3a5a', wallHi: '#5a7aa8', floor: '#b0a890', floorLn: '#8e8670', light: '255,240,170', fog: 0.3 }, song: 'A', key: 7, bpm: 136, boss: 'thunderbird', m: 4.87, a: 3.33, xp: 2065, gp: 1954 },
-    { name: 'やみの砦', en: 'DARK FORTRESS', rec: 24, len: 3500, w: [0.62, 0.9], pool: { knight: 2, crossbow: 1.6, skeleton: 1, mage: 0.6, golem: 0.7, imp: 0.8 }, groups: 13, rocks: 5, spikes: 7, chests: 2, crates: 3,
+    { name: 'やみの砦', en: 'DARK FORTRESS', rec: 24, len: 3500, w: [0.62, 0.9], pool: { knight: 1.6, crossbow: 1.3, skeleton: 0.9, mage: 0.4, golem: 0.5, imp: 0.5, assassin: 1.2, bomber: 1 }, groups: 13, rocks: 5, spikes: 7, chests: 2, crates: 3,
       pal: { wall: '#140d10', wallHi: '#3a2228', floor: '#4a3a40', floorLn: '#382a30', light: '255,80,90', fog: 0.56 }, song: 'piston', key: 9, bpm: 138, boss: 'deathknight', m: 6.08, a: 3.88, xp: 2799, gp: 2833 },
     { name: 'しずみの神殿', en: 'SUNKEN TEMPLE', rec: 28, len: 3500, w: [0.62, 0.9], pool: { fishman: 3, ghost: 1, spider: 1, mushroom: 0.8 }, groups: 13, rocks: 6, spikes: 5, chests: 2, crates: 3,
       pal: { wall: '#0c2028', wallHi: '#1f4a58', floor: '#3a6a74', floorLn: '#2c545c', light: '120,230,220', fog: 0.5 }, song: 'c8', key: 5, bpm: 134, boss: 'kraken', m: 7.9, a: 4.71, xp: 3628, gp: 4108 },
     { name: 'さばくの大ピラミッド', en: 'GREAT PYRAMID', rec: 32, len: 3600, w: [0.62, 0.9], pool: { mummy: 2.5, scorpion: 2, imp: 1, mage: 0.8 }, groups: 13, rocks: 5, spikes: 8, chests: 2, crates: 3,
       pal: { wall: '#3a2a12', wallHi: '#6a5022', floor: '#c8a868', floorLn: '#a88a50', light: '255,220,140', fog: 0.38 }, song: 'mine', key: 4, bpm: 138, boss: 'pharaoh', m: 8.96, a: 5.17, xp: 4548, gp: 5957 },
-    { name: 'からくりの時計塔', en: 'CLOCKWORK TOWER', rec: 36, len: 3700, w: [0.62, 0.9], pool: { clockwork: 2, golem: 1.2, knight: 1.2, imp: 1, crossbow: 0.6, archer: 0.5, scorpion: 0.6 }, groups: 14, rocks: 5, spikes: 8, chests: 2, crates: 3,
+    { name: 'からくりの時計塔', en: 'CLOCKWORK TOWER', rec: 36, len: 3700, w: [0.62, 0.9], pool: { clockwork: 1.8, golem: 0.8, knight: 0.8, imp: 0.6, crossbow: 0.5, archer: 0.4, scorpion: 0.4, bomber: 1.2, clown: 1.1 }, groups: 14, rocks: 5, spikes: 8, chests: 2, crates: 3,
       pal: { wall: '#2a1e14', wallHi: '#5a4430', floor: '#8a7058', floorLn: '#6a5440', light: '255,200,120', fog: 0.45 }, song: 'swing', key: 7, bpm: 140, boss: 'clockmachine', m: 10.25, a: 5.7, xp: 5555, gp: 8638 },
-    { name: '星界のさけめ', en: 'ASTRAL RIFT', rec: 40, len: 3800, w: [0.62, 0.9], pool: { starspirit: 2, ghost: 1.8, mage: 1, imp: 1, spider: 0.8, knight: 0.6 }, groups: 14, rocks: 4, spikes: 6, chests: 2, crates: 3,
+    { name: '星界のさけめ', en: 'ASTRAL RIFT', rec: 40, len: 3800, w: [0.62, 0.9], pool: { starspirit: 1.8, ghost: 1.3, mage: 0.7, imp: 0.7, spider: 0.6, knight: 0.4, clown: 1.3 }, groups: 14, rocks: 4, spikes: 6, chests: 2, crates: 3,
       pal: { wall: '#08061a', wallHi: '#241e5a', floor: '#2e2a5e', floorLn: '#221e48', light: '200,160,255', fog: 0.6 }, song: 'gravity', key: 9, bpm: 142, boss: 'voideye', m: 11.67, a: 6.25, xp: 6647, gp: 12525 },
-    { name: 'ほのおの魔界門', en: 'INFERNO GATE', rec: 44, len: 3900, w: [0.62, 0.9], pool: { fireelem: 1.8, lizard: 1.8, golem: 1, knight: 1.2, imp: 0.8, scorpion: 0.8 }, groups: 15, rocks: 5, spikes: 9, chests: 2, crates: 3,
+    { name: 'ほのおの魔界門', en: 'INFERNO GATE', rec: 44, len: 3900, w: [0.62, 0.9], pool: { fireelem: 1.6, lizard: 1.5, golem: 0.7, knight: 0.8, imp: 0.6, scorpion: 0.5, minotaur: 1.5 }, groups: 15, rocks: 5, spikes: 9, chests: 2, crates: 3,
       pal: { wall: '#2a0806', wallHi: '#5a1410', floor: '#6a2418', floorLn: '#521a10', light: '255,90,40', fog: 0.5 }, song: 'slam', key: 2, bpm: 142, boss: 'cerberus', m: 12.74, a: 6.65, xp: 7822, gp: 18162 },
-    { name: '毒の大沼', en: 'POISON MIRE', rec: 48, len: 3900, w: [0.62, 0.9], pool: { toad: 3, mandrake: 1.5, mushroom: 1, spider: 0.6, bat: 0.6 }, groups: 15, rocks: 6, spikes: 6, chests: 2, crates: 3,
+    { name: '毒の大沼', en: 'POISON MIRE', rec: 48, len: 3900, w: [0.62, 0.9], pool: { toad: 2.6, mandrake: 1.3, mushroom: 0.8, spider: 0.5, bat: 0.5, mantis: 1.2 }, groups: 15, rocks: 6, spikes: 6, chests: 2, crates: 3,
       pal: { wall: '#14200e', wallHi: '#2e4420', floor: '#4a5a2e', floorLn: '#3a4822', light: '170,255,90', fog: 0.55 }, song: 'c17', key: 5, bpm: 142, boss: 'hydra', m: 14.14, a: 7.22, xp: 9103, gp: 22702 },
-    { name: 'ゆうれい船', en: 'GHOST SHIP', rec: 52, len: 3900, w: [0.62, 0.86], pool: { ghostpirate: 1.8, ghost: 1.6, skeleton: 1.5, fishman: 1, jelly: 1 }, groups: 15, rocks: 4, spikes: 6, chests: 2, crates: 4,
+    { name: 'ゆうれい船', en: 'GHOST SHIP', rec: 52, len: 3900, w: [0.62, 0.86], pool: { ghostpirate: 1.6, ghost: 1.2, skeleton: 1.2, fishman: 0.8, jelly: 0.9, shark: 1.3 }, groups: 15, rocks: 4, spikes: 6, chests: 2, crates: 4,
       pal: { wall: '#1a1410', wallHi: '#3e3020', floor: '#6a5640', floorLn: '#4e3e2c', light: '140,255,200', fog: 0.6 }, song: 'warp', key: 9, bpm: 142, boss: 'ghostcaptain', m: 15.7, a: 7.83, xp: 10472, gp: 27697 },
-    { name: 'きょじんの峰', en: "GIANTS' PEAK", rec: 56, len: 4000, w: [0.62, 0.9], pool: { wyvern: 2, wolf: 1.3, harpy: 0.8, dwarf: 0.8, golem: 0.8, archer: 0.8 }, groups: 15, rocks: 8, spikes: 6, chests: 2, crates: 3,
+    { name: 'きょじんの峰', en: "GIANTS' PEAK", rec: 56, len: 4000, w: [0.62, 0.9], pool: { wyvern: 1.8, wolf: 1.1, harpy: 0.7, dwarf: 0.8, golem: 0.5, archer: 0.6, snowman: 1.2 }, groups: 15, rocks: 8, spikes: 6, chests: 2, crates: 3,
       pal: { wall: '#2a2a34', wallHi: '#5a5a6a', floor: '#8a8478', floorLn: '#6a655a', light: '255,230,190', fog: 0.32 }, song: 'A', key: 2, bpm: 144, boss: 'cyclops', m: 17.42, a: 8.49, xp: 11922, gp: 33790 },
     { name: 'まどうの図書館', en: 'ARCANE LIBRARY', rec: 60, len: 4000, w: [0.62, 0.88], pool: { book: 2.5, mage: 1.3, ghost: 1, magicmirror: 0.6, imp: 0.6, armor: 0.6 }, groups: 15, rocks: 3, spikes: 6, chests: 2, crates: 4,
       pal: { wall: '#20142a', wallHi: '#4a2e3a', floor: '#5a3a2a', floorLn: '#44281c', light: '255,210,140', fog: 0.5 }, song: 'swing', key: 7, bpm: 144, boss: 'archmage', m: 19.34, a: 9.22, xp: 13452, gp: 41224 },
-    { name: 'ジャングルの神殿', en: 'JUNGLE TEMPLE', rec: 64, len: 4000, w: [0.62, 0.9], pool: { mandrake: 1.5, toad: 1.5, scorpion: 1, lizard: 1, mimic: 0.5 }, groups: 16, rocks: 6, spikes: 8, chests: 2, crates: 3,
+    { name: 'ジャングルの神殿', en: 'JUNGLE TEMPLE', rec: 64, len: 4000, w: [0.62, 0.9], pool: { mandrake: 1.2, toad: 1.2, scorpion: 0.7, lizard: 0.7, mimic: 0.5, mantis: 1.3, basilisk: 1.1 }, groups: 16, rocks: 6, spikes: 8, chests: 2, crates: 3,
       pal: { wall: '#102a14', wallHi: '#2e5a2a', floor: '#7a8a5a', floorLn: '#5e6e44', light: '200,255,140', fog: 0.45 }, song: 'mine', key: 4, bpm: 146, boss: 'quetzal', m: 21.47, a: 10.0, xp: 15061, gp: 50294 },
-    { name: 'ドワーフの溶鉱炉', en: 'DWARF FORGE', rec: 68, len: 4000, w: [0.62, 0.9], pool: { dwarf: 1.6, armor: 1.2, golem: 0.9, lizard: 1, clockwork: 0.7, knight: 0.5 }, groups: 16, rocks: 5, spikes: 9, chests: 2, crates: 3,
+    { name: 'ドワーフの溶鉱炉', en: 'DWARF FORGE', rec: 68, len: 4000, w: [0.62, 0.9], pool: { dwarf: 1.5, armor: 1, golem: 0.6, lizard: 0.8, clockwork: 0.6, knight: 0.4, bomber: 1.4 }, groups: 16, rocks: 5, spikes: 9, chests: 2, crates: 3,
       pal: { wall: '#1a1612', wallHi: '#4a3a2a', floor: '#5a5a62', floorLn: '#44444c', light: '255,150,60', fog: 0.45 }, song: 'piston', key: 9, bpm: 146, boss: 'colossus', m: 23.83, a: 10.85, xp: 16746, gp: 61358 },
-    { name: 'かがみの迷宮', en: 'MIRROR MAZE', rec: 72, len: 4100, w: [0.6, 0.86], pool: { magicmirror: 1.8, mimic: 1.2, armor: 1, mage: 0.8, ghost: 0.8, knight: 0.6, book: 0.5 }, groups: 16, rocks: 4, spikes: 8, chests: 2, crates: 3,
+    { name: 'かがみの迷宮', en: 'MIRROR MAZE', rec: 72, len: 4100, w: [0.6, 0.86], pool: { magicmirror: 1.5, mimic: 1, armor: 0.7, mage: 0.5, ghost: 0.5, knight: 0.4, book: 0.4, assassin: 1.4, minotaur: 1.2 }, groups: 16, rocks: 4, spikes: 8, chests: 2, crates: 3,
       pal: { wall: '#1a2238', wallHi: '#4a5a8a', floor: '#9aa8c8', floorLn: '#7a88a8', light: '220,230,255', fog: 0.35 }, song: 'gravity', key: 2, bpm: 148, boss: 'shadowhero', m: 26.45, a: 11.77, xp: 18508, gp: 74857 },
-    { name: 'しんかいの海溝', en: 'ABYSSAL TRENCH', rec: 76, len: 4100, w: [0.62, 0.9], pool: { angler: 2, jelly: 2, fishman: 1.4, ghostpirate: 0.6, spider: 0.5 }, groups: 16, rocks: 6, spikes: 6, chests: 2, crates: 3,
+    { name: 'しんかいの海溝', en: 'ABYSSAL TRENCH', rec: 76, len: 4100, w: [0.62, 0.9], pool: { angler: 1.8, jelly: 1.8, fishman: 1.2, ghostpirate: 0.6, spider: 0.4, shark: 1.4 }, groups: 16, rocks: 6, spikes: 6, chests: 2, crates: 3,
       pal: { wall: '#04101c', wallHi: '#10304a', floor: '#1e3a52', floorLn: '#162c40', light: '90,200,255', fog: 0.66 }, song: 'c8', key: 5, bpm: 148, boss: 'leviathan', m: 29.36, a: 12.77, xp: 20345, gp: 91326 },
-    { name: 'りゅうの墓場', en: 'DRAGON GRAVEYARD', rec: 80, len: 4100, w: [0.62, 0.9], pool: { bonewyvern: 1.6, skeleton: 1.8, ghost: 1, mummy: 0.8, hellhound: 0.8 }, groups: 16, rocks: 6, spikes: 8, chests: 2, crates: 3,
+    { name: 'りゅうの墓場', en: 'DRAGON GRAVEYARD', rec: 80, len: 4100, w: [0.62, 0.9], pool: { bonewyvern: 1.5, skeleton: 1.5, ghost: 0.8, mummy: 0.6, hellhound: 0.7, dullahan: 1.3 }, groups: 16, rocks: 6, spikes: 8, chests: 2, crates: 3,
       pal: { wall: '#1c1a18', wallHi: '#3e3a34', floor: '#6a6258', floorLn: '#524a40', light: '200,255,220', fog: 0.55 }, song: 'c15', key: 9, bpm: 150, boss: 'bonedragon', m: 32.59, a: 13.86, xp: 22256, gp: 111417 },
     { name: 'まかいの荒野', en: 'DEMON WASTES', rec: 84, len: 4100, w: [0.62, 0.9], pool: { hellhound: 2, archdemon: 1.2, imp: 1.2, fireelem: 0.8, darkpriest: 0.8, lizard: 0.6, knight: 0.5 }, groups: 16, rocks: 6, spikes: 9, chests: 2, crates: 3,
       pal: { wall: '#2a0a10', wallHi: '#5a1a24', floor: '#5a2a2a', floorLn: '#441e1e', light: '255,70,70', fog: 0.52 }, song: 'slam', key: 2, bpm: 150, boss: 'demongeneral', m: 36.17, a: 15.04, xp: 24239, gp: 135929 },
-    { name: '魔王城', en: "DEMON KING'S CASTLE", rec: 88, len: 4100, w: [0.62, 0.9], pool: { knight: 1.4, darkpriest: 1.2, crossbow: 0.7, magicmirror: 0.5, mage: 0.6, ghost: 0.6, imp: 1, archdemon: 0.8, armor: 0.9, hellhound: 0.8 }, groups: 17, rocks: 5, spikes: 9, chests: 2, crates: 3,
+    { name: '魔王城', en: "DEMON KING'S CASTLE", rec: 88, len: 4100, w: [0.62, 0.9], pool: { knight: 1, darkpriest: 1, crossbow: 0.5, magicmirror: 0.4, mage: 0.4, ghost: 0.4, imp: 0.6, archdemon: 0.7, armor: 0.6, hellhound: 0.6, dullahan: 1.2, assassin: 1 }, groups: 17, rocks: 5, spikes: 9, chests: 2, crates: 3,
       pal: { wall: '#170d22', wallHi: '#35214c', floor: '#54406a', floorLn: '#3f2f52', light: '220,120,255', fog: 0.56 }, song: 'c3', key: 2, bpm: 152, boss: 'maou', m: 40.15, a: 16.31, xp: 26295, gp: 165833 },
     // --- the rift (post-game) ---
-    { name: 'せかいじゅの こずえ', en: 'WORLD TREE CANOPY', rec: 92, len: 4200, w: [0.6, 0.86], pool: { fairy: 2.5, mandrake: 1.2, toad: 0.8, wyvern: 1, wolf: 0.6 }, groups: 17, rocks: 4, spikes: 6, chests: 2, crates: 3,
+    { name: 'せかいじゅの こずえ', en: 'WORLD TREE CANOPY', rec: 92, len: 4200, w: [0.6, 0.86], pool: { fairy: 2.3, mandrake: 1, toad: 0.7, wyvern: 0.9, wolf: 0.5, mantis: 1.3 }, groups: 17, rocks: 4, spikes: 6, chests: 2, crates: 3,
       pal: { wall: '#16260e', wallHi: '#3e5a24', floor: '#6a5a3a', floorLn: '#4e4028', light: '210,255,170', fog: 0.4 }, song: 'c17', key: 2, bpm: 150, boss: 'fenrir', m: 44.57, a: 17.0, xp: 28422, gp: 202316 },
-    { name: 'ゆめの かいろう', en: 'DREAM CORRIDOR', rec: 96, len: 4200, w: [0.6, 0.86], pool: { baku: 2.5, fairy: 1, starspirit: 0.8, ghost: 0.8, book: 0.5, mimic: 0.5 }, groups: 17, rocks: 3, spikes: 6, chests: 2, crates: 3,
+    { name: 'ゆめの かいろう', en: 'DREAM CORRIDOR', rec: 96, len: 4200, w: [0.6, 0.86], pool: { baku: 2.2, fairy: 0.9, starspirit: 0.7, ghost: 0.6, book: 0.4, mimic: 0.4, clown: 1.4 }, groups: 17, rocks: 3, spikes: 6, chests: 2, crates: 3,
       pal: { wall: '#2a1a3a', wallHi: '#5a3a7a', floor: '#7a5e98', floorLn: '#604880', light: '255,180,240', fog: 0.42 }, song: 'gravity', key: 7, bpm: 150, boss: 'nightmare', m: 49.47, a: 17.6, xp: 30620, gp: 246826 },
-    { name: 'いしの みやこ', en: 'PETRIFIED CITY', rec: 100, len: 4200, w: [0.6, 0.88], pool: { gargoyle: 2, golem: 0.9, magicmirror: 0.6, armor: 0.7, mummy: 0.7, scorpion: 0.5 }, groups: 17, rocks: 7, spikes: 7, chests: 2, crates: 3,
+    { name: 'いしの みやこ', en: 'PETRIFIED CITY', rec: 100, len: 4200, w: [0.6, 0.88], pool: { gargoyle: 1.8, golem: 0.6, magicmirror: 0.5, armor: 0.5, mummy: 0.5, scorpion: 0.4, basilisk: 1.3, minotaur: 1.1 }, groups: 17, rocks: 7, spikes: 7, chests: 2, crates: 3,
       pal: { wall: '#262624', wallHi: '#5a5a56', floor: '#8a867a', floorLn: '#6e6a5e', light: '240,230,200', fog: 0.4 }, song: 'mine', key: 4, bpm: 152, boss: 'gorgon', m: 54.92, a: 18.2, xp: 32888, gp: 301128 },
-    { name: 'てんかいの もん', en: 'GATE OF HEAVEN', rec: 104, len: 4300, w: [0.6, 0.88], pool: { angel: 2, fairy: 1.2, harpy: 0.8, gargoyle: 0.8, starspirit: 0.6, ghost: 0.5 }, groups: 17, rocks: 3, spikes: 5, chests: 2, crates: 3,
+    { name: 'てんかいの もん', en: 'GATE OF HEAVEN', rec: 104, len: 4300, w: [0.6, 0.88], pool: { angel: 1.8, fairy: 1, harpy: 0.7, gargoyle: 0.7, starspirit: 0.5, ghost: 0.4, stormeagle: 1.3 }, groups: 17, rocks: 3, spikes: 5, chests: 2, crates: 3,
       pal: { wall: '#5a5a7a', wallHi: '#b8b8d8', floor: '#d8d2c0', floorLn: '#b8ae94', light: '255,250,220', fog: 0.22 }, song: 'A', key: 7, bpm: 152, boss: 'fallenangel', m: 60.96, a: 18.8, xp: 35224, gp: 367376 },
-    { name: 'はかいしんの ざ', en: 'THRONE OF RUIN', rec: 108, len: 4300, w: [0.6, 0.88], pool: { chaosbeast: 1.6, angel: 1, gargoyle: 0.8, darkpriest: 0.8, bonewyvern: 0.6, archdemon: 0.5, hellhound: 0.8, fairy: 0.6 }, groups: 17, rocks: 4, spikes: 5, chests: 2, crates: 3,
+    { name: 'はかいしんの ざ', en: 'THRONE OF RUIN', rec: 108, len: 4300, w: [0.6, 0.88], pool: { chaosbeast: 1.5, angel: 0.9, gargoyle: 0.7, darkpriest: 0.7, bonewyvern: 0.5, archdemon: 0.5, hellhound: 0.6, fairy: 0.5, dullahan: 1.2 }, groups: 17, rocks: 4, spikes: 5, chests: 2, crates: 3,
       pal: { wall: '#0a0410', wallHi: '#2a0a3a', floor: '#2a1236', floorLn: '#1c0a26', light: '255,70,210', fog: 0.6 }, song: 'c3', key: 2, bpm: 156, boss: 'hakaishin', m: 67.66, a: 19.4, xp: 37629, gp: 448198 },
     // --- the trials beyond (31-35): new bosses built from moving parts ---
-    { name: 'すなあらしの さきゅう', en: 'SANDSTORM DUNES', rec: 112, len: 4300, w: [0.6, 0.88], pool: { scorpion: 2, mummy: 1.2, fireelem: 0.8, harpy: 0.6, gargoyle: 0.6, toad: 0.5 }, groups: 17, rocks: 6, spikes: 5, chests: 2, crates: 3,
+    { name: 'すなあらしの さきゅう', en: 'SANDSTORM DUNES', rec: 112, len: 4300, w: [0.6, 0.88], pool: { scorpion: 1.6, mummy: 1, fireelem: 0.6, harpy: 0.4, gargoyle: 0.4, toad: 0.3, basilisk: 1.5, minotaur: 1.1 }, groups: 17, rocks: 6, spikes: 5, chests: 2, crates: 3,
       pal: { wall: '#4a3018', wallHi: '#8a6234', floor: '#d0a868', floorLn: '#b08a50', light: '255,220,150', fog: 0.36 }, song: 'mine', key: 4, bpm: 150, boss: 'sandworm', m: 72.4, a: 19.98, xp: 40080, gp: 546802 },
-    { name: 'さんごの らせんどう', en: 'CORAL SPIRAL', rec: 116, len: 4300, w: [0.6, 0.86], pool: { angler: 1.5, jelly: 1.5, fishman: 1.2, ghostpirate: 0.8, mimic: 0.5 }, groups: 17, rocks: 5, spikes: 5, chests: 2, crates: 3,
+    { name: 'さんごの らせんどう', en: 'CORAL SPIRAL', rec: 116, len: 4300, w: [0.6, 0.86], pool: { angler: 1.3, jelly: 1.3, fishman: 1, ghostpirate: 0.7, mimic: 0.4, shark: 1.8 }, groups: 17, rocks: 5, spikes: 5, chests: 2, crates: 3,
       pal: { wall: '#0a2a3a', wallHi: '#1a5a6a', floor: '#3a7a8a', floorLn: '#2a5e6c', light: '140,255,230', fog: 0.5 }, song: 'c8', key: 5, bpm: 150, boss: 'gigacrab', m: 77.47, a: 20.58, xp: 42620, gp: 667098 },
-    { name: 'らいうんの たかみ', en: 'THUNDERHEAD', rec: 120, len: 4400, w: [0.6, 0.88], pool: { harpy: 1.8, angel: 1.2, wyvern: 1, starspirit: 0.8, jelly: 0.6, crossbow: 0.6 }, groups: 17, rocks: 3, spikes: 5, chests: 2, crates: 3,
+    { name: 'らいうんの たかみ', en: 'THUNDERHEAD', rec: 120, len: 4400, w: [0.6, 0.88], pool: { harpy: 1.5, angel: 1, wyvern: 0.8, starspirit: 0.6, jelly: 0.5, crossbow: 0.5, stormeagle: 1.6, snowman: 1 }, groups: 17, rocks: 3, spikes: 5, chests: 2, crates: 3,
       pal: { wall: '#2a2a4a', wallHi: '#5a5a8a', floor: '#8a8ab0', floorLn: '#6a6a90', light: '230,240,255', fog: 0.34 }, song: 'A', key: 7, bpm: 152, boss: 'raijin', m: 82.89, a: 21.2, xp: 45220, gp: 813860 },
-    { name: 'まじんの てのひら', en: "DEMON'S PALM", rec: 124, len: 4400, w: [0.6, 0.88], pool: { archdemon: 1, darkpriest: 1.2, magicmirror: 1, chaosbeast: 1, hellhound: 1, imp: 0.8 }, groups: 18, rocks: 4, spikes: 5, chests: 2, crates: 3,
+    { name: 'まじんの てのひら', en: "DEMON'S PALM", rec: 124, len: 4400, w: [0.6, 0.88], pool: { archdemon: 0.8, darkpriest: 1, magicmirror: 0.8, chaosbeast: 0.8, hellhound: 0.8, imp: 0.5, assassin: 1.3, dullahan: 1.2 }, groups: 18, rocks: 4, spikes: 5, chests: 2, crates: 3,
       pal: { wall: '#1a0a1e', wallHi: '#3e1a44', floor: '#4a2a50', floorLn: '#361e3c', light: '220,120,255', fog: 0.58 }, song: 'c3', key: 2, bpm: 154, boss: 'demonhands', m: 88.69, a: 21.84, xp: 47890, gp: 992909 },
-    { name: 'ほしふる てんくう', en: 'STARFALL SKY', rec: 128, len: 4400, w: [0.6, 0.88], pool: { starspirit: 1.6, fairy: 1.2, angel: 1, harpy: 0.8, bonewyvern: 0.8, baku: 0.6 }, groups: 18, rocks: 3, spikes: 5, chests: 2, crates: 3,
+    { name: 'ほしふる てんくう', en: 'STARFALL SKY', rec: 128, len: 4400, w: [0.6, 0.88], pool: { starspirit: 1.4, fairy: 1, angel: 0.8, harpy: 0.6, bonewyvern: 0.6, baku: 0.5, stormeagle: 1.4, clown: 1 }, groups: 18, rocks: 3, spikes: 5, chests: 2, crates: 3,
       pal: { wall: '#0a0e2a', wallHi: '#1e2a5a', floor: '#1a2250', floorLn: '#121a40', light: '170,200,255', fog: 0.5 }, song: 'gravity', key: 9, bpm: 154, boss: 'skywhale', m: 94.9, a: 22.49, xp: 50620, gp: 1211349 },
   ];
 
@@ -719,7 +730,7 @@
     popText(h.x, h.y + 36, kind === 'stone' ? 'せきか！' : 'ねむってしまった…', kind === 'stone' ? '#e0dcd0' : '#e8c0ff', 15, 1.1);
     A.sfx(kind === 'stone' ? 'block' : 'magic2');
   }
-  function hurtHero(dmg, fromX, fromY, power = 300, cause = '?') {
+  function hurtHero(dmg, fromX, fromY, power = 300, cause = '?', crit = false) {
     if (hero.inv > 0 || hero.hp <= 0 || (hero.pw && hero.pw.kind === 'giant')) return;
     let d = Math.max(1, Math.round(dmg - hero.s.def * 0.5));
     hurtLog[cause] = (hurtLog[cause] || 0) + d;
@@ -729,7 +740,8 @@
     hero.hp -= d; hero.inv = 0.85 + (hero.s.fx.guard || 0);
     const dx = hero.x - fromX, dy = hero.y - fromY, l = hyp(dx, dy) || 1;
     hero.vx += dx / l * power; hero.vy += dy / l * power;
-    popText(hero.x, hero.y + 20, '-' + d, '#ff5a4a', 18, 0.9);
+    popText(hero.x, hero.y + 20, '-' + d, crit ? '#ffb020' : '#ff5a4a', crit ? 24 : 18, 0.9);
+    if (crit) { popText(hero.x, hero.y + 46, 'つうこんの いちげき！', '#ffd23a', 15, 1.1); shake = Math.max(shake, 16); hitStop = Math.max(hitStop, 0.1); }
     shake = Math.max(shake, 10); flash = 0.35; flashCol = '255,40,40'; hitStop = Math.max(hitStop, 0.05);
     A.sfx('hurt'); combo = 0;
     if (navigator.vibrate) try { navigator.vibrate(30); } catch (e) { }
@@ -1031,7 +1043,7 @@
 
   function hitEnemy(e, res) {
     if (e.hitCD > 0) return;
-    if (e.ai === 'phase' && e.alpha < 0.5) return;
+    if ((e.ai === 'phase' && e.alpha < 0.5) || e.sub) return;
     // knight's shield blocks hits from the front
     if (e.ai === 'guard' && e.guard) {
       const fx2 = Math.cos(e.face), fy2 = Math.sin(e.face);
@@ -1050,7 +1062,7 @@
       hurtHero(e.atk, e.x, e.y, 460, 'mirror'); return;
     }
     let { dmg, crit, tag } = ramDamage(e, res.imp, false);
-    if (e.ai === 'spin' && e.st === 'dizzy') { dmg = Math.round(dmg * 1.5); tag = 'めまい'; }
+    if ((e.ai === 'spin' && e.st === 'dizzy') || e.st === 'stun') { dmg = Math.round(dmg * 1.5); tag = 'めまい'; }
     if (e.mod.stone && !e.awake) { dmg = Math.max(1, Math.round(dmg * 0.5)); tag = 'いしの からだ'; wakeStatue(e); }
     e.hp -= dmg; e.hurt = 0.18; e.hitCD = 0.12;
     if (e.st === 'wind' || e.st === 'aim') { e.st = 'idle'; e.cd = 0.6; }   // a hit interrupts the attack
@@ -1162,9 +1174,9 @@
           else { want = 0.8; const s2 = d < 130 ? -1 : d > 210 ? 1 : 0; wx = ux * s2 + -uy * 0.4 * Math.sin(e.t); wy = uy * s2 + ux * 0.4 * Math.sin(e.t); if (e.cd <= 0 && d < 320) { e.st = 'aim'; e.t = 0; } }
           break;
         case 'swing':
-          if (e.st === 'wind') { want = 0; if (e.t > 0.5) { e.st = 'slash'; e.t = 0; } }
+          if (e.st === 'wind') { want = 0; if (e.t > 0.5) { e.st = 'slash'; e.t = 0; if (e.mod.leap) { e.vx += Math.cos(e.face) * 240; e.vy += Math.sin(e.face) * 240; } } }   // mantis hops into each cut
           else if (e.st === 'slash') {
-            if (e.t < 0.2) { const ang = Math.atan2(dy, dx), da = Math.abs(((ang - e.face + Math.PI * 3) % (Math.PI * 2)) - Math.PI); if (d < 72 + h.r && da < 1.25) hurtHero(e.atk, e.x, e.y, 360, 'slash'); }
+            if (e.t < 0.2) { const ang = Math.atan2(dy, dx), da = Math.abs(((ang - e.face + Math.PI * 3) % (Math.PI * 2)) - Math.PI); if (d < (e.mod.reach || 72) + h.r && da < 1.25) hurtHero(e.atk, e.x, e.y, 360, 'slash'); }
             else if ((e.mod.double || e.mod.holy) && !e.again) { e.again = 1; e.st = 'wind'; e.t = 0.28; e.face = Math.atan2(dy, dx); }
             else {
               if (e.mod.quake) { rings.push({ x: e.x + Math.cos(e.face) * 30, y: e.y + Math.sin(e.face) * 30, r: 10, max: 85, spd: 260, dmg: Math.round(e.atk * 0.6), w: 10 }); shake = Math.max(shake, 6); A.sfx('quake'); }   // dwarf: the hammer shakes the floor
@@ -1226,23 +1238,78 @@
           else { e.guard = true; want = d > 100 ? 0.8 : 0.1; wx = ux; wy = uy; if (d < 140 && e.cd <= 0) { e.st = 'wind'; e.t = 0; } }
           break;
         }
+        case 'lob':             // goblin bomber: keeps its distance, lifts a lit bomb overhead and lobs it where you are
+          if (e.st === 'aim') { want = 0; if (e.t > 0.75) { e.st = 'throw'; e.t = 0; lobBomb(e); } }
+          else if (e.st === 'throw') { want = 0; if (e.t > 0.3) { e.st = 'idle'; e.cd = rnd(2.2, 2.8); } }
+          else { want = 0.8; const s2 = d < 140 ? -1 : d > 220 ? 1 : 0, w2 = 0.5 * Math.sin(e.t + e.phase); wx = ux * s2 - uy * w2; wy = uy * s2 + ux * w2; if (e.cd <= 0 && d < 300) { e.st = 'aim'; e.t = 0; } }
+          break;
+        case 'charge':          // minotaur: paws the floor, drops its horns and charges in a straight line; hitting a wall leaves it dazed
+          if (e.st === 'wind') { want = 0; if (e.t < 0.55) { e.lx = ux; e.ly = uy; } if (e.t > 0.9) { e.st = 'dash'; e.t = 0; A.sfx('roar'); } }
+          else if (e.st === 'dash') { want = 0; e.vx = e.lx * 520; e.vy = e.ly * 520; if (e.t > 0.75) { e.st = 'tired'; e.t = 0; } }
+          else if (e.st === 'stun' || e.st === 'tired') { want = 0; if (e.t > (e.st === 'stun' ? 1.7 : 0.7)) { e.st = 'idle'; e.cd = rnd(1.2, 1.8); } }
+          else { want = d > 100 ? 0.8 : 0.3; wx = ux; wy = uy; if (d < 260 && d > 60 && e.cd <= 0) { e.st = 'wind'; e.t = 0; e.lx = ux; e.ly = uy; } }
+          break;
+        case 'roll':            // snowman: rolls a snowball bigger and bigger in front of it, then sends it rolling at you
+          if (e.st === 'aim') { want = 0; e.face = Math.atan2(dy, dx); if (e.t > 0.9) { e.st = 'throw'; e.t = 0; const b = shoot(e.x + ux * 22, e.y + uy * 22, ux, uy, 175, e.atk, 'snowball', 2.8); b.r = 9; b.grow = 7; b.rmax = 19; b.slow = 1; A.sfx('crate'); } }
+          else if (e.st === 'throw') { want = 0; if (e.t > 0.35) { e.st = 'idle'; e.cd = rnd(2, 2.6); } }
+          else { want = 0.7; const s2 = d < 130 ? -1 : d > 220 ? 1 : 0, w2 = 0.4 * Math.sin(e.t * 0.8 + e.phase); wx = ux * s2 - uy * w2; wy = uy * s2 + ux * w2; if (e.cd <= 0 && d < 300) { e.st = 'aim'; e.t = 0; } }
+          break;
+        case 'assassin':        // shadow assassin: vanishes in smoke, appears behind you and slashes. A golden blade is a critical hit (x2)
+          if (e.st === 'vanish') { want = 0; e.sub = true; e.alpha = Math.max(0, 1 - e.t / 0.3); if (e.t > 0.4) { appearBehind(e); e.sub = false; e.alpha = 1; e.st = 'wind'; e.t = 0; e.critNext = Math.random() < e.mod.crit; e.face = Math.atan2(h.y - e.y, h.x - e.x); A.sfx(e.critNext ? 'crit' : 'block'); } }
+          else if (e.st === 'wind') { want = 0; e.face = Math.atan2(dy, dx); if (e.t > 0.55) { e.st = 'slash'; e.t = 0; e.hitDone = 0; e.vx += Math.cos(e.face) * 220; e.vy += Math.sin(e.face) * 220; } }
+          else if (e.st === 'slash') {
+            if (e.t < 0.18) { const da = Math.abs(((Math.atan2(dy, dx) - e.face + Math.PI * 3) % (Math.PI * 2)) - Math.PI); if (!e.hitDone && d < 70 + h.r && da < 1.2) { e.hitDone = 1; hurtHero(Math.round(e.atk * (e.critNext ? 2 : 1)), e.x, e.y, e.critNext ? 480 : 340, e.critNext ? 'crit' : 'slash', e.critNext); } }
+            else { e.st = 'recover'; e.t = 0; }
+          }
+          else if (e.st === 'recover') { want = 0; if (e.t > 0.8) { e.st = 'idle'; e.cd = rnd(1.8, 2.6); e.critNext = false; } }
+          else { e.alpha = 1; e.sub = false; e.critNext = false; want = 0.8; const s2 = d < 140 ? -1 : d > 210 ? 1 : 0, w2 = 0.7 * Math.sin(e.t * 1.4 + e.phase); wx = ux * s2 - uy * w2; wy = uy * s2 + ux * w2; if (e.cd <= 0 && d < 300) { e.st = 'vanish'; e.t = 0; burst(e.x, e.y, 16, '#8a8aa0', 140, 0.5); A.sfx('warp'); } }
+          break;
+        case 'thunder':         // storm eagle: circles you, throws its wings up and calls three bolts down around you
+          if (e.st === 'cast') { want = 0.2; wx = -uy; wy = ux; if (e.t > 0.7) { e.st = 'idle'; e.cd = rnd(3, 3.6); for (let i = 0; i < 3; i++) { const tx = h.x + (i ? rnd(-75, 75) : h.vx * 0.2), ty = h.y + (i ? rnd(-75, 75) : h.vy * 0.2); addCircle(tx, ty, 34, 0.75 + i * 0.25, e.atk, 'bolt', () => A.sfx('boom')); } } }
+          else { want = 1; const s2 = d < 140 ? -1 : d > 200 ? 1 : 0, dir = e.phase > 3 ? 1 : -1; wx = ux * s2 - uy * 0.9 * dir; wy = uy * s2 + ux * 0.9 * dir; if (e.cd <= 0 && d < 320) { e.st = 'cast'; e.t = 0; A.sfx('magic2'); } }
+          break;
+        case 'dullahan':        // dullahan: lifts its own head high and hurls it; the head flies at you and comes back
+          if (e.st === 'wind') { want = 0; if (e.t > 0.65) { e.st = 'throw'; e.t = 0; e.headOut = true; const b = shoot(e.x, e.y, ux, uy, 290, e.atk, 'dhead', 4); b.r = 11; b.pierce = true; b.ret = 0.62; b.owner = e; A.sfx('magic'); } }
+          else if (e.st === 'throw') { want = 0.4; wx = ux; wy = uy; if (!e.headOut || e.t > 3.5) { e.headOut = false; e.st = 'idle'; e.cd = rnd(1.8, 2.4); } }
+          else { want = d > 90 ? 0.9 : 0.2; wx = ux; wy = uy; if (e.cd <= 0 && d < 280 && d > 70) { e.st = 'wind'; e.t = 0; } }
+          break;
+        case 'shark':           // blade shark: circles you under the floor with only its fin out, then bursts out jaws first
+          if (e.st === 'idle') { e.st = 'swim'; e.t = 0; e.swimT = rnd(1.8, 2.6); }
+          e.sub = e.st === 'swim' || e.st === 'wind';
+          if (e.st === 'swim') { want = 1; const s2 = d < 100 ? -0.6 : d > 140 ? 0.8 : 0, dir = e.phase > 3 ? 1 : -1; wx = ux * s2 - uy * dir; wy = uy * s2 + ux * dir; if (e.t > e.swimT && d < 260) { e.st = 'wind'; e.t = 0; } }
+          else if (e.st === 'wind') { want = 0; if (e.t > 0.5) { e.st = 'leap'; e.t = 0; e.sub = false; e.vx = ux * 470; e.vy = uy * 470; burst(e.x, e.y, 16, '#a8d8ff', 200, 0.5); A.sfx('warp'); } }
+          else if (e.st === 'leap') { want = 0; if (e.t > 0.4) { e.st = 'flop'; e.t = 0; burst(e.x, e.y, 10, '#a8d8ff', 140, 0.4); } }
+          else if (e.st === 'flop') { want = 0; if (e.t > 1.1) { e.st = 'swim'; e.t = 0; e.swimT = rnd(1.8, 2.6); burst(e.x, e.y, 14, '#a8d8ff', 160, 0.5); } }
+          break;
+        case 'gaze':            // basilisk: rears up and spreads its frill; whatever stands in its stare turns to stone. Hit it to stop the stare
+          if (e.st === 'wind') { want = 0; if (e.t > 0.95) { e.st = 'gaze'; e.t = 0; } }
+          else if (e.st === 'gaze') { want = 0; if (e.t > 0.45) { e.st = 'idle'; e.cd = rnd(2.6, 3.2); } }
+          else { want = d > 120 ? 0.8 : 0.3; wx = ux; wy = uy; e.face = Math.atan2(dy, dx); if (d < 210 && e.cd <= 0) { e.st = 'wind'; e.t = 0; zones.push({ type: 'cone', boss: e, src: e, ang: e.face, spread: 0.4, len: 190, tele: 0.95, act: 0.3, track: 1.1, dmg: Math.round(e.atk * 0.8), stun: 0.8, t: 0 }); A.sfx('magic2'); } }
+          break;
+        case 'juggle':          // nightmare clown: always juggling; it speeds up, then throws three balls that bounce after you
+          if (e.st === 'aim') { want = 0; if (e.t > 0.65) { e.st = 'throw'; e.t = 0; const a0 = Math.atan2(uy, ux), dd = clamp(d, 90, 200); for (let i = 0; i < 3; i++) { const o = (i - 1) * 0.45; jball(e, e.x, e.y, e.x + Math.cos(a0 + o) * dd, e.y + Math.sin(a0 + o) * dd, i * 0.14, 1, i); } A.sfx('magic'); } }
+          else if (e.st === 'throw') { want = 0; if (e.t > 0.4) { e.st = 'idle'; e.cd = rnd(2.4, 3); } }
+          else { want = 0.7; const s2 = d < 140 ? -1 : d > 220 ? 1 : 0, w2 = 0.6 * Math.sin(e.t * 1.1 + e.phase); wx = ux * s2 - uy * w2; wy = uy * s2 + ux * w2; if (e.cd <= 0 && d < 300) { e.st = 'aim'; e.t = 0; } }
+          break;
       }
       if (want > 0 && e.spd > 0) {
         const l = hyp(wx, wy) || 1, ts = (e.st === 'spin' ? 165 : e.spd) * want;
         e.vx = lerp(e.vx, wx / l * ts, 1 - Math.exp(-dt * 4)); e.vy = lerp(e.vy, wy / l * ts, 1 - Math.exp(-dt * 4));
-      } else { const f = Math.exp(-dt * (e.st === 'dash' || e.st === 'hop' ? 0.8 : 5)); e.vx *= f; e.vy *= f; }
+      } else { const f = Math.exp(-dt * (e.st === 'dash' || e.st === 'hop' || e.st === 'leap' ? 0.8 : 5)); e.vx *= f; e.vy *= f; }
       // knockback speed limit
       const sp = hyp(e.vx, e.vy); if (sp > 520) { e.vx *= 520 / sp; e.vy *= 520 / sp; }
       e.x += e.vx * dt; e.y += e.vy * dt;
-      confine(e, 0.6);
-      if (!['guard', 'swing', 'breath', 'shooter', 'web'].includes(e.ai)) { if (sp > 20) e.face = Math.atan2(e.vy, e.vx); }
+      if (confine(e, 0.6) && e.ai === 'charge' && e.st === 'dash' && e.t > 0.08) {   // minotaur into a wall: dazed
+        e.st = 'stun'; e.t = 0; e.vx *= 0.2; e.vy *= 0.2; shake = Math.max(shake, 10); A.sfx('quake'); burst(e.x, e.y, 18, '#c8b090', 220, 0.5); popText(e.x, e.y + 34, 'ドシーン！', '#ffd27a', 14, 0.8);
+      }
+      if (!['guard', 'swing', 'breath', 'shooter', 'web', 'roll', 'assassin', 'gaze'].includes(e.ai)) { if (sp > 20) e.face = Math.atan2(e.vy, e.vx); }
       // hero contact
-      if (e.ai === 'phase' && e.alpha < 0.5) continue;
+      if ((e.ai === 'phase' && e.alpha < 0.5) || e.sub) continue;
       const res = collide(e, e.mass);
       if (res && h.pw && h.pw.kind === 'giant') { res.kind = 'ram'; res.imp = Math.max(res.imp, PAD_MAX * h.s.ram); }   // きょだいか: everything you touch gets rammed
       if (res) {
         if (res.kind === 'ram') hitEnemy(e, res);
-        else if (e.hitCD <= 0 && h.ramSafe <= 0 && !(e.zap > 0) && e.ai !== 'flee') { if (e.mod.chill) h.slow = Math.max(h.slow, e.mod.chill); hurtHero(e.atk, e.x, e.y, 260, 'touch:' + e.type); if (e.ai === 'flutter' || e.ai === 'imp') { e.st = 'retreat'; e.t = 0; } }
+        else if (e.hitCD <= 0 && h.ramSafe <= 0 && !(e.zap > 0) && e.ai !== 'flee') { if (e.mod.chill) h.slow = Math.max(h.slow, e.mod.chill); const big = (e.ai === 'charge' && e.st === 'dash') || (e.ai === 'shark' && e.st === 'leap'); hurtHero(Math.round(e.atk * (big ? 1.3 : 1)), e.x, e.y, big ? 520 : 260, 'touch:' + e.type); if (e.ai === 'flutter' || e.ai === 'imp') { e.st = 'retreat'; e.t = 0; } }
       }
     }
     // enemies push each other apart
@@ -1267,6 +1334,30 @@
       const hh = Math.round(o.maxHp * 0.12); o.hp = Math.min(o.maxHp, o.hp + hh);
       popText(o.x, o.y + 26, '+' + hh, '#8af07a', 12, 0.7); burst(o.x, o.y, 8, '#ffb0f0', 110, 0.4);
     }
+  }
+  function lob(x, y, tx, ty, spd, kind, extra) {   // a thrown thing on an arc; lands at (tx, ty)
+    const d0 = hyp(tx - x, ty - y) || 1, b = Object.assign({ x, y, vx: 0, vy: 0, r: 8, dmg: 0, kind, life: 9, t: 0, dest: { x: tx, y: ty }, spd, d0, harmless: true }, extra);
+    bullets.push(b); return d0 / spd;
+  }
+  function lobBomb(e) {   // goblin bomber: the landing spot is marked the moment it throws; the bomb fizzes there, then goes off
+    const tx = hero.x + hero.vx * 0.25, ty = hero.y + hero.vy * 0.25;
+    const ft = lob(e.x, e.y + 14, tx, ty, 260, 'gbomb', { onLand: b => bullets.push({ x: b.x, y: b.y, vx: 0, vy: 0, r: 8, dmg: 0, kind: 'gbomb', lit: 1, life: 0.42, t: 0, harmless: true }) });
+    addCircle(tx, ty, 46, ft + 0.42, Math.round(e.atk * 1.2), 'blast', () => A.sfx('boom'));
+  }
+  function jball(e, x, y, tx, ty, delay, hops, ci) {   // clown ball: lands, then bounces once more toward where you are
+    const ft = lob(x, y, tx, ty, 240, 'jball', { ci, delay, onLand: b => {
+      if (hops <= 0 || e.dead) return;
+      const a = Math.atan2(hero.y - b.y, hero.x - b.x), dd = clamp(hyp(hero.x - b.x, hero.y - b.y), 40, 130);
+      jball(e, b.x, b.y, b.x + Math.cos(a) * dd, b.y + Math.sin(a) * dd, 0, hops - 1, ci);
+    } });
+    addCircle(tx, ty, 28, delay + ft, Math.round(e.atk * 0.8), 'confetti');
+  }
+  function appearBehind(e) {   // assassin: steps out of the smoke on the far side of you
+    const h = hero, sp = hyp(h.vx, h.vy);
+    let ax = sp > 60 ? -h.vx / sp : (h.x - e.x), ay = sp > 60 ? -h.vy / sp : (h.y - e.y); const l = hyp(ax, ay) || 1; ax /= l; ay /= l;
+    burst(e.x, e.y, 14, '#8a8aa0', 140, 0.5);
+    e.x = h.x + ax * 64; e.y = h.y + ay * 64; e.vx = e.vy = 0; confine(e, 0);
+    burst(e.x, e.y, 16, '#c8c8d8', 160, 0.5);
   }
   function blink(e) {
     for (let k = 0; k < 10; k++) {
@@ -1308,11 +1399,13 @@
         if (o.r > arena.R) b.life = 0;
         continue;
       }
-      if (b.ret != null && b.t > b.ret && boss) {   // boomerang: home back to the boss
-        const dx = boss.x - b.x, dy = boss.y - b.y, d = hyp(dx, dy) || 1, sp0 = hyp(b.vx, b.vy);
+      if (b.ret != null && b.t > b.ret && (b.owner || boss)) {   // boomerang: home back to the boss (or the monster that threw it)
+        const o = b.owner || boss; if (b.owner && b.owner.dead) { b.life = 0; continue; }
+        const dx = o.x - b.x, dy = o.y - b.y, d = hyp(dx, dy) || 1, sp0 = hyp(b.vx, b.vy);
         b.vx = lerp(b.vx, dx / d * Math.max(sp0, 380), 1 - Math.exp(-dt * 6)); b.vy = lerp(b.vy, dy / d * Math.max(sp0, 380), 1 - Math.exp(-dt * 6));
-        if (d < boss.r) { b.life = 0; continue; }
+        if (d < o.r) { b.life = 0; if (b.owner) b.owner.headOut = false; continue; }
       }
+      if (b.grow) b.r = Math.min(b.rmax, b.r + b.grow * dt);   // a snowball picks up snow as it rolls
       if (b.kind === 'big' && b.t > (b.fuse || 1.1)) { b.life = 0; explodeBig(b); continue; }
       if (b.kind === 'homing' && b.t < 3.2) {   // turn toward the hero at a limited rate
         const cur = Math.atan2(b.vy, b.vx), want = Math.atan2(hero.y - b.y, hero.x - b.x);
@@ -1329,7 +1422,7 @@
           b.x = arena.cx + nx * (arena.R - b.r); b.y = arena.cy + ny * (arena.R - b.r);
         } else if (ad > arena.R + 30 && b.ret == null) { if (b.kind === 'big') explodeBig(b); b.life = 0; }
       }
-      else { const tn = tunnelAt(b.y); if (Math.abs(b.x - tn.cx) > tn.w / 2 + 4) { b.life = 0; burst(b.x, b.y, 4, '#ccc', 60, 0.3); } }
+      else if (b.ret == null) { const tn = tunnelAt(b.y); if (Math.abs(b.x - tn.cx) > tn.w / 2 + 4) { b.life = 0; burst(b.x, b.y, 4, '#ccc', 60, 0.3); } }
       if (!b.harmless && hyp(b.x - hero.x, b.y - hero.y) < b.r + hero.r * 0.6 && hero.inv <= 0) {
         if (b.slow) hero.slow = Math.max(hero.slow, b.slow);
         if (b.stun) { b.hitHero = true; stunHero(b.stun, b.stunKind || 'sleep'); }
@@ -1354,7 +1447,7 @@
 
   // damage a monster with a trap / barrel / boulder (no combo, but the kill still pays out)
   function hazardHit(e, dmg, fx, fy, power) {
-    if (e.dead || e.hp <= 0) return;
+    if (e.dead || e.hp <= 0 || e.sub) return;
     dmg = Math.max(1, Math.round(dmg)); e.hp -= dmg; e.hurt = 0.18;
     const dx = e.x - fx, dy = e.y - fy, d = hyp(dx, dy) || 1; e.vx += dx / d * power; e.vy += dy / d * power;
     popText(e.x, e.y + 20, '' + dmg, '#ffb070', 15, 0.7);
@@ -1991,6 +2084,7 @@
     return Math.max(1, Math.round(d * (isB ? (boss.dmgTake || 1) : 1)));
   }
   function skillHit(t, mult, fx, fy, power = 260, col = '#fff') {
+    if (t.sub) return;   // under the floor / vanished
     const dmg = skillDmg(t, mult);
     if (t === boss) {
       if (boss.dead || (boss.alpha != null && boss.alpha < 0.5)) return;
@@ -2151,7 +2245,7 @@
   function cloneHits() {   // ぶんしん: a copy follows your path a moment behind; its charges hurt too
     const h = hero, Hs = h.hist; if (!Hs || Hs.length < 22) return;
     const [cx, cy, sp] = Hs[0]; if (sp < RAM_MIN) return;
-    const targets = enemies.filter(e => !e.dead); if (boss && !boss.dead && !(boss.alpha != null && boss.alpha < 0.5)) targets.push(boss);
+    const targets = enemies.filter(e => !e.dead && !e.sub); if (boss && !boss.dead && !(boss.alpha != null && boss.alpha < 0.5)) targets.push(boss);
     for (const e of targets) {
       if ((e.cloneAt || 0) > globalT || hyp(e.x - cx, e.y - cy) > e.r + HERO_R) continue;
       e.cloneAt = globalT + 0.45;
@@ -2350,7 +2444,7 @@
   function addSweep(B, opt) { B.sweeps.push(Object.assign({ t: 0, tele: 0.75, len: 180, w: 11, vel: 2.4, left: Math.PI * 2, ang: 0, col: '#fff' }, opt)); }
 
   // ---- floor blasts & beams (telegraphed, then they hurt) ----
-  const ZCOL = { sand: '235,200,120', ink: '140,70,190', void: '200,80,255', thorn: '120,210,80', curse: '190,140,255', meteor: '255,120,50', ice: '150,225,255', bolt: '255,240,120', poison: '150,230,60', water: '90,170,255', mine: '255,90,60', beam: '255,80,160', holy: '255,240,170' };
+  const ZCOL = { sand: '235,200,120', ink: '140,70,190', void: '200,80,255', thorn: '120,210,80', curse: '190,140,255', meteor: '255,120,50', ice: '150,225,255', bolt: '255,240,120', poison: '150,230,60', water: '90,170,255', mine: '255,90,60', beam: '255,80,160', holy: '255,240,170', blast: '255,120,50', confetti: '255,120,220' };
   function addCircle(x, y, r, tele, dmg, kind, after) { zones.push({ type: 'circle', x, y, r, tele, dmg, kind, t: 0, after }); }
   function addBeam(B, ang, opt) { zones.push(Object.assign({ type: 'beam', boss: B, ang, len: arena.R * 2.2, w: 16, tele: 0.8, act: 0.45, vel: 0, t: 0, dmg: B.atk, kind: 'beam', hit: false }, opt)); }
   function updateZones(dt) {
@@ -2383,12 +2477,13 @@
         continue;
       }
       if (z.type === 'cone') {   // gorgon's gaze: a wedge from the boss; inside it when it fires = petrified
+        if (z.src && !z.fired && (z.src.dead || (z.src.st !== 'wind' && z.src.st !== 'gaze'))) { z.dead = true; continue; }   // hit the basilisk and the stare is broken
         if (z.boss) { z.x = z.boss.x; z.y = z.boss.y; }
         if (z.track && z.t < z.tele - 0.3) { const want = Math.atan2(h.y - z.y, h.x - z.x); let da = ((want - z.ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI; z.ang += clamp(da, -z.track * dt, z.track * dt); }
         if (z.t >= z.tele && !z.fired) {
           z.fired = true; flash = 0.45; flashCol = '200,255,170'; A.sfx('boom');
           const a = Math.atan2(h.y - z.y, h.x - z.x), da = Math.abs(((a - z.ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
-          if (da < z.spread && h.hp > 0) { hurtHero(z.dmg, z.x, z.y, 120, 'zone:gaze'); stunHero(1.1, 'stone'); }
+          if (da < z.spread && h.hp > 0 && hyp(h.x - z.x, h.y - z.y) < z.len + h.r) { hurtHero(z.dmg, z.x, z.y, 120, 'zone:gaze'); stunHero(z.stun || 1.1, 'stone'); }
         }
         z.dead = z.t > z.tele + z.act;
         continue;
@@ -2920,6 +3015,7 @@
     if (state === 'play') {
       updateProps(dt);
       updateEvents(dt);
+      updateZones(dt);   // lightning marks, bomb blasts, a basilisk's stare
       camY = lerp(camY, Math.max(hero.y + 40, H * 0.38 - 30), 1 - Math.exp(-dt * 6));
       camY = Math.min(camY, goalY + 60 - (H * 0.38) + 60);
       // boss door
@@ -3210,37 +3306,49 @@
     for (const s of [-1, 1]) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x + s * r * sep, y - r * 0.1, r * 0.2, 0, 7); ctx.fill(); ctx.fillStyle = pupil; ctx.beginPath(); ctx.arc(x + s * r * sep + lx, y - r * 0.1 + ly, r * 0.1, 0, 7); ctx.fill(); }
   }
 
+  function drawFin(e, x, y) {   // blade shark under the floor: only the fin and its wake show
+    const wind = e.st === 'wind';
+    ctx.lineWidth = 1.5;
+    for (let k = 0; k < 2; k++) { const kk = (globalT * 1.6 + k / 2 + e.phase) % 1; ctx.strokeStyle = `rgba(170,220,255,${0.6 * (1 - kk)})`; ctx.beginPath(); ctx.ellipse(x, y + 3, 10 + kk * 24, 4 + kk * 9, 0, 0, 7); ctx.stroke(); }
+    if (wind) { const k = Math.min(1, e.t / 0.5); ctx.strokeStyle = `rgba(255,80,60,${0.4 + k * 0.5})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(x, y + 3, 14 + k * 18, 6 + k * 8, 0, 0, 7); ctx.stroke(); }
+    SPR.draw(ctx, SPR.enemy('sharkfin', { st: e.st, f: Math.floor(globalT * 8 + e.phase), flip: e.vx < 0 }), x, y + 4);
+    if (wind) { ctx.fillStyle = '#ff4040'; ctx.strokeStyle = '#1a1420'; ctx.lineWidth = 3; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'center'; ctx.strokeText('!', x, y - 30); ctx.fillText('!', x, y - 30); }
+  }
   function drawEnemy(e) {
     const x = e.x, y = sy(e.y), r = e.r;
     if (y < -70 || y > H + 70) return;
+    if (e.ai === 'shark' && e.sub) { drawFin(e, x, y); return; }
     ctx.save();
-    if (e.ai === 'phase') ctx.globalAlpha = e.alpha;
-    const fly = e.fly ? 6 + Math.sin(e.t * 5) * 3 : 0;
+    if (e.ai === 'phase' || e.ai === 'assassin') ctx.globalAlpha = e.alpha;
+    const fly = e.fly ? 6 + Math.sin(e.t * 5) * 3 : 0, lift = e.ai === 'shark' && e.st === 'leap' ? Math.sin(Math.min(1, e.t / 0.4) * Math.PI) * 26 : 0;
     shadow(x, y, r * 0.8, e.fly ? 0.18 : 0.3);
-    const yy = y - fly;
+    const yy = y - fly - lift;
     const hurt = e.hurt > 0;
     const telegraph = e.st === 'wind' || e.st === 'aim' || e.st === 'cast' || e.st === 'swell';
     // gameplay telegraphs under the sprite
     if (e.st === 'wind') {
-      if (e.ai === 'swing') { ctx.fillStyle = 'rgba(255,60,60,.18)'; ctx.beginPath(); ctx.moveTo(x, yy); ctx.arc(x, yy, 72, -e.face - 1.25, -e.face + 1.25); ctx.fill(); }
+      if (e.ai === 'swing') { ctx.fillStyle = 'rgba(255,60,60,.18)'; ctx.beginPath(); ctx.moveTo(x, yy); ctx.arc(x, yy, e.mod.reach || 72, -e.face - 1.25, -e.face + 1.25); ctx.fill(); }
+      else if (e.ai === 'assassin') { ctx.fillStyle = e.critNext ? 'rgba(255,200,40,.3)' : 'rgba(255,60,60,.18)'; ctx.beginPath(); ctx.moveTo(x, yy); ctx.arc(x, yy, 72, -e.face - 1.2, -e.face + 1.2); ctx.fill(); if (e.critNext) { ctx.strokeStyle = `rgba(255,230,120,${0.5 + 0.4 * Math.sin(globalT * 20)})`; ctx.lineWidth = 2; ctx.stroke(); } }
+      else if (e.ai === 'charge') { const k = Math.min(1, e.t / 0.9), L = 250; ctx.strokeStyle = `rgba(20,10,20,${0.3 + k * 0.3})`; ctx.lineWidth = 2 * r + 2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + e.lx * L, y - e.ly * L); ctx.stroke(); ctx.strokeStyle = `rgba(255,70,50,${0.4 + k * 0.6})`; ctx.lineWidth = 3 + Math.round(k * 2) * 1.5; ctx.setLineDash([9, 7]); ctx.stroke(); ctx.setLineDash([]); }
       else if (e.ai === 'breath') { ctx.fillStyle = 'rgba(255,120,40,.2)'; ctx.beginPath(); ctx.moveTo(x, yy); ctx.arc(x, yy, 120, -e.face - 0.35, -e.face + 0.35); ctx.fill(); }
       else if (e.ai === 'slam') { ctx.strokeStyle = `rgba(255,80,60,${Math.min(1, e.t)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, yy, 100 * Math.min(1, e.t / 0.7), 0, 7); ctx.stroke(); }
       else if (e.ai === 'spin') { ctx.strokeStyle = `rgba(255,190,80,${0.3 + Math.min(0.6, e.t)})`; ctx.lineWidth = 2; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.arc(x, yy, 40, globalT * 6, globalT * 6 + 5.5); ctx.stroke(); ctx.setLineDash([]); }
       else if (e.ai === 'guard') { ctx.strokeStyle = 'rgba(255,60,60,.6)'; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x + Math.cos(e.face) * 120, yy - Math.sin(e.face) * 120); ctx.stroke(); ctx.setLineDash([]); }
     }
-    if (e.st === 'aim' && (e.ai === 'shooter' || e.ai === 'web')) {
+    if (e.st === 'aim' && (e.ai === 'shooter' || e.ai === 'web' || e.ai === 'roll')) {
       ctx.strokeStyle = e.ai === 'shooter' ? `rgba(255,80,80,${0.3 + e.t})` : 'rgba(220,235,255,.5)'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 5]);
       ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(hero.x, sy(hero.y)); ctx.stroke(); ctx.setLineDash([]);
     }
     if (e.guard) { ctx.strokeStyle = `rgba(160,210,255,${0.25 + 0.2 * Math.sin(globalT * 8)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, yy, r + 4, -e.face - 1, -e.face + 1); ctx.stroke(); }
     // the monster itself (pixel sprite, feet on the shadow, turned toward the hero)
     const moving = hyp(e.vx, e.vy) > 12;
-    const f = Math.floor((globalT + e.phase) * (e.ai === 'flutter' || e.ai === 'imp' ? (e.type === 'jelly' ? 5 : 10) : 4));
+    const f = Math.floor((globalT + e.phase) * (e.ai === 'flutter' || e.ai === 'imp' ? (e.type === 'jelly' ? 5 : 10) : e.type === 'clown' || e.type === 'stormeagle' ? 8 : 4));
     const step = moving ? (Math.sin((globalT + e.phase) * 11) > 0 ? 1 : -1) : 0;
-    const spr = SPR.enemy(e.type, { st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine });
+    const spr = SPR.enemy(e.type, { st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut });
     SPR.draw(ctx, spr, x, yy + r * 0.75);
-    if (e.ai === 'swing' && e.st === 'slash') { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(x, yy, 64, -e.face - 1.25, -e.face + 1.25); ctx.stroke(); }
-    if (telegraph && e.ai !== 'swing') { const top = yy + r * 0.75 - (spr ? spr.ay * SPR.SCALE : r * 2); ctx.fillStyle = '#ff4040'; ctx.strokeStyle = '#1a1420'; ctx.lineWidth = 3; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'center'; ctx.strokeText('!', x, top - 2); ctx.fillText('!', x, top - 2); }
+    if (e.ai === 'swing' && e.st === 'slash') { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(x, yy, (e.mod.reach || 72) - 8, -e.face - 1.25, -e.face + 1.25); ctx.stroke(); }
+    if (e.ai === 'assassin' && e.st === 'slash') { ctx.strokeStyle = e.critNext ? 'rgba(255,220,90,.75)' : 'rgba(255,255,255,.55)'; ctx.lineWidth = e.critNext ? 12 : 9; ctx.beginPath(); ctx.arc(x, yy, 60, -e.face - 1.2, -e.face + 1.2); ctx.stroke(); }
+    if (telegraph && e.ai !== 'swing') { const top = yy + r * 0.75 - (spr ? spr.ay * SPR.SCALE : r * 2), mk2 = e.critNext ? '!!' : '!'; ctx.fillStyle = e.critNext ? '#ffd23a' : '#ff4040'; ctx.strokeStyle = '#1a1420'; ctx.lineWidth = 3; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'center'; ctx.strokeText(mk2, x, top - 2); ctx.fillText(mk2, x, top - 2); }
     ctx.restore();
     if (e.st === 'spin') { ctx.strokeStyle = 'rgba(255,240,180,.55)'; ctx.lineWidth = 3; for (let k = 0; k < 2; k++) { const a = globalT * 20 + k * Math.PI; ctx.beginPath(); ctx.arc(x, yy, r + 14, a, a + 1.4); ctx.stroke(); } }
     if (e.shine) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(200,230,255,${0.18 + 0.12 * Math.sin(globalT * 20)})`; ctx.beginPath(); ctx.arc(x, yy - r * 0.4, r + 12, 0, 7); ctx.fill(); ctx.restore(); }
@@ -3500,6 +3608,29 @@
       if (b.kind === 'boulder') { ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(q(x - b.r), q(y + b.r * 0.6), q(b.r * 2), 4.5); SPR.draw(ctx, SPR.ENV.rock('#9a7a58', Math.floor(b.t * 8) % 3, 14), x, y + b.r * 0.3); continue; }
       if (b.kind === 'fist') { ctx.fillStyle = '#22262e'; ctx.fillRect(q(x - 15), q(y - 13.5), 30, 27); ctx.fillStyle = '#7a8696'; ctx.fillRect(q(x - 12), q(y - 10.5), 24, 21); ctx.fillStyle = '#b8c4d4'; ctx.fillRect(q(x - 12), q(y - 10.5), 24, 3); ctx.fillStyle = '#ffa23a'; ctx.fillRect(q(x - 3), q(y + 3), 6, 4.5); continue; }
       if (b.kind === 'wave') { ctx.fillStyle = 'rgba(60,140,230,.85)'; ctx.fillRect(q(x - 12), q(y - 12), 24, 24); ctx.fillStyle = '#c8f0ff'; ctx.fillRect(q(x - 12), q(y - 12), 24, 4.5); ctx.fillStyle = 'rgba(255,255,255,.7)'; ctx.fillRect(q(x - 6 + Math.sin(globalT * 9 + b.x) * 4), q(y - 3), 6, 3); continue; }
+      if (b.kind === 'gbomb') {   // goblin bomb: arcs over, then fizzes on the floor
+        if (lift) { ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(q(x - 6), q(y + 4), 12, 3); }
+        const blink2 = b.lit && f % 2; ctx.fillStyle = blink2 ? '#6a2a2a' : '#1a1a26'; ctx.beginPath(); ctx.arc(x, y - lift, 7.5, 0, 7); ctx.fill();
+        ctx.fillStyle = '#6a6a84'; ctx.fillRect(q(x - 4.5), q(y - lift - 4.5), 3, 3); ctx.fillStyle = '#8a8a90'; ctx.fillRect(q(x - 1.5), q(y - lift - 10.5), 3, 3);
+        ctx.fillStyle = f % 2 ? '#ffe14a' : '#ff6a1a'; ctx.fillRect(q(x + 1.5), q(y - lift - 13.5), 3, 3); continue;
+      }
+      if (b.kind === 'jball') {   // clown's juggling ball
+        const C = ['#ff4a5a', '#4ad0ff', '#ffe14a'][b.ci % 3];
+        ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(q(x - 6), q(y + 4), 12, 3);
+        ctx.fillStyle = '#2a1020'; ctx.beginPath(); ctx.arc(x, y - lift, 8, 0, 7); ctx.fill(); ctx.fillStyle = C; ctx.beginPath(); ctx.arc(x, y - lift, 6.5, 0, 7); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(q(x - 3), q(y - lift - 4.5), 3, 3); continue;
+      }
+      if (b.kind === 'snowball') {   // gets bigger as it rolls
+        const rr = b.r; ctx.fillStyle = 'rgba(40,60,90,.3)'; ctx.beginPath(); ctx.ellipse(x, y + rr * 0.55, rr, rr * 0.35, 0, 0, 7); ctx.fill();
+        ctx.fillStyle = '#7a98b8'; ctx.beginPath(); ctx.arc(x, y - rr * 0.3, rr, 0, 7); ctx.fill(); ctx.fillStyle = '#eaf2fa'; ctx.beginPath(); ctx.arc(x - 1.5, y - rr * 0.3 - 1.5, rr - 2, 0, 7); ctx.fill();
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(q(x - rr * 0.5), q(y - rr * 0.95), 4.5, 3);
+        const sp2 = b.t * 10; ctx.fillStyle = '#b8cce0'; for (let k = 0; k < 2; k++) ctx.fillRect(q(x + Math.cos(sp2 + k * 3) * rr * 0.55), q(y - rr * 0.3 + Math.sin(sp2 + k * 3) * rr * 0.55), 3, 3); continue;
+      }
+      if (b.kind === 'dhead') {   // the dullahan's head, spinning, trailing blue fire
+        const s2 = SPR.enemy('dlhead', { f: Math.floor(b.t * 12) }), sp = hyp(b.vx, b.vy) || 1;
+        for (let k = 1; k <= 3; k++) { ctx.fillStyle = `rgba(90,160,255,${0.5 - k * 0.13})`; ctx.fillRect(q(x - b.vx / sp * k * 7 - 4.5), q(y - b.vy / sp * k * 7 * -1 - 4.5), 9, 9); }
+        SPR.draw(ctx, s2, x, y + 8); continue;
+      }
       if (b.kind === 'sandball') { ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(q(x - 7), q(y + 6), 15, 4.5); ctx.fillStyle = '#a87a40'; ctx.beginPath(); ctx.arc(x, y - lift, 9, 0, 7); ctx.fill(); ctx.fillStyle = '#e0b878'; ctx.fillRect(q(x - 4.5), q(y - lift - 4.5), 4.5, 3); continue; }
       if (b.kind === 'spore' && b.dest) { SPR.draw(ctx, SPR.ENV.spore(), x, y - lift); continue; }
       if (b.kind === 'spore') { SPR.draw(ctx, SPR.ENV.spore(), x, y, Math.min(1, b.life) * 0.9); continue; }

@@ -1253,6 +1253,327 @@ const SPR = (() => {
         if (cast) for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + k * 0.7; g.p(33 + Math.round(Math.cos(a) * 7), sy + Math.round(Math.sin(a) * 7), '#ffb0f0'); }
       }, '#08020c');
     },
+    // ===== 指示2: ten more monsters. Every attack has a big, readable wind-up pose =====
+    // ----- goblin bomber: goggles and a bandolier of bombs; lifts a lit bomb overhead, then lobs it -----
+    bomber(P) {
+      const st = P.st === 'aim' ? 1 : P.st === 'throw' ? 2 : 0, step = P.step || 0, k = P.f % 2;
+      return mk('gbmb' + st + (st ? k : step), 46, 56, 22, 52, g => {
+        const Sk = { d: '#4a6a2a', m: '#7fb04a', h: '#b0d878' }, V = '#7a3a1a', VS = '#4a2010', Bm = { d: '#101018', m: '#2e2e40', h: '#7a7a92' };
+        const lean = st === 1 ? -1 : st === 2 ? 2 : 0, hx = 22 + lean, hy = 25;
+        g.r(16, 43 - (step > 0 ? 2 : 0), 4, 6, Sk.m); g.r(24, 43 - (step < 0 ? 2 : 0), 4, 6, Sk.d); g.r(15, 48, 6, 2, VS); g.r(23, 48, 6, 2, VS);
+        g.ell(22 + lean, 37, 8, 7, V); g.r(19 + lean, 32, 6, 6, Sk.h);
+        g.line(15 + lean, 32, 29 + lean, 42, 2, '#3a2410'); for (const t of [0.2, 0.5, 0.8]) { g.ell(15 + lean + 14 * t, 32 + 10 * t, 2, 2, Bm.m); g.p(Math.round(14 + lean + 14 * t), Math.round(31 + 10 * t), Bm.h); }
+        // ears + head + goggles
+        g.poly([[hx - 8, hy - 2], [hx - 18, hy - 7], [hx - 16, hy - 2], [hx - 8, hy + 3]], Sk.m); g.poly([[hx + 8, hy - 2], [hx + 18, hy - 7], [hx + 16, hy - 2], [hx + 8, hy + 3]], Sk.d);
+        blob(g, hx, hy, 9, 7.5, Sk);
+        g.r(hx - 9, hy - 4, 18, 2, '#3a2a1a');
+        for (const m of [-1, 1]) { g.ell(hx + m * 4, hy - 3, 3, 2.6, '#c8902a'); g.ell(hx + m * 4, hy - 3, 2, 1.7, st === 1 ? '#ffe080' : '#7ac8e8'); g.p(hx + m * 4 - 1, hy - 4, '#ffffff'); }
+        if (st) { g.r(hx - 3, hy + 3, 6, 2, '#3a1a10'); g.p(hx - 2, hy + 3, '#fff'); g.p(hx + 2, hy + 3, '#fff'); } else { g.r(hx - 4, hy + 3, 8, 1, '#3a1a10'); g.p(hx - 3, hy + 2, '#fff'); g.p(hx + 3, hy + 2, '#fff'); }
+        // the bomb: at the hip, lifted overhead with the fuse fizzing, or flung forward
+        const bx = st === 1 ? hx : st === 2 ? hx + 16 : hx + 11, by = st === 1 ? 10 : st === 2 ? 22 : 37;
+        if (st === 1) { tube(g, [[hx - 7, 33, 2], [hx - 12, 22, 1.8], [bx - 5, by + 3, 1.6]], Sk); tube(g, [[hx + 7, 33, 2], [hx + 12, 22, 1.8], [bx + 5, by + 3, 1.6]], Sk); }
+        else if (st === 2) { tube(g, [[hx + 6, 33, 2], [hx + 11, 27, 1.8], [bx - 4, by + 1, 1.6]], Sk); tube(g, [[hx - 7, 33, 2], [hx - 11, 39, 1.6]], Sk); }
+        else { tube(g, [[hx + 7, 33, 2], [bx - 3, by - 1, 1.6]], Sk); tube(g, [[hx - 7, 33, 2], [hx - 9, 40, 1.6]], Sk); }
+        if (st !== 2) {
+          blob(g, bx, by, 5, 5, Bm); g.r(bx - 1, by - 7, 3, 2, '#8a8a90'); g.line(bx + 1, by - 7, bx + 3, by - 9, 1, '#c8b080');
+          if (st === 1) { g.p(bx + 3, by - 10, k ? '#ffffff' : '#ffe14a'); g.p(bx + 4, by - 10, '#ff6a1a'); g.p(bx + 2 + k * 3, by - 12 + k, '#ffe14a'); g.p(bx + 5 - k * 4, by - 11, '#ff8a2a'); }
+          else g.p(bx + 3, by - 10, '#ff8a2a');
+        } else for (let i = 0; i < 3; i++) g.r(bx - 2 + i * 3, by - 6 + i, 2, 1, '#e8e0c8');   // swoosh: the bomb has left the hand
+      }, '#101808');
+    },
+    // ----- minotaur: a bull-headed brute. Paws the floor, drops its horns and charges; a wall knocks it silly -----
+    minotaur(P) {
+      const st = P.st === 'wind' ? 1 : P.st === 'dash' ? 2 : P.st === 'stun' ? 3 : P.st === 'tired' ? 4 : 0, k = P.f % 2, step = P.step || 0;
+      return mk('mino' + st + k + (st ? 0 : step), 70, 60, 32, 56, g => {
+        const F = { d: '#5a2a14', m: '#8e4c26', h: '#c0804c' }, Dk = { d: '#24120a', m: '#4a2a18', h: '#6e4a30' }, Hn = { d: '#a89a70', m: '#ece4c8', h: '#ffffff' }, Au = '#d8aa4a';
+        const lean = st === 1 ? 5 : st === 2 ? 10 : st === 4 ? 5 : 0, bx = 30 + lean, by = 33 + (st === 2 ? 4 : st === 4 ? 3 : 0);
+        // legs (the hind leg scrapes the floor during the wind-up; both stretch out in the charge)
+        const legs = st === 2 ? [[20, 54, -7], [38, 54, 6]] : st === 1 ? [[22 - k * 3, 54 - k * 2, -2 - k * 3], [36, 54, 1]] : [[25, 54 - (step > 0 ? 2 : 0), 0], [35, 54 - (step < 0 ? 2 : 0), 0]];
+        legs.forEach(([lx, ly, dx], i) => { tube(g, [[bx - 6 + i * 10, by + 9, 4], [lx + dx * 0.4, ly - 8, 3.2], [lx + dx, ly - 3, 2.6]], i ? Dk : { d: '#180c06', m: '#3a2012', h: '#5a3a24' }); g.r(lx + dx - 3, ly - 3, 7, 3, '#140a04'); });
+        if (st === 1 && k) for (const [px, py] of [[12, 52], [9, 49], [15, 49]]) { g.r(px, py, 3, 2, '#c8b090'); }   // dust kicked up
+        // loincloth + torso
+        g.poly([[bx - 10, by + 7], [bx + 10, by + 7], [bx + 7, by + 18], [bx - 7, by + 18]], '#7a1a1a'); g.r(bx - 11, by + 6, 22, 2, Au);
+        blob(g, bx, by, 13, 11, F); g.ell(bx + 3, by - 1, 6, 5, F.h); g.ell(bx - 1, by + 6, 7, 3, F.d);
+        // arms: swinging while walking, flung back for the charge, dangling when dazed
+        const arm = (sx, sy, ex, ey, C) => { tube(g, [[sx, sy, 3.6], [ex, ey, 3]], C); blob(g, ex, ey + 1, 3.6, 3.4, C); };
+        if (st === 2) { arm(bx - 8, by - 4, bx - 20, by + 2, Dk); arm(bx + 6, by - 4, bx - 6, by + 8, F); }
+        else if (st === 1) { arm(bx - 8, by - 4, bx - 16, by + 6, Dk); arm(bx + 6, by - 4, bx + 2, by + 12, F); }
+        else if (st === 4) { arm(bx - 8, by - 4, bx - 4, by + 14, Dk); arm(bx + 7, by - 4, bx + 10, by + 14, F); }
+        else { const s = st ? 0 : step; arm(bx - 9, by - 4, bx - 12 - s * 2, by + 12, Dk); arm(bx + 8, by - 4, bx + 11 + s * 2, by + 12, F); }
+        // bull head: lowered and pushed forward in the charge
+        const hx = bx + (st === 2 ? 15 : st === 1 ? 11 : st === 4 ? 9 : 5), hy = by - 13 + (st === 2 ? 9 : st === 1 ? 6 : st === 4 ? 5 : 0);
+        blob(g, hx, hy, 8.5, 7.5, F);
+        g.ell(hx + 7, hy + 3, 4.6, 3.8, '#c89a7a'); g.p(hx + 8, hy + 2, '#3a1a10'); g.p(hx + 10, hy + 3, '#3a1a10');
+        g.ell(hx + 7, hy + 7, 2.4, 1.6, Au); g.ell(hx + 7, hy + 6, 1.2, 0.8, '#7a5010');   // nose ring
+        g.poly([[hx - 7, hy - 4], [hx - 13, hy - 3], [hx - 7, hy]], F.d);   // ear
+        // horns: up and out, or pointed straight ahead for the charge
+        const hornA = st === 2 ? [[hx + 1, hy - 5, 2.6], [hx + 9, hy - 8, 1.9], [hx + 17, hy - 7, 0.9]] : st === 1 ? [[hx + 1, hy - 5, 2.6], [hx + 8, hy - 10, 1.9], [hx + 14, hy - 11, 0.9]] : [[hx, hy - 5, 2.6], [hx + 5, hy - 11, 1.9], [hx + 4, hy - 17, 0.9]];
+        tube(g, hornA.map(([x, y, r]) => [x - 5, y + 1, r * 0.9]), { d: '#7a6a48', m: '#b8ac88', h: '#e0d8c0' });
+        tube(g, hornA, Hn);
+        // eyes: blazing red when it means to charge, crossed out when it's dazed
+        if (st === 3) { g.line(hx - 1, hy - 3, hx + 2, hy, 1, '#1a0a04'); g.line(hx + 2, hy - 3, hx - 1, hy, 1, '#1a0a04'); g.r(hx + 5, hy + 7, 3, 2, '#e05a6a'); }
+        else { g.r(hx, hy - 2, 3, 2, st === 1 || st === 2 ? '#ff3a2a' : '#1a0a04'); if (st === 1 || st === 2) g.p(hx + 1, hy - 2, '#ffe0a0'); }
+        if (st === 1) for (let i = 0; i < 2; i++) g.ell(hx + 14 + i * 3 + k * 2, hy + 4 - i * 2, 1.6 - i * 0.4, 1.2, '#f0f0f0');   // snorting steam
+        if (st === 3) for (let i = 0; i < 3; i++) { const a = k * 1.1 + i * 2.1, sx = hx + Math.cos(a) * 11, sy2 = hy - 13 + Math.sin(a) * 3; g.p(Math.round(sx), Math.round(sy2), '#ffe14a'); g.p(Math.round(sx) + 1, Math.round(sy2), '#fff6c0'); g.p(Math.round(sx), Math.round(sy2) - 1, '#fff6c0'); }
+        if (st === 4) for (let i = 0; i < 2; i++) g.r(hx + 13 + i * 2, hy + 1 + i * 3 - k, 2, 1, '#e8e8f0');   // panting
+      }, '#140804');
+    },
+    // ----- mantis knight: two great scythe-arms. Raises both overhead, then cuts an X in front of it -----
+    mantis(P) {
+      const st = P.st === 'wind' ? 1 : P.st === 'slash' ? 2 : 0, k = st === 2 ? Math.min(2, Math.floor(Math.min(1, P.k || 0) * 3)) : P.f % 2, step = P.step || 0;
+      return mk('mant' + st + k + (st ? 0 : step), 70, 64, 30, 60, (g, x) => {
+        x.translate(2, 4);
+        const G = { d: '#2a6a1a', m: '#5ab03a', h: '#b0ec78' }, Gd = { d: '#14400c', m: '#2e7a1e', h: '#5aa83a' }, Bl = { d: '#7a8a60', m: '#e0f4c0', h: '#ffffff' };
+        // wings flare open in the wind-up
+        if (st === 1) { g.poly([[24, 32], [4, 12], [8, 26], [12, 38]], '#8acc60'); g.poly([[24, 32], [10, 18], [14, 36]], '#b8f090'); for (let i = 0; i < 3; i++) g.line(22, 32, 8 + i * 2, 16 + i * 8, 1, '#5a9a3a'); }
+        else g.poly([[24, 30], [10, 36], [14, 40], [26, 36]], '#7ab850');
+        // abdomen (behind) + legs
+        tube(g, [[24, 37, 5.4], [15, 41, 5.8], [8, 43, 3.6]], G); for (let i = 0; i < 3; i++) g.line(13 + i * 4, 37, 12 + i * 4, 45, 1, G.d);
+        for (const [x, dx, o] of [[20, -6, step > 0 ? -2 : 0], [24, -2, 0], [28, 3, 0], [31, 7, step < 0 ? -2 : 0]]) { g.line(x, 39, x + dx * 0.6, 47 + o, 1.6, Gd.m); g.line(x + dx * 0.6, 47 + o, x + dx, 54 + o, 1.4, Gd.d); }
+        // thorax rising to the head
+        tube(g, [[26, 38, 3.8], [29, 24, 3.2]], G);
+        // the far scythe arm is drawn behind the head, the near one in front
+        const pose = st === 1 ? [-2.1, -2.7] : st === 2 ? [[-0.9, -0.2], [-0.15, 0.7], [0.35, 1.45]][k] : [-0.95, 1.85 + k * 0.08];
+        const scythe = (sx, sy, a1, a2, C, far) => {
+          const ex = sx + Math.cos(a1) * 12, ey = sy + Math.sin(a1) * 12;
+          tube(g, [[sx, sy, 2.6], [ex, ey, 2.2]], C);
+          const tx = ex + Math.cos(a2) * 21, ty = ey + Math.sin(a2) * 21, nx = -Math.sin(a2), ny = Math.cos(a2), cx = ex + Math.cos(a2) * 11 - nx * 5, cy = ey + Math.sin(a2) * 11 - ny * 5;
+          g.poly([[ex + nx * 2.2, ey + ny * 2.2], [cx, cy], [tx, ty], [ex - nx * 1.8, ey - ny * 1.8]], far ? Bl.d : Bl.m);
+          if (!far) { g.line(ex, ey, cx, cy, 1, Bl.h); for (let i = 1; i < 4; i++) g.p(Math.round(ex + Math.cos(a2) * i * 4 + nx * 1.8), Math.round(ey + Math.sin(a2) * i * 4 + ny * 1.8), Bl.d); }
+          g.ell(ex, ey, 2, 2, C.h);
+        };
+        const pf = st === 2 ? 0.35 : 0.25;
+        scythe(27, 27, pose[0] - pf, pose[1] - pf, Gd, true);
+        // head: triangular, with two big eyes and antennae
+        const hx = 32 + (st === 2 ? 3 : 0), hy = 18 + (st === 2 ? 2 : st === 1 ? -1 : 0);
+        g.poly([[hx - 7, hy - 3], [hx + 7, hy - 3], [hx + 2, hy + 7]], G.m); g.poly([[hx + 1, hy - 3], [hx + 7, hy - 3], [hx + 2, hy + 7]], G.d);
+        g.line(hx - 2, hy - 5, hx - 9 + (st === 1 ? -2 : 0), hy - 15, 1, G.d); g.line(hx + 2, hy - 5, hx + 4, hy - 16, 1, G.d);
+        for (const m of [-1, 1]) { g.ell(hx + m * 5, hy - 3, 2.8, 2.8, st ? '#ff6a3a' : '#e0f080'); g.p(hx + m * 5 + 1, hy - 3, '#1a1a08'); g.p(hx + m * 5 - 1, hy - 4, '#ffffff'); }
+        g.r(hx, hy + 4, 3, 1, '#1a2a08');
+        scythe(30, 28, pose[0], pose[1], G, false);
+      }, '#0a1a06');
+    },
+    // ----- snowman: rolls a snowball on the ground in front of it, bigger and bigger, then sends it rolling -----
+    snowman(P) {
+      const st = P.st === 'aim' ? 1 : P.st === 'throw' ? 2 : 0, w = st === 1 ? Math.min(2, Math.floor((P.w || 0) * 3)) : 0, k = P.f % 2, step = P.step || 0;
+      return mk('snwm' + st + w + k + (st ? 0 : step), 58, 58, 24, 54, g => {
+        const S = { d: '#8aa8c8', m: '#eaf2fa', h: '#ffffff' }, Sc = { d: '#8a1a1a', m: '#d03a3a', h: '#ff7a6a' }, Wd = '#6a4020', Co = '#1a1a24';
+        const lean = st === 1 ? 2 : st === 2 ? 3 : 0, wob = st ? 0 : (step ? 1 : 0);
+        blob(g, 24, 44, 13, 10, S); g.ell(24, 53, 12, 2, '#a8c0d8');
+        blob(g, 25 + lean * 0.5, 30 - wob, 10, 8.5, S);
+        for (const y of [27, 31, 35]) g.r(25 + lean, y - wob, 2, 2, Co);
+        // stick arms: reaching down to roll the ball, flung forward to push it, or waving
+        const sx = 25 + lean, sy = 29 - wob;
+        const stick = (x0, y0, x1, y1) => { g.line(x0, y0, x1, y1, 1.6, Wd); const mx = (x0 + x1) / 2, my = (y0 + y1) / 2; g.line(mx, my, mx + (x1 - x0) * 0.2 + 1, my - 4, 1, Wd); };
+        const br = [5, 7, 9][w], ballX = 38 + br, ballY = 53 - br;
+        if (st === 1) { stick(sx + 7, sy, ballX - br + 1, ballY - 2 + k); stick(sx - 8, sy, ballX - br - 1, ballY + 2 - k); }
+        else if (st === 2) { stick(sx + 7, sy, sx + 21, sy - 3); stick(sx - 8, sy, sx + 18, sy + 2); }
+        else { stick(sx + 8, sy, sx + 17, sy - 8 - k * 2); stick(sx - 8, sy, sx - 17, sy - 6 + k * 2); }
+        // head, coal eyes, carrot nose, scarf and a bucket hat
+        const hx = 25 + lean, hy = 15 - wob;
+        g.poly([[hx - 8, hy + 6], [hx + 8, hy + 6], [hx + 7, hy + 10], [hx - 8, hy + 10]], Sc.m); g.r(hx - 8, hy + 6, 16, 1, Sc.h); g.poly([[hx - 6, hy + 9], [hx - 9, hy + 18], [hx - 5, hy + 18], [hx - 3, hy + 9]], Sc.d);
+        blob(g, hx, hy, 8, 7.5, S);
+        g.r(hx - 4, hy - 2, 2, 2, Co); g.r(hx + 3, hy - 2, 2, 2, Co); if (st === 1) { g.line(hx - 5, hy - 4, hx - 2, hy - 3, 1, Co); g.line(hx + 6, hy - 4, hx + 3, hy - 3, 1, Co); }
+        g.poly([[hx, hy], [hx + 10, hy + 2], [hx, hy + 3]], '#ff8a2a'); g.p(hx + 1, hy + 1, '#ffc080');
+        for (const [dx, dy] of st ? [[-3, 4], [-1, 5], [1, 5], [3, 4], [-1, 3], [1, 3]] : [[-4, 4], [-2, 5], [0, 5], [2, 5], [4, 4]]) g.p(hx + dx, hy + dy, Co);
+        bevel(g, hx - 6, hy - 14, 12, 8, { d: '#3a4a6a', m: '#5a6e94', h: '#8aa0c8' }); g.r(hx - 8, hy - 7, 16, 2, '#3a4a6a'); g.r(hx - 6, hy - 10, 12, 1, '#c84a4a');
+        // the snowball it's rolling, growing as it goes
+        if (st === 1) { blob(g, ballX, ballY, br, br, S); g.p(ballX - 2 + k, ballY - br + 2, '#c8d8ec'); g.p(ballX + 2 - k, ballY + 1, '#c8d8ec'); g.ell(ballX, 53, br, 1.4, '#a8c0d8'); }
+      }, '#1a2234');
+    },
+    // ----- shadow assassin: a hooded killer with a reversed dagger. A golden blade means a critical hit -----
+    assassin(P) {
+      const st = P.st === 'wind' ? 1 : P.st === 'slash' ? 2 : P.st === 'recover' ? 3 : P.st === 'vanish' ? 4 : 0, k = P.f % 2, crit = P.crit && (st === 1 || st === 2) ? 1 : 0, step = P.step || 0;
+      return mk('assn' + st + k + crit + (st ? 0 : step), 58, 56, 26, 52, g => {
+        const N = { d: '#0e0e1e', m: '#24243e', h: '#4a4a6e' }, Rd = { d: '#6a0e14', m: '#c0242c', h: '#ff6a5a' }, Sk = '#d8b090', Bl = crit ? { d: '#a8701a', m: '#ffd84a', h: '#ffffff' } : { d: '#6a7080', m: '#d0d8e4', h: '#ffffff' };
+        const low = st === 2 ? 6 : st === 3 ? 8 : st === 0 ? 2 : 0, bx = 24 + (st === 2 ? 6 : 0), by = 32 + low;
+        // scarf streaming behind
+        const sw = st === 2 ? 4 : k;
+        g.poly([[bx - 3, by - 12], [bx - 16, by - 9 + sw], [bx - 22, by - 4 + sw * 2], [bx - 14, by - 8], [bx - 2, by - 9]], Rd.m); g.poly([[bx - 14, by - 8], [bx - 22, by - 4 + sw * 2], [bx - 19, by - 2 + sw]], Rd.d);
+        // legs: a wide crouch, a long lunge, or one knee down
+        if (st === 2) { tube(g, [[bx - 2, by + 4, 2.8], [bx - 12, by + 10, 2.4], [bx - 18, by + 14, 2]], N); tube(g, [[bx + 2, by + 4, 2.8], [bx + 9, by + 8, 2.4], [bx + 12, by + 14, 2]], N); }
+        else if (st === 3) { tube(g, [[bx - 2, by + 3, 2.8], [bx - 6, by + 12, 2.2]], N); tube(g, [[bx + 2, by + 3, 2.8], [bx + 9, by + 6, 2.4], [bx + 9, by + 12, 2]], N); }
+        else { const s = st ? 0 : step; tube(g, [[bx - 2, by + 4, 2.8], [bx - 8, by + 10 - low * 0.5, 2.4], [bx - 8, by + 18 - low - (s > 0 ? 2 : 0), 2]], N); tube(g, [[bx + 2, by + 4, 2.8], [bx + 8, by + 10 - low * 0.5, 2.4], [bx + 8, by + 18 - low - (s < 0 ? 2 : 0), 2]], N); }
+        // body + sash
+        blob(g, bx, by - 3, 7, 8, N); g.line(bx - 6, by - 8, bx + 5, by + 2, 2, Rd.m); g.r(bx - 6, by + 2, 13, 2, Rd.d);
+        // hood, mask, eyes
+        const hx = bx + (st === 2 ? 3 : 1), hy = by - 15;
+        blob(g, hx, hy, 6.5, 6.5, N); g.poly([[hx - 6, hy - 3], [hx - 3, hy - 10], [hx + 2, hy - 7]], N.m);
+        g.r(hx - 3, hy - 1, 9, 3, Sk); g.r(hx - 3, hy + 2, 9, 3, N.d);
+        g.r(hx, hy, 2, 1, st === 1 || st === 2 ? (crit ? '#ffd84a' : '#ff2a2a') : '#1a1020'); g.r(hx + 4, hy, 2, 1, st === 1 || st === 2 ? (crit ? '#ffd84a' : '#ff2a2a') : '#1a1020');
+        // dagger arm: reversed grip in front, raised high to strike, or swept low after the cut
+        const blade = (x, y, a, len) => { const tx = x + Math.cos(a) * len, ty = y + Math.sin(a) * len, nx = -Math.sin(a) * 1.8, ny = Math.cos(a) * 1.8; g.poly([[x + nx, y + ny], [tx, ty], [x - nx, y - ny]], Bl.m); g.line(x, y, tx, ty, 1, Bl.h); g.r(Math.round(x - Math.cos(a) * 2) - 1, Math.round(y - Math.sin(a) * 2) - 1, 3, 3, '#c9a24a'); };
+        if (st === 1) { tube(g, [[bx + 4, by - 8, 2.2], [bx + 8, by - 17, 2], [bx + 10, by - 24, 1.8]], N); blade(bx + 10, by - 25, -1.9, 14); }
+        else if (st === 2) { tube(g, [[bx + 4, by - 7, 2.2], [bx + 13, by - 4, 2], [bx + 20, by - 1, 1.8]], N); blade(bx + 21, by - 1, 0.35, 13); for (let i = 0; i < 4; i++) g.r(bx + 2 + i * 5, by - 21 + i * 4, 4, 1, crit ? '#ffe680' : '#e8ecf4'); }
+        else if (st === 3) { tube(g, [[bx + 4, by - 7, 2.2], [bx + 12, by + 2, 1.8]], N); blade(bx + 12, by + 3, 1.3, 11); }
+        else { tube(g, [[bx + 4, by - 7, 2.2], [bx + 10, by - 2, 2]], N); blade(bx + 10, by - 1, 2.2, 11); }
+        if (crit) for (const [px, py] of [[bx + 14, by - 38], [bx + 22, by - 30], [bx + 4, by - 32]]) { g.p(px, py, '#ffffff'); g.p(px - 1, py, '#ffe680'); g.p(px + 1, py, '#ffe680'); g.p(px, py - 1, '#ffe680'); g.p(px, py + 1, '#ffe680'); }
+        // smoke when it vanishes
+        if (st === 4) for (let i = 0; i < 6; i++) { const a = i * 1.05 + k, r = 10 + (i % 3) * 3; g.ell(bx + Math.cos(a) * r, by - 6 + Math.sin(a) * r * 0.8, 5 - (i % 2), 4, i % 2 ? '#8a8aa0' : '#c8c8d8'); }
+      }, '#06060e');
+    },
+    // ----- storm eagle: throws its wings up and calls three bolts down on you -----
+    stormeagle(P) {
+      const cast = P.st === 'cast' ? 1 : 0, k = P.f % 3;
+      return mk('tbrd' + cast + k, 70, 56, 35, 50, g => {
+        const F = { m: '#2a5ad0', d: '#183a8a', tip: '#ffe14a' }, F2 = { m: '#4a80f0', d: '#2a5ad0', tip: '#fff6a0' }, Wh = { d: '#a8b8d8', m: '#eef4ff', h: '#ffffff' }, Au = { d: '#a87010', m: '#ffc83a', h: '#fff2a0' };
+        const up = cast ? -1.0 : [-0.45, 0, 0.4][k];
+        for (const m of [-1, 1]) {   // wings: raised straight up while it calls the lightning
+          const sx = 35 + m * 6, sy = 26;
+          for (let i = 0; i < 7; i++) { const a = (m > 0 ? 0 : Math.PI) + m * (-0.6 + i * 0.27 + up); feather(g, sx, sy, a, 24 - i * 2, 3.4, i % 2 ? F : F2); }
+          if (cast) for (let i = 0; i < 2; i++) { const a = (m > 0 ? 0 : Math.PI) + m * (-1.4 + i * 0.4), x0 = sx + Math.cos(a) * 18, y0 = sy + Math.sin(a) * 18; g.line(x0, y0, x0 + m * 3, y0 - 4, 1, '#fff6a0'); g.line(x0 + m * 3, y0 - 4, x0, y0 - 8, 1, '#fff6a0'); }
+        }
+        // tail feathers + talons
+        for (let i = 0; i < 3; i++) feather(g, 35, 36, Math.PI / 2 + (i - 1) * 0.4, 12, 2.6, i === 1 ? F2 : F);
+        for (const m of [-1, 1]) { g.line(35 + m * 3, 36, 35 + m * 4, 42, 1.6, Au.d); for (const c of [-2, 0, 2]) spike(g, 35 + m * 4 + c, 43, Math.PI / 2 + c * 0.2, 3, 0.8, Au); }
+        // body and head
+        blob(g, 35, 30, 7, 8, { d: F.d, m: F.m, h: F2.m }); g.ell(35, 32, 4, 5, Wh.m);
+        blob(g, 36, 17, 6.5, 6, Wh);
+        g.poly([[40, 16], [48, 18], [44, 20], [40, 21]], Au.m); g.poly([[40, 19], [44, 20], [40, 21]], Au.d);
+        // lightning crest
+        g.poly([[32, 11], [34, 3], [36, 9], [39, 1], [39, 11]], Au.m); g.p(34, 5, Au.h); g.p(38, 4, Au.h);
+        g.r(37, 15, 2, 2, cast ? '#ffffff' : '#1a2a5a'); if (cast) g.p(36, 15, '#ffe14a');
+        g.line(34, 14, 38, 14, 1, '#1a2a5a');
+        if (cast) for (let i = 0; i < 5; i++) { const a = i * 1.26 + k * 0.4, r = 15; g.p(35 + Math.round(Math.cos(a) * r), 26 + Math.round(Math.sin(a) * r * 0.8), i % 2 ? '#ffffff' : '#ffe14a'); }
+      }, '#0a1430');
+    },
+    // ----- dullahan: a headless knight that carries its own head. It lifts the head high, then hurls it -----
+    dullahan(P) {
+      const st = P.st === 'wind' ? 1 : P.head === false ? 2 : 0, k = P.f % 2, step = P.step || 0;
+      return mk('dulh' + st + k + step, 58, 60, 26, 56, g => {
+        const A = { d: '#1e1a2e', m: '#3e3658', h: '#6e64a0' }, Au = '#d0a84a', Cp = { d: '#3a0a2a', m: '#6a1a4a' }, Gh = ['#2a6aff', '#6ab0ff', '#d8f0ff'];
+        // cape
+        g.poly([[16, 22], [32, 22], [36, 50 + k], [26, 47], [12, 50 - k]], Cp.m); g.poly([[24, 22], [32, 22], [36, 50 + k], [26, 47]], Cp.d);
+        // legs
+        for (const [x, o] of [[19, step > 0 ? -2 : 0], [28, step < 0 ? -2 : 0]]) { bevel(g, x, 40 + o, 6, 10, A); g.r(x - 1, 49 + o, 8, 3, '#0e0a18'); }
+        // armour: breastplate, gold trim, pauldrons
+        bevel(g, 15, 22, 19, 19, A); g.r(15, 30, 19, 2, Au); g.r(23, 22, 2, 19, A.d); g.r(15, 39, 19, 2, '#2a1e10');
+        for (const m of [-1, 1]) { blob(g, 24 + m * 10, 23, 5.5, 4.5, A); g.r(24 + m * 10 - 4, 26, 8, 1, Au); }
+        // the neck: no head, just a cold blue flame
+        const fl = st === 2 ? 3 : st === 1 ? 1 : 0;
+        g.ell(24, 20, 5, 2, '#0e0a18'); g.poly([[20, 20], [22 + k, 12 - fl], [24, 17], [26 - k, 10 - fl], [28, 20]], Gh[0]); g.poly([[22, 20], [24 - k, 14 - fl], [26, 20]], Gh[1]); g.p(24, 18, Gh[2]);
+        // sword arm (near side)
+        tube(g, [[34, 25, 3], [37, 34, 2.6]], A); g.line(38, 35, 38, 14, 2.4, '#c8d0dc'); g.line(37, 34, 37, 15, 1, '#ffffff'); g.r(35, 35, 7, 2, Au); g.r(37, 37, 3, 4, '#4a2a14');
+        // the head: tucked under the arm, lifted high over the neck, or gone (thrown)
+        const head = (x, y) => { blob(g, x, y, 6, 6, A); g.r(x - 5, y - 1, 10, 2, '#0a0814'); g.r(x - 3, y - 1, 2, 2, Gh[1]); g.r(x + 1, y - 1, 2, 2, Gh[1]); g.p(x - 3, y - 1, Gh[2]); g.p(x + 1, y - 1, Gh[2]); g.r(x - 1, y - 9, 2, 4, '#c02a4a'); g.r(x - 3, y - 7, 6, 1, Au); };
+        if (st === 1) { tube(g, [[14, 25, 3], [10, 18, 2.6], [12, 14, 2.4]], A); head(14, 10); for (let i = 0; i < 3; i++) g.p(8 + i * 6, 1 + (i % 2) * 2 + k, Gh[2]); }
+        else if (st === 2) { tube(g, [[14, 25, 3], [8, 22, 2.6], [3, 22, 2.4]], A); blob(g, 3, 23, 2.6, 2.6, A); }
+        else { tube(g, [[14, 25, 3], [11, 32, 2.6]], A); head(11, 34); }
+      }, '#060410');
+    },
+    // the dullahan's head in flight (spins as it goes)
+    dlhead(P) {
+      const k = P.f % 4;
+      return mk('dlhd' + k, 22, 22, 11, 11, g => {
+        const A = { d: '#1e1a2e', m: '#3e3658', h: '#6e64a0' }, Au = '#d0a84a';
+        const ox = [0, 1, 0, -1][k], oy = [0, 0, 1, 0][k];
+        blob(g, 11, 12, 7, 7, A); g.r(5 + ox, 10 + oy, 12, 3, '#0a0814');
+        g.r(7 + ox, 10 + oy, 3, 2, '#6ab0ff'); g.r(12 + ox, 10 + oy, 3, 2, '#6ab0ff'); g.p(7 + ox, 10 + oy, '#ffffff'); g.p(12 + ox, 10 + oy, '#ffffff');
+        g.r(10, 2, 2, 5, '#c02a4a'); g.r(7, 5, 8, 1, Au);
+        g.r(8, 17, 6, 2, '#2a6aff'); g.p(10, 19 + (k % 2), '#6ab0ff');
+      }, '#060410');
+    },
+    // ----- blade shark: circles under the floor with only its fin out, then bursts out jaws first -----
+    shark(P) {
+      const st = P.st === 'leap' ? 1 : P.st === 'flop' ? 2 : 0, k = P.f % 2;
+      return mk('shrk' + st + k, 66, 46, 33, 40, g => {
+        const S = { d: '#2e4660', m: '#5a7a9a', h: '#9ab8d4' }, Wb = '#e8eef4', Fn = { d: '#1e3048', m: '#4a6a8a', h: '#8aa8c8' };
+        const arch = st === 1 ? -5 : 0, tail = st === 2 ? (k ? -6 : 2) : st === 1 ? 5 : k * 2 - 1;
+        // tail fin
+        g.poly([[14, 28 + arch * 0.4], [3, 18 + tail], [7, 28], [3, 38 + tail * 0.5]], Fn.m); g.poly([[14, 28], [7, 28], [3, 38 + tail * 0.5]], Fn.d);
+        // body: arched upward in the leap
+        tube(g, [[13, 28, 4], [24, 26 + arch * 0.6, 8], [38, 25 + arch, 9.5], [50, 27 + arch * 0.6, 7]], S);
+        g.ell(38, 30 + arch, 10, 3.6, Wb); g.ell(26, 30 + arch * 0.6, 7, 2.6, Wb);
+        // dorsal fin and side fin
+        g.poly([[30, 18 + arch], [37, 5 + arch], [40, 18 + arch]], Fn.m); g.poly([[35, 10 + arch], [37, 5 + arch], [40, 18 + arch], [36, 18 + arch]], Fn.d);
+        g.poly([[36, 31 + arch], [30, 40 + arch], [40, 33 + arch]], Fn.d);
+        for (let i = 0; i < 3; i++) g.line(44 - i * 2.5, 23 + arch, 43 - i * 2.5, 28 + arch, 1, S.d);   // gills
+        // head + jaws: wide open with rows of teeth in the leap
+        const hx = 52, hy = 26 + arch * 0.6;
+        if (st === 1) {
+          g.poly([[hx - 4, hy - 6], [hx + 12, hy - 10], [hx + 9, hy - 4], [hx - 2, hy]], S.m); g.poly([[hx - 4, hy + 6], [hx + 10, hy + 10], [hx + 8, hy + 5], [hx - 2, hy + 1]], S.d);
+          g.poly([[hx - 2, hy], [hx + 9, hy - 4], [hx + 8, hy + 5]], '#5a0a14');
+          for (let i = 0; i < 4; i++) { g.poly([[hx + i * 2.5, hy - 3 - i], [hx + 1 + i * 2.5, hy - i * 0.6], [hx + 2 + i * 2.5, hy - 3 - i]], '#ffffff'); g.poly([[hx + i * 2.3, hy + 3 + i], [hx + 1 + i * 2.3, hy + i * 0.6], [hx + 2 + i * 2.3, hy + 3 + i]], '#ffffff'); }
+          g.r(hx - 1, hy - 6, 2, 2, '#ff2a2a');
+        } else {
+          g.poly([[hx - 4, hy - 6], [hx + 12, hy - 2], [hx + 10, hy + 3], [hx - 4, hy + 5]], S.m); g.line(hx, hy + 3, hx + 10, hy + 2, 1, '#1a2030');
+          for (let i = 0; i < 3; i++) g.p(hx + 2 + i * 3, hy + 3, '#ffffff');
+          g.r(hx, hy - 3, 2, 2, st === 2 ? '#ffffff' : '#0a0a14'); if (st === 2) g.p(hx + 1, hy - 2, '#0a0a14');
+        }
+        if (st === 2) for (let i = 0; i < 3; i++) g.p(20 + i * 12 + k * 3, 42 - (i % 2) * 2, '#a8d8ff');   // flapping on the floor
+      }, '#0a1420');
+    },
+    // the fin you see while it's under the floor
+    sharkfin(P) {
+      const k = P.f % 3, rise = P.st === 'wind' ? 1 : 0;
+      return mk('sfin' + k + rise, 34, 24, 17, 20, g => {
+        const Fn = { d: '#1e3048', m: '#4a6a8a', h: '#8aa8c8' };
+        const h = rise ? 17 : 12;
+        g.poly([[9, 20], [17 + (rise ? 1 : 0), 20 - h], [23, 20]], Fn.m); g.poly([[15, 20 - h * 0.6], [17 + (rise ? 1 : 0), 20 - h], [23, 20], [16, 20]], Fn.d); g.line(10, 19, 16, 21 - h, 1, Fn.h);
+        g.ell(16, 20, 13 - k, 2.4, '#a8d8ff'); g.ell(16, 20, 9, 1.4, '#e8f6ff');
+        for (let i = 0; i < 3; i++) g.p(3 + i * 4 + k * 2, 21 + (i % 2), '#ffffff');
+      }, '#0a1420');
+    },
+    // ----- basilisk: the crowned lizard. Rears up and spreads its frill; its stare turns you to stone -----
+    basilisk(P) {
+      const st = P.st === 'wind' ? 1 : P.st === 'gaze' ? 2 : 0, k = P.f % 2, step = P.step || 0;
+      return mk('basl' + st + k + (st ? 0 : step), 70, 52, 34, 46, g => {
+        const G = { d: '#3a4a1a', m: '#6a8a3a', h: '#a8c868' }, Bel = '#e0d8a0', Sp = '#6a3a8a', Cr = { d: '#8a2a1a', m: '#d84a2a', h: '#ffb060' }, Fr = { d: '#5a1a5a', m: '#a03aa0', h: '#e07ae0' };
+        const rear = st ? 5 : 0;
+        // tail
+        tube(g, [[24, 36, 6], [14, 38, 4.6], [6, 34 + k, 3], [2, 29 + k * 2, 1.6]], G, { scale: 1 });
+        // legs
+        for (const [x, o, far] of [[22, step > 0 ? -2 : 0, 1], [40, step < 0 ? -2 : 0, 1], [26, step < 0 ? -2 : 0, 0], [44, step > 0 ? -2 : 0, 0]]) { const C = far ? { d: '#26300e', m: '#4a5e28', h: '#6a8a3a' } : G; tube(g, [[x, 36, 3], [x + 2, 42 + o, 2.4]], C); g.r(x - 1, 43 + o, 6, 2, C.d); }
+        // body (front half lifts up as it rears)
+        tube(g, [[22, 36, 7], [34, 35 - rear * 0.4, 8.5], [44, 32 - rear, 7]], G, { belly: { c: Bel, s: '#b8a870' }, scale: 1 });
+        for (const [px, py] of [[28, 30], [34, 29], [40, 27 - rear]]) { g.ell(px, py, 2, 1.4, Sp); }
+        // frill: spread wide like a fan when it means to stare
+        const hx = 52, hy = 26 - rear * 1.6;
+        if (st) { for (let i = 0; i < 7; i++) { const a = -Math.PI / 2 - 1.2 + i * 0.4; g.poly([[hx - 4, hy], [hx - 4 + Math.cos(a) * 15, hy + Math.sin(a) * 15], [hx - 4 + Math.cos(a + 0.3) * 13, hy + Math.sin(a + 0.3) * 13]], i % 2 ? Fr.m : Fr.d); } g.ell(hx - 4, hy, 6, 6, Fr.h); }
+        // head
+        tube(g, [[44, 32 - rear, 6], [hx, hy, 6]], G);
+        g.poly([[hx - 2, hy - 4], [hx + 12, hy - 1], [hx + 12, hy + 3], [hx - 2, hy + 5]], G.m); g.r(hx, hy + 3, 12, 1, G.d);
+        if (st === 2) { g.poly([[hx, hy + 3], [hx + 12, hy + 3], [hx + 10, hy + 8], [hx, hy + 6]], '#4a0a1a'); g.p(hx + 4, hy + 4, '#ffffff'); g.p(hx + 8, hy + 4, '#ffffff'); }
+        // crown of spikes
+        for (let i = 0; i < 3; i++) spike(g, hx - 2 + i * 3, hy - 4, -Math.PI / 2 - 0.5 + i * 0.3, 6 + (i === 1 ? 2 : 0), 1.4, Cr);
+        // eye: glowing hard when it rears
+        if (st) { g.ell(hx + 4, hy - 1, 2.6, 2.2, '#e8ff7a'); g.r(hx + 4, hy - 2, 1, 3, '#2a0a2a'); if (st === 2) for (let i = 0; i < 3; i++) g.line(hx + 7, hy - 1, hx + 16, hy - 4 + i * 3, 1, '#f0ffb0'); }
+        else { g.ell(hx + 4, hy - 1, 1.8, 1.6, '#e0c040'); g.p(hx + 4, hy - 1, '#1a0a1a'); }
+      }, '#0e1404');
+    },
+    // ----- nightmare clown: never stops juggling. Juggles faster and faster, then throws three bouncing balls -----
+    clown(P) {
+      const st = P.st === 'aim' ? 1 : P.st === 'throw' ? 2 : 0, f = st === 1 ? P.f % 3 : Math.floor(P.f / 2) % 3, step = P.step || 0;
+      return mk('clwn' + st + f + (st ? 0 : step), 54, 70, 26, 66, (g, x) => {
+        x.translate(0, 6);
+        const Pu = { d: '#4a1a7a', m: '#8a3ad8', h: '#c08aff' }, Ye = { d: '#a87a10', m: '#ffd23a', h: '#fff2a0' }, Wh = '#f4f0f8', Rd = '#e02a3a', BC = ['#ff4a5a', '#4ad0ff', '#ffe14a'];
+        // legs + shoes
+        for (const [x, o, C] of [[20, step > 0 ? -2 : 0, Pu], [28, step < 0 ? -2 : 0, Ye]]) { bevel(g, x, 47 + o, 5, 8, C); g.ell(x + 3, 56 + o, 5, 2.4, Rd); }
+        // two-tone suit with pompoms
+        g.poly([[16, 32], [26, 32], [26, 49], [15, 49]], Pu.m); g.poly([[26, 32], [36, 32], [37, 49], [26, 49]], Ye.m); g.r(15, 47, 22, 2, Pu.d);
+        for (const y of [36, 42]) { g.ell(26, y, 1.8, 1.8, Wh); }
+        // ruffled collar
+        for (let i = 0; i < 6; i++) g.ell(17 + i * 3.6, 31 + (i % 2), 2.6, 2, i % 2 ? '#d8d0e8' : Wh);
+        // arms: alternate up and down with the juggling, or one flung forward in the throw
+        const juggle = st !== 2, up = f % 2;
+        if (st === 2) { tube(g, [[34, 34, 2.4], [42, 30, 2], [48, 28, 1.8]], Ye); blob(g, 49, 28, 2.4, 2.4, { d: '#c8c0d8', m: Wh, h: '#ffffff' }); tube(g, [[17, 34, 2.4], [12, 40, 2]], Pu); }
+        else { tube(g, [[17, 34, 2.4], [12, up ? 24 : 30, 2], [14, up ? 18 : 25, 1.8]], Pu); tube(g, [[35, 34, 2.4], [40, up ? 30 : 24, 2], [38, up ? 25 : 18, 1.8]], Ye); for (const [x, y] of [[14, up ? 17 : 24], [38, up ? 24 : 17]]) blob(g, x, y, 2.4, 2.4, { d: '#c8c0d8', m: Wh, h: '#ffffff' }); }
+        // face: white, red nose, an unsettling grin
+        blob(g, 26, 23, 7.5, 7, { d: '#c8c0d8', m: Wh, h: '#ffffff' });
+        g.r(22, 20, 2, 2, '#1a1020'); g.r(28, 20, 2, 2, '#1a1020'); g.r(22, 17, 2, 2, '#4a7ad8'); g.r(28, 17, 2, 2, '#4a7ad8');
+        g.ell(26, 24, 2, 2, Rd); g.p(25, 23, '#ffb0b0');
+        g.poly([[21, 26], [31, 26], [29, 29], [23, 29]], st ? '#6a0a1a' : Rd); g.r(23, 26, 6, 1, '#ffffff');
+        // jester hat with bells
+        g.poly([[18, 17], [26, 12], [34, 17]], Pu.m); g.poly([[19, 15], [10, 6 + up], [24, 13]], Pu.m); g.poly([[33, 15], [42, 6 - up], [28, 13]], Ye.m);
+        g.ell(10, 6 + up, 2, 2, Ye.m); g.ell(42, 6 - up, 2, 2, Pu.h); g.r(18, 16, 16, 2, Ye.d);
+        // the three balls on their loop
+        if (juggle) {
+          const pts = [[13, 12], [26, 2], [39, 12], [32, 14], [20, 14]];
+          for (let i = 0; i < 3; i++) { const [bx, by] = pts[(f + i * 2) % 5]; blob(g, bx, by - 6 + (st === 1 ? -2 : 0), 3, 3, { d: '#3a1020', m: BC[i], h: '#ffffff' }); }
+          if (st === 1) for (let i = 0; i < 3; i++) g.r(10 + i * 14, -2 + (i % 2) * 6, 3, 1, '#ffffff');
+        }
+      }, '#10061a');
+    },
   };
   // wolf / hellhound share the body
   function wolfish(P, key, C) {
