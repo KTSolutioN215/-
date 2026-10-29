@@ -3519,7 +3519,8 @@
     const step = moving ? (Math.sin((globalT + e.phase) * 11) > 0 ? 1 : -1) : 0;
     const arm = zakoArm(e), bx = arm ? x + arm.lean * SPR.SCALE * (hero.x < e.x - 2 ? -1 : 1) : x, byy = arm ? yy + arm.cr * SPR.SCALE : yy;   // the body leans back into the wind-up and steps into the blow
     const spr = SPR.enemy(e.type, { st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step: arm && arm.sp != null ? Math.round(arm.sp) : step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm });
-    SPR.draw(ctx, spr, bx, byy + r * 0.75);
+    if(R3[e.type] && R3[e.type].enemy) drawR3Enemy(e,R3[e.type],x,yy+r*.75,hurt);
+    else SPR.draw(ctx, spr, bx, byy + r * 0.75);
     if (e.ai === 'swing' && e.st === 'slash') { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(x, yy, (e.mod.reach || 72) - 8, -e.face - 1.25, -e.face + 1.25); ctx.stroke(); }
     if (e.ai === 'assassin' && e.st === 'slash') { ctx.strokeStyle = e.critNext ? 'rgba(255,220,90,.75)' : 'rgba(255,255,255,.55)'; ctx.lineWidth = e.critNext ? 12 : 9; ctx.beginPath(); ctx.arc(x, yy, 60, -e.face - 1.2, -e.face + 1.2); ctx.stroke(); }
     if (telegraph && e.ai !== 'swing') { const top = yy + r * 0.75 - (spr ? spr.ay * SPR.SCALE : r * 2), mk2 = e.critNext ? '!!' : '!'; ctx.fillStyle = e.critNext ? '#ffd23a' : '#ff4040'; ctx.strokeStyle = '#1a1420'; ctx.lineWidth = 3; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'center'; ctx.strokeText(mk2, x, top - 2); ctx.fillText(mk2, x, top - 2); }
@@ -3595,7 +3596,7 @@
   }
 
   function drawSweeps(B, x, y, r) {   // weapons
-    for (const s of B.sweeps) {
+    for (const [si,s] of B.sweeps.entries()) {
       if (s.crab && s.t >= s.tele) continue;   // the crab's own claws are the blades
       const ex = x + Math.cos(s.ang) * s.len, ey = y - Math.sin(s.ang) * s.len;
       if (s.t < s.tele) {
@@ -3606,7 +3607,7 @@
         continue;
       }
       for (let k = 1; k <= 4; k++) { const a = s.ang - Math.sign(s.vel) * k * 0.09; ctx.strokeStyle = hexA(s.col, 0.18 / k * 2); ctx.lineWidth = s.w * 2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * s.len, y - Math.sin(a) * s.len); ctx.stroke(); }
-      if (s.own) continue;   // the boss swings its own club (drawn with the body); only the blur trail above
+      if (s.own || (R3[B.type] && R3[B.type].dual && si<2)) continue;   // the two held blades already draw their own weapons
       ctx.strokeStyle = s.col; ctx.lineWidth = s.w * (s.kind === 'club' || s.kind === 'tail' ? 2 : 1.2); ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(x + Math.cos(s.ang) * r * 0.6, y - Math.sin(s.ang) * r * 0.6); ctx.lineTo(ex, ey); ctx.stroke(); ctx.lineCap = 'butt';
       if (s.kind === 'scythe') { ctx.strokeStyle = s.col; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(ex, ey, 22, -s.ang - Math.sign(s.vel) * 0.2, -s.ang + Math.sign(s.vel) * 2.2, s.vel > 0); ctx.stroke(); }
@@ -3833,6 +3834,24 @@
       },
     },
   };
+  // Additional humanoids: normalized motion scales with body size, while combat stays in world units.
+  const H3R = {
+    armor: { enemy: true, motion: .6, hipY: -15, hipX: 5, L1: 7.8, L2: 7.8, ank: -3, shY: -17, shX: 10, neckY: -17, A1: 7.2, A2: 6.6, reach: 21, shield: true, height: 58, pose: { base: { oh: [-2,8,14], wid: 7, stride: 6 }, rest: { sw: [0,-.7,.7] } } },
+    dwarf: { enemy: true, motion: .6, hipY: -13, hipX: 5, L1: 7.8, L2: 7.8, ank: -3, shY: -14, shX: 12, neckY: -14, A1: 7.2, A2: 6.6, reach: 20, height: 54, pose: { base: { wid: 9, stride: 5 }, up: { hd: [0,-18,-2], pitch: -.08 }, slam: { drop: 4, pitch: .18, stride: 11 } } },
+    angel: { enemy: true, motion: .55, hipY: -15, hipX: 5, L1: 7.2, L2: 7.2, ank: -3, shY: -20, shX: 10, neckY: -22, A1: 6.6, A2: 6.05, reach: 27, wings: true, float: true, height: 66, pose: { base: { wid: 7, stride: 4, drop: 0 }, rest: { sw: [.2,-.7,.6] } } },
+    dullahan: { enemy: true, motion: .6, hipY: -15, hipX: 5, L1: 7.8, L2: 7.8, ank: -3, shY: -18, shX: 10, neckY: -21, A1: 7.2, A2: 6.6, reach: 21, capeY: -19, capeH: 38.4, carriedHead: true, height: 62, pose: { base: { wid: 7, stride: 6, oh: [-2,18,4] }, rest: { sw: [0,-.85,.5] }, headLift: { hd: [3,16,4], sw: [0,-.85,.5], oh: [-3,-19,-3], drop: -1, yaw: -.15 }, headThrow: { hd: [3,16,4], sw: [0,-.85,.5], oh: [-2,-2,21], drop: 3, pitch: .13, yaw: .2, stride: 10 } } },
+    ghostcaptain: { motion: 1, hipY: -38, hipX: 7, L1: 11, L2: 11, ank: -3, shY: -28, shX: 18, neckY: -34, A1: 12, A2: 12, reach: 38, legs: false, tail: true, skirt: true, float: true, hook: true, pose: { base: { drop: 0, stride: 4, pitch: .03 }, rest: { hd: [3,18,7], oh: [-4,12,6], sw: [.2,-.65,.7] }, point: { oh: [-3,-4,19] } } },
+    cyclops: { motion: 1.35, hipY: -34, hipX: 13, L1: 17.55, L2: 17.55, ank: -8, shY: -30, shX: 26, neckY: -35, A1: 19, A2: 18, reach: 65, twoHand: true, pose: { base: { wid: 10, stride: 6, hd: [-18,8,7], freeHand: 0, heldRock: 0 }, rest: { hd: [-18,8,7], sw: [.4,-.85,.3] }, ready: { hd: [-18,1,11] }, up: { hd: [-18,-12,-4], sw: [.1,-.6,-.8] }, slam: { hd: [-18,8,13], drop: 5, stride: 12, pitch: .2 }, low: { hd: [-18,14,-3], drop: 5 }, hi: { hd: [-18,-12,9] }, sideB: { hd: [-16,-2,-8], yaw: .4 }, thrust: { hd: [-18,0,15], pitch: .2, stride: 12 }, rockUp: { hd: [1,15,5], sw: [.2,-.8,.5], oh: [-3,-17,-6], heldRock: 1, freeHand: 1, drop: -1 }, rockThrow: { hd: [1,15,5], sw: [.2,-.8,.5], oh: [-3,-3,21], freeHand: 1, drop: 3, pitch: .16 } } },
+    shadowhero: { motion: 1, hipY: -27, hipX: 7, L1: 13, L2: 13, ank: -4, shY: -27, shX: 16, neckY: -28, A1: 12, A2: 11, reach: 45, capeY: -27, capeH: 64, shield: true, pose: { base: { oh: [-1,8,13], wid: 6, stride: 7 }, ready: { oh: [1,2,18] }, thrust: { oh: [1,2,18] }, point: { oh: [1,1,18] } } },
+    demongeneral: { motion: 1.15, hipY: -33, hipX: 9, L1: 14.95, L2: 14.95, ank: -5, shY: -35, shX: 24, neckY: -40, A1: 13.8, A2: 12.65, reach: 46, capeY: -35, capeH: 73.6, dual: true, pose: { base: { wid: 8, stride: 7 }, rest: { hd: [4,18,6], sw: [.3,.9,.3] }, sideB: { hd: [12,-4,-8], yaw: .5 }, sideF: { hd: [-10,2,17], yaw: -.5 } } },
+    fallenangel: { motion: 1, hipY: -48, hipX: 8, L1: 13, L2: 13, ank: -5, shY: -24, shX: 19, neckY: -20, A1: 12, A2: 11, reach: 49, legs: false, wings: true, skirt: true, float: true, pose: { base: { drop: 0, stride: 4 }, rest: { hd: [3,17,4], sw: [.1,-.9,.4], oh: [-3,12,6] }, up: { oh: [-4,-15,7], pitch: -.08 }, slam: { drop: 2, pitch: .16 }, point: { oh: [-3,-9,17] } } },
+  };
+  H3R.shadowarmor = Object.assign({}, H3R.armor);
+  for (const type in H3R) {
+    const d = H3R[type], p = 'h3_' + type;
+    R3[type] = Object.assign({ p, sword: p+'_weapon', hand: p+'_hand', upper: p+'_upper', fore: p+'_fore', cape: false }, d, { cape: !!d.capeH, pose: d.pose || { base: {} } });
+  }
+
   const P3B = { hd: [3, 19, 5], sw: [0.1, 0.95, 0.3], oh: [-3, 19, 3], drop: 1, sz: 0, pitch: 0.02, yaw: 0, stride: 4, wid: 6, lf: 0, lb: 0, fz: 0, nz: 0 };
   const p3 = o => Object.assign({}, P3B, o);
   const P3 = {   // hd: weapon hand from its shoulder, sw: weapon direction, oh: free hand; drop/sz: hips down/forward; pitch: lean in; yaw: shoulders turned (+ = weapon side back); stride: feet apart front-to-back; lf/lb: lift the front/back foot
@@ -3878,13 +3897,38 @@
   }
   function r3Pose(B) {
     const mv = B.mv, p2 = B.phase === 2, b = Math.sin(globalT * 2.2);
-    const custom = R3[B.type].pose, Q = q => Object.assign({}, P3[q] || P3.rest, custom && custom.base, custom && custom[q]);
+    const def = R3[B.type], custom = def.pose, Q = q => Object.assign({}, P3[q] || P3.rest, custom && custom.base, custom && custom[q]);
+    const scaled = p => {
+      if (!def.motion) return p;
+      const r = Object.assign({}, p), m = def.motion;
+      for (const k of ['hd','oh']) r[k] = p[k].map(v => v*m);
+      for (const k of ['drop','sz','stride','wid','lf','lb','fz','nz']) r[k] = p[k]*m;
+      if (def.float) { r.drop *= .25; r.lf = r.lb = 0; r.fz *= .12; r.nz *= .12; r.stride *= .35; }
+      if (def.shield && !def.carriedHead) r.oh = Q('ready').oh.map(v => v*m);
+      if (def.dual) { r.oh = [-r.hd[0],r.hd[1],r.hd[2]]; r.osw = [-r.sw[0],r.sw[1],r.sw[2]]; }
+      return r;
+    };
     const rest = custom ? Object.assign({}, Q('rest'), { drop: Q('rest').drop + b * 0.4, hd: Q('rest').hd.map((v, i) => i === 1 ? v - b * 0.35 : v) }) : p3({ drop: 1 + b * 0.5, sw: [0.1, 0.95, 0.3 + b * 0.05], hd: [3, 19 - b * 0.4, 5] });
-    if (!mv) return settle(B, null, rest);
+    if (!mv) return settle(B, null, scaled(rest));
     const n = mv.name.split(':')[0], t = mv.t, K = s => keysAt(Q, s, t);
     const walk = (spd, st) => { const ph = globalT * spd; return { stride: 0, fz: Math.sin(ph) * st, nz: -Math.sin(ph) * st, lf: Math.max(0, Math.cos(ph)) * 3, lb: Math.max(0, -Math.cos(ph)) * 3 }; };
     let p;
-    if ((n === 'sweep' || n === 'twin') && B.sweeps.length) { const sw = B.sweeps[0], act = sw.t >= sw.tele; p = Object.assign({}, Q(act ? 'thrust' : 'sideB'), act ? { hd: [6, -2, custom ? 18 : 21], sw: [0, 0, 1], drop: custom ? 3 : 6, stride: custom ? 11 : 16 } : {}, { sweep: sw }); }
+    if (n === 'enemyWind') p = K([[0,'rest'],[.42,'up']]);
+    else if (n === 'enemySlash') p = K([[0,'up'],[.06,'slam','in'],[.2,'low']]);
+    else if (n === 'headLift') p = K([[0,'rest'],[.5,'headLift'],[.65,'headLift']]);
+    else if (n === 'headThrow') p = K([[0,'headThrow'],[.18,'headThrow'],[.65,'ready']]);
+    else if ((n === 'sweep' || n === 'twin' || n === 'whirlblade') && B.sweeps.length) { const sw = B.sweeps[0], act = sw.t >= sw.tele; p = Object.assign({}, Q(act ? 'thrust' : 'sideB'), act ? { hd: def.twoHand ? [-18,3,10] : [6, -2, custom ? 18 : 21], sw: [0, 0, 1], drop: custom ? 3 : 6, stride: custom ? 11 : 16 } : {}, { sweep: sw }); }
+    else if (n === 'boulders' && def.twoHand) {
+      const keys = [[0,'rest']];
+      for(let i=0;i<(p2?3:2);i++){const at=.6+i*.5;keys.push([at-.25,'rockUp'],[at,'rockThrow','in'],[at+.12,'rockThrow']);}
+      keys.push([2.3,'rest']);p=K(keys);
+    }
+    else if (n === 'cannons') p = K(hits(p2?[.2,1.8]:[.2],'up','point',.18));
+    else if (n === 'pillars') p = K(hits(p2?[.2,1.2,2.2]:[.2,1.2],'up','point',.18));
+    else if (n === 'mirror') p = K([[0,'point'],[.7,'point'],[1,'sideF','in'],[1.5,'rest']]);
+    else if (n === 'warp') p = K([[0,'ready'],[.4,'low'],[.75,'hi','in'],[1.4,'rest']]);
+    else if (n === 'rain') p = K(hold(.4,2.3));
+    else if (n === 'summon' || n === 'homing' || n === 'spiral' || n === 'spiral3' || n === 'gapring') p = K(hold(.35,1.8));
     else if (n === 'bombs' && B.type === 'goblinking') {
       // The free hand throws at exactly the three/five existing launch times; the club stays in the other hand.
       const keys = [[0, 'rest']];
@@ -3905,14 +3949,36 @@
     else if (n === 'cross') p = K(hold(0.6, 3.6));
     else if (n === 'wave') p = K(hold(0.4, 2.2));
     else p = K([[0, 'rest'], [0.3, 'up'], [0.5, 'slam', 'in'], [0.7, 'slam'], [1.1, 'rest']]);
-    return settle(B, p, rest);
+    return settle(B, scaled(p), scaled(rest));
+  }
+  // Render-only adapter: read the enemy's real attack state; never advance its AI or change combat timers.
+  function drawR3Enemy(e, def, x, yFeet, fl) {
+    const B = e.r3B || (e.r3B = { type:e.type, phase:1, sweeps:[] });
+    B.x=e.x; B.y=e.y; B.headOut=!!e.headOut;
+    const name=e.st==='wind'?(def.carriedHead?'headLift':'enemyWind'):e.st==='slash'?'enemySlash':e.st==='throw'?'headThrow':hyp(e.vx,e.vy)>12?'stalk':null;
+    if(name) {
+      if(!B.mv || B.mv.name!==name) B.mv={name,t:0,f3:face4(e.face == null ? Math.atan2(hero.y-e.y,hero.x-e.x) : e.face)};
+      B.mv.t=e.t; if(name==='stalk') B.mv.f3=face4(Math.atan2(hero.y-e.y,hero.x-e.x));
+    } else B.mv=null;
+    drawR3(B,def,x,yFeet,fl);
   }
   function drawR3(B, def, x, yFeet, fl) {
     const K = SPR.SCALE, p = r3Pose(B), f = r3Face(B, p), v = f === 'f' ? 'f' : f === 'b' ? 'b' : 's', mir = f === 'l' ? -1 : 1, P2 = B.phase === 2 ? 1 : 0;
     const S = q => { const r = proj3(f, q); return [x + r[0] * K, yFeet + r[1] * K, r[2]]; }, dp = q => proj3(f, q)[2];
     const hip = [0, def.hipY + p.drop, p.sz], R = q => rot3(q, p.yaw, p.pitch), T = q => V3.add(hip, R(q));
     const shS = T([def.shX, def.shY, 0]), shO = T([-def.shX, def.shY, 0]);
-    const [elS, hS] = ik3(shS, V3.add(shS, R(p.hd)), def.A1, def.A2, R([0.7, 0.6, -0.4])), [elO, hO] = ik3(shO, V3.add(shO, R(p.oh)), def.A1, def.A2, R([-0.7, 0.6, -0.4]));
+    let targetS=V3.add(shS,R(p.hd));
+    if(def.twoHand && !p.freeHand) {
+      // A shared grip must be reachable by both arms, including while winding up.
+      // Project it into the intersection of their reach spheres before solving either elbow.
+      const gripGap=V3.mul(norm3(R(p.sw)),6), reach=def.A1+def.A2-.35;
+      for(let i=0;i<12;i++)for(const center of [shS,V3.sub(shO,gripGap)]) {
+        const d=V3.sub(targetS,center),len=V3.len(d);if(len>reach)targetS=V3.add(center,V3.mul(d,reach/len));
+      }
+    }
+    const [elS, hS] = ik3(shS, targetS, def.A1, def.A2, R([0.7, 0.6, -0.4]));
+    const offTarget = def.twoHand && !p.freeHand ? V3.add(hS,V3.mul(norm3(R(p.sw)),6)) : V3.add(shO,R(p.oh));
+    const [elO, hO] = ik3(shO, offTarget, def.A1, def.A2, R([-0.7, 0.6, -0.4]));
     const hipS = V3.add(hip, rot3([def.hipX, 0, 0], p.yaw * 0.5, 0)), hipO = V3.add(hip, rot3([-def.hipX, 0, 0], p.yaw * 0.5, 0));
     const ftO = [-p.wid, def.ank - p.lf, p.stride / 2 + p.fz + p.sz * 0.4], ftS = [p.wid, def.ank - p.lb, -p.stride / 2 + p.nz + p.sz * 0.4];
     const [knS, aS] = ik3(hipS, ftS, def.L1, def.L2, [0.15, 0, 1]), [knO, aO] = ik3(hipO, ftO, def.L1, def.L2, [-0.15, 0, 1]);
@@ -3921,16 +3987,25 @@
     const spr = (part, P, at, rot, d, sy2 = 1) => add(d, () => { const A = S(at); pd(P_(part, P, fl), A[0], A[1], rot, mir, sy2); });
     const mid = (a, b) => V3.mul(V3.add(a, b), 0.5);
     // the cape hangs from the shoulders to the floor and trails the lunge
-    const capeTop = T([0, def.capeY, -5]), cT = S(capeTop);
-    add(v === 'b' ? 0.5 : -40, () => pd(P_(def.p + '_cape', { v }, fl), cT[0], cT[1], v === 's' ? mir * (p.pitch * 0.5 + p.sz * 0.03) : Math.sin(globalT * 1.6) * 0.02, mir, clamp((yFeet - 2 * K - cT[1]) / (def.capeH * K), 0.7, 1.4)));
+    if (def.cape !== false) {
+      const capeTop = T([0, def.capeY, -5]), cT = S(capeTop);
+      add(v === 'b' ? 0.5 : -40, () => pd(P_(def.p + '_cape', { v }, fl), cT[0], cT[1], v === 's' ? mir * (p.pitch * 0.5 + p.sz * 0.03) : Math.sin(globalT * 1.6) * 0.02, mir, clamp((yFeet - 2 * K - cT[1]) / (def.capeH * K), 0.7, 1.4)));
+    }
+    const animF=Math.floor(globalT*6)%4;
+    if(def.wings) spr(def.p+'_wings',{v,p2:P2,f:animF},T([0,def.shY,-4]),v==='s'?mir*p.pitch*.4:0,v==='b'?.4:-30);
+    if(def.skirt) spr(def.p+'_skirt',{v},hip,v==='s'?mir*(p.pitch*.35+Math.sin(globalT*2)*.025):Math.sin(globalT*2)*.025,-.5);
+    if(def.tail) spr(def.p+'_tail',{v,f:animF},hip,v==='s'?-mir*(p.pitch*.4+p.sz*.025):Math.sin(globalT*2)*.04,-3);
     // legs (behind the torso's tassets): near leg over far leg
-    for (const [hp, kn, an] of [[hipO, knO, aO], [hipS, knS, aS]]) {
+    if(def.legs!==false) for (const [hp, kn, an] of [[hipO, knO, aO], [hipS, knS, aS]]) {
       const d = dp(kn) - 8;
       seg(def.p + '_thigh', hp, kn, def.L1, d); seg(def.p + '_shin', kn, an, def.L2, d + 0.05);
       spr(def.p + '_foot', { v }, an, 0, d + 0.1);
     }
     spr(def.p + '_torso', { v }, hip, v === 's' ? mir * p.pitch : 0, 0);
-    spr(def.p + '_head', { v, p2: P2 }, T([0, def.neckY, 0]), v === 's' ? mir * p.pitch * 0.6 : 0, 1);
+    if(def.carriedHead) {
+      spr(def.p+'_neck',{v,f:animF},T([0,def.neckY,0]),0,1);
+      if(!B.headOut) spr(def.p+'_head',{v,p2:P2},V3.add(hO,[0,8,0]),0,dp(hO)+1.8);
+    } else spr(def.p + '_head', { v, p2: P2 }, T([0, def.neckY, 0]), v === 's' ? mir * p.pitch * 0.6 : 0, 1);
     const pm = sd => v === 's' ? 1 : (v === 'f' ? sd : -sd) * mir;
     spr(def.p + '_pauld', { v, m: pm(-1) }, shO, 0, dp(shO) + 0.8); spr(def.p + '_pauld', { v, m: pm(1) }, shS, 0, dp(shS) + 0.8);
     for (const [sh, el, hd, ex] of [[shO, elO, hO, 0], [shS, elS, hS, 0.2]]) {
@@ -3938,6 +4013,9 @@
       add(dp(hd) + 1.3 + ex, () => { const A = S(hd); pd(P_(def.hand, {}, fl), A[0], A[1]); });
     }
     if (B.type === 'goblinking' && p.bomb > 0.55) spr('gk3_bomb', {}, V3.add(hO, [0, -4, 0]), 0, dp(hO) + 1.5);
+    if(def.shield) spr(def.p+'_shield',{v},hO,v==='s'?mir*p.pitch*.4:0,dp(hO)+1.6);
+    if(def.hook) add(dp(hO)+1.5,()=>{const A=S(hO);ctx.strokeStyle='#c8ccd4';ctx.lineWidth=2*K;ctx.beginPath();ctx.moveTo(A[0],A[1]);ctx.lineTo(A[0],A[1]+7*K);ctx.lineTo(A[0]-3*K,A[1]+5*K);ctx.stroke();});
+    if(p.heldRock>.55) spr(def.p+'_rock',{},V3.add(hO,[0,-6,0]),0,dp(hO)+1.6);
     // the sword: in 3D it foreshortens as it points at you; in a full swing it reaches out along the swing
     const swd = norm3(R(p.sw)), H = S(hS), Tp = S(V3.add(hS, V3.mul(swd, def.reach)));
     let ang = Math.atan2(Tp[1] - H[1], Tp[0] - H[0]), sc = Math.max(0.25, Math.hypot(Tp[0] - H[0], Tp[1] - H[1]) / (def.reach * K));
@@ -3945,10 +4023,17 @@
     const ghosts = B.r3G || (B.r3G = []);
     add(dp(V3.add(hS, V3.mul(swd, 14))) + 1.25, () => {
       for (let i = 0; i < ghosts.length; i++) { const g0 = ghosts[i]; if (Math.abs(g0[2] - ang) > 0.2) pd(P_(def.sword, {}, false), g0[0], g0[1], g0[2], g0[3], 1, 0.22 / (i + 1)); }
-      pd(P_(def.sword, {}, fl), H[0], H[1], ang, sc, 1);
+      pd(P_(def.sword, {p2:P2}, fl), H[0], H[1], ang, sc, 1);
       ghosts.unshift([H[0], H[1], ang, sc]); if (ghosts.length > 2) ghosts.length = 2;
     });
     add(dp(hS) + 1.4, () => { pd(P_(def.hand, {}, fl), H[0], H[1]); });   // the fist closes over the grip
+    if(def.dual) {
+      const d=norm3(R(p.osw||p.sw)), O=S(hO), tip=S(V3.add(hO,V3.mul(d,def.reach))), second=B.sweeps[1];
+      let a=Math.atan2(tip[1]-O[1],tip[0]-O[0]), k=Math.max(.25,Math.hypot(tip[0]-O[0],tip[1]-O[1])/(def.reach*K));
+      if(second&&second.t>=second.tele){a=-second.ang;k=Math.max(1,(second.len-Math.hypot(O[0]-x,O[1]-(yFeet-40*K)))/(def.reach*K));}
+      add(dp(V3.add(hO,V3.mul(d,14)))+1.25,()=>pd(P_(def.sword,{p2:P2},fl),O[0],O[1],a,k,1));
+      add(dp(hO)+1.4,()=>pd(P_(def.hand,{},fl),O[0],O[1]));
+    }
     items.sort((a, b) => a[0] - b[0]);
     for (const it of items) it[1]();
   }
@@ -3979,8 +4064,8 @@
     const spr = SPR.boss(B.type, { f: Math.floor(globalT * (B.type === 'thunderbird' ? 8 : 4)), act: B.mv && B.mv.t < 0.7 ? 1 : 0, p2: B.phase === 2, look: lk, air: (B.z || 0) > 0.05, flash: hurt, noArm: WR[B.type] ? 1 : 0 });
     for (const d of B.decoys || []) SPR.draw(ctx, spr, d.x, sy(d.y) + r * 0.7 - hov, 0.92);   // illusions (no shadow)
     if (B.regen) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(120,255,100,${0.18 + 0.12 * Math.sin(globalT * 9)})`; ctx.beginPath(); ctx.arc(x, y, r * 1.5, 0, 7); ctx.fill(); ctx.restore(); }
-    if (B.type === 'cyclops') drawCyclops(B, x, by + r * 0.7 - z, y, hurt);
-    else if (R3[B.type]) drawR3(B, R3[B.type], x, by + r * 0.7 - z - hov, hurt);
+    if (R3[B.type]) drawR3(B, R3[B.type], x, by + r * 0.7 - z - hov, hurt);
+    else if (B.type === 'cyclops') drawCyclops(B, x, by + r * 0.7 - z, y, hurt);
     else if (WR[B.type]) drawWeaponBoss(B, WR[B.type], x, by + r * 0.7 - z - hov, y, spr, hurt);
     else SPR.draw(ctx, spr, x, by + r * 0.7 - z - hov);
     if (B.type === 'thunderbird' && Math.sin(globalT * 13) > 0.6) { ctx.strokeStyle = '#fff6a0'; ctx.lineWidth = 2; ctx.beginPath(); let px = x + rnd(-r, r), py = y - r * 1.2; ctx.moveTo(px, py); for (let k = 0; k < 4; k++) { px += rnd(-12, 12); py += 12; ctx.lineTo(px, py); } ctx.stroke(); }
