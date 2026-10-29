@@ -36,13 +36,14 @@ const BEAST3 = (() => {
   // ---- facing and projection ----
   const face4 = a => { const c = Math.cos(a), s = Math.sin(a); return Math.abs(c) > 0.7 ? (c > 0 ? 'r' : 'l') : s > 0 ? 'b' : 'f'; };   // world angle (y up)
   function groundDir(f, a) { const c = Math.cos(a), s = Math.sin(a); return f === 'f' ? [c, -s] : f === 'b' ? [-c, s] : f === 'r' ? [-s, c] : [-s, -c]; }   // world angle -> model [x, z]
-  let VIEW = 'f', SPIN = 0; const SL = 0.45;   // SPIN: the whole body turned about its vertical axis (rad), for spinning attacks
-  function gdir(E, a) { const d = groundDir(E.face, a); if (!SPIN) return d; const q = yaw([d[0], 0, d[1]], -SPIN); return [q[0], q[2]]; }   // world angle -> model [x, z], allowing for a turned body
-  function pr(p) {   // model -> [canvas x, canvas y, depth]
-    if (SPIN) p = yaw(p, SPIN);
-    if (VIEW === 'f') return [OX + p[0], OY + p[1] + p[2] * SL, p[2]];   // looking down a little: nearer = lower
-    if (VIEW === 'b') return [OX - p[0], OY + p[1] - p[2] * SL, -p[2]];
-    return [OX + p[2], OY + p[1] + p[0] * 0.22, p[0]];
+  let VIEW = 'f', PSI = -Math.PI / 2, DIRX = 1; const SL = 0.45;   // PSI: the way the body faces in the world (rad, y up); VIEW: which hand-drawn head to use; DIRX: +1 if it faces screen-right
+  // world angle -> model [x, z] (x = the beast's right side, z = forward)
+  function gdir(E, a) { return [-Math.sin(a - PSI), Math.cos(a - PSI)]; }
+  // model -> [canvas x, canvas y, depth]. One fixed camera looking down a little (nearer = lower); the model is turned to PSI,
+  // so turning round is perfectly smooth — only the hand-drawn heads switch between front / side / back.
+  function pr(p) {
+    const c = Math.cos(PSI), s = Math.sin(PSI), X = p[2] * c + p[0] * s, Z = p[2] * s - p[0] * c;
+    return [OX + X, OY + p[1] - Z * SL, -Z];
   }
   const dp = p => pr(p)[2];
   // ---- draw list: everything is queued with a depth, sorted, then drawn far-to-near ----
@@ -66,11 +67,11 @@ const BEAST3 = (() => {
     });
   }
   function ground(r, col, col2) {   // a flat ring / pool on the floor
-    op(-9999, () => { const rx = r, ry = VIEW === 's' ? r * 0.22 : r * 0.3; g.ell(OX, OY, rx, ry, col); if (col2) g.ell(OX, OY - 1, rx * 0.8, ry * 0.7, col2); });
+    op(-9999, () => { const rx = r, ry = r * SL; g.ell(OX, OY, rx, ry, col); if (col2) g.ell(OX, OY - 1, rx * 0.8, ry * 0.7, col2); });
   }
   // a head (or any detailed piece) drawn by hand per view, placed at a point, turned in the side view to angle ang
   function piece(p, d0, fn) { op(dp(p) + d0, () => { const q = pr(p); cx.save(); fn(q[0], q[1]); cx.restore(); }); }
-  function rot2(fn, x, y, ang, flipY) { cx.save(); cx.translate(x, y); cx.rotate(ang); if (flipY) cx.scale(1, -1); fn(); cx.restore(); }
+  function rot2(fn, x, y, ang) { cx.save(); cx.translate(x, y); cx.rotate(ang); if (Math.cos(ang) < 0) cx.scale(1, -1); fn(); cx.restore(); }   // a side-view piece pointing left is mirrored, not upside down
 
   // front-view mouth: the lower jaw drops away from the upper muzzle (yb = the muzzle's lower edge, w = its half width);
   // call before drawing the upper head, then upperTeeth() after it
@@ -132,11 +133,11 @@ const BEAST3 = (() => {
     const nt = V.add(nb, yaw(pitch([0, -24, 13], bodyPitch * 0.6 - P.hp * 0.6 + toss), P.hy));
     tube([nb, nt], [10, 7], C, 1);
     const hd = norm(yaw(pitch([0, 0.5, 1], bodyPitch * 0.5 - P.hp + toss), P.hy));
-    for (let i = 0; i < 7; i++) flame(V.add(V.mix(nb, nt, i / 6), pitch([0, -7, -3], bodyPitch * 0.6)), 4 + (i % 2), T + i, F, 0.5, VIEW === 'b' ? 0 : -3);   // the mane
+    for (let i = 0; i < 7; i++) flame(V.add(V.mix(nb, nt, i / 6), pitch([0, -7, -3], bodyPitch * 0.6)), 4 + (i % 2), T + i, F, 0.5, VIEW === 's' ? -3 * DIRX : 0);   // the mane
     nmHead(nt, hd, P, p2, F);
     // tail of dream-fire
     let tp = V.add(hip, pitch([0, -8, -13], bodyPitch));
-    for (let i = 0; i < 7; i++) { flame(tp, 5 - i * 0.4, T + i * 0.7, F, -0.5, VIEW === 'b' ? 0 : -3); tp = V.add(tp, pitch([Math.sin(T * 2.4 + i * 0.8) * 2.4, 3.2 + i * 0.3, -3.2], bodyPitch * 0.5)); }
+    for (let i = 0; i < 7; i++) { flame(tp, 5 - i * 0.4, T + i * 0.7, F, -0.5, VIEW === 's' ? -3 * DIRX : 0); tp = V.add(tp, pitch([Math.sin(T * 2.4 + i * 0.8) * 2.4, 3.2 + i * 0.3, -3.2], bodyPitch * 0.5)); }
   }
   function nmHead(at, hd, P, p2, F) {
     const E = p2 ? NM.eye2 : NM.eye, C = NM.B;
@@ -212,12 +213,12 @@ const BEAST3 = (() => {
       legs.push([fa, ff, sd]);
     }
     tube([hip, mid, chest], [16, 15, 18], C);
-    for (let i = 0; i < 6; i++) { const p = V.mix(hip, chest, i / 5); piece(p, 0.3, (x, y) => U.spike(g, x, y - (VIEW === 'b' ? 12 : 14), -PI / 2 + (VIEW === 's' ? -0.6 : (i - 2.5) * 0.25), 7, 3, CD)); }   // frost-spiked fur along the back
+    for (let i = 0; i < 6; i++) { const p = V.mix(hip, chest, i / 5); piece(p, 0.3, (x, y) => U.spike(g, x, y - (VIEW === 'b' ? 12 : 14), -PI / 2 + (VIEW === 's' ? -0.6 * DIRX : (i - 2.5) * 0.25), 7, 3, CD)); }   // frost-spiked fur along the back
     // forelegs, each with a shackle and a length of broken chain
     for (const [fa, ff, sd] of legs) {
       const [kn, an] = ik(fa, ff, 18, 18, [0, 0, -1]);
       tube([fa, kn], [6, 5], C, 2); tube([kn, an], [5, 4], C, 2);
-      piece(an, 2.1, (x, y) => { g.ell(x + (VIEW === 's' ? 2 : 0), y + 2, 5, 2.6, C.d); g.ell(x + (VIEW === 's' ? 2 : 0), y + 1, 4, 2, C.m); });
+      piece(an, 2.1, (x, y) => { g.ell(x + (VIEW === 's' ? 2 * DIRX : 0), y + 2, 5, 2.6, C.d); g.ell(x + (VIEW === 's' ? 2 * DIRX : 0), y + 1, 4, 2, C.m); });
       const cuff = V.mix(kn, an, 0.45);
       piece(cuff, 2.2, (x, y) => {
         g.r(Math.round(x - 6), Math.round(y - 2), 12, 4, FN.chain.d); g.r(Math.round(x - 6), Math.round(y - 2), 12, 2, FN.chain.m); g.p(Math.round(x - 5), Math.round(y - 2), FN.chain.h);
@@ -309,7 +310,7 @@ const BEAST3 = (() => {
       const ha = V.add(pelvis, [s * 10, 2, 0]), st = s > 0 ? P.step * 4 : 0;
       const [kn, an] = ik(ha, [s * 13, -6 - st, 4 + st], 15, 14, [s * 0.2, 0, 1]);
       tube([ha, kn], [3.4, 3], C, -1); tube([kn, an], [2.8, 2.4], C, -1); sph(kn, 3.2, C, -0.9, 0);
-      piece(an, -0.8, (x, y) => { for (let i = -1; i <= 1; i++) g.line(x, y, x + i * 4 + (VIEW === 's' ? 5 : 0), y + 6, 2, C.d); g.ell(x, y, 3, 2.4, C.m); });
+      piece(an, -0.8, (x, y) => { for (let i = -1; i <= 1; i++) g.line(x, y, x + i * 4 + (VIEW === 's' ? 5 * DIRX : 0), y + 6, 2, C.d); g.ell(x, y, 3, 2.4, C.m); });
     }
     // pelvis, spine, ribs (rib hoops drawn in 3D), ghost-fire heart
     sph(pelvis, 7, C, -0.5);
@@ -421,7 +422,7 @@ const BEAST3 = (() => {
       rs.push(lerp(13, 7, s));
     }
     tube(sp, rs, C, 0, { belly: { c: LV.belly.c, s: LV.belly.s, w: 0.42 } });
-    for (let i = 3; i < N - 1; i += 2) piece(sp[i], VIEW === 'b' ? 0.5 : -0.2, (x, y) => U.spike(g, x + (VIEW === 's' ? -rs[i] * 0.7 : 0), y - rs[i] * 0.6, VIEW === 's' ? PI * 1.1 : -PI / 2, 8, 3, LV.fin));
+    for (let i = 3; i < N - 1; i += 2) piece(sp[i], VIEW === 'b' ? 0.5 : -0.2, (x, y) => U.spike(g, x + (VIEW === 's' ? -rs[i] * 0.7 * DIRX : 0), y - rs[i] * 0.6, VIEW === 's' ? (DIRX > 0 ? PI * 1.1 : -PI * 0.1) : -PI / 2, 8, 3, LV.fin));
     piece(sp[0], 0.3, (x, y) => { g.ell(x, y + 1, 18, 4, LV.foam); g.ell(x, y + 1, 12, 2.4, '#d0f0ff'); });
     const at = sp[N - 1], hd = norm(yaw(pitch([0, 0.15, 1], -P.hp), P.hy));
     lvHead(at, hd, P, p2);
@@ -484,7 +485,7 @@ const BEAST3 = (() => {
     if (cut < N) ANCHS[0] = sp[cut - 1];
     tube(sp.slice(0, cut), rs.slice(0, cut), C, 0, { belly: { c: QZ.belly.c, s: QZ.belly.s, w: 0.4 }, scale: 1 });
     // tail fan
-    if (cut === N) piece(sp[N - 1], 0, (x, y) => { for (let i = -1; i <= 1; i++) U.feather(g, x, y, PI / 2 + i * 0.5 + (VIEW === 's' ? -0.8 : 0), 12, 3, { m: QZ.F[(i + 2) % 5], d: QZ.F[(i + 3) % 5], tip: '#ffffff' }); });
+    if (cut === N) piece(sp[N - 1], 0, (x, y) => { for (let i = -1; i <= 1; i++) U.feather(g, x, y, PI / 2 + i * 0.5 + (VIEW === 's' ? -0.8 * DIRX : 0), 12, 3, { m: QZ.F[(i + 2) % 5], d: QZ.F[(i + 3) % 5], tip: '#ffffff' }); });
     // wings: an arm from behind the head, a fan of long rainbow feathers hanging off it
     const root0 = sp[3], beat = (P.fl - 0.5) * 1.3;
     for (const s of [-1, 1]) {
@@ -564,7 +565,7 @@ const BEAST3 = (() => {
       let ft = base; if (P.gal) { const a = P.ph + (s > 0 ? 0 : PI) + o * PI; ft = V.add(ft, [0, -Math.max(0, Math.sin(a)) * 7, Math.cos(a) * 9]); }
       const [kn, an] = ik(at, ft, 9, 9, [s * 0.5, -0.2, 0.6]);
       tube([at, kn], [7, 5.5], C, -1.5); tube([kn, an], [5, 4], C, -1.5);
-      piece(an, -1.4, (x, y) => { for (let i = -1; i <= 1; i++) g.line(x, y, x + i * 3 + (VIEW === 's' ? 3 : 0), y + 4, 1.6, '#e8e0c0'); });
+      piece(an, -1.4, (x, y) => { for (let i = -1; i <= 1; i++) g.line(x, y, x + i * 3 + (VIEW === 's' ? 3 * DIRX : 0), y + 4, 1.6, '#e8e0c0'); });
     }
     // the necks
     for (let i = 0; i < P.N; i++) {
@@ -648,17 +649,17 @@ const BEAST3 = (() => {
       if (front && P.rear) ft = V.mix(ft, V.add(at, [0, 12, 10]), P.rear * 1.6);
       const [kn, an] = ik(at, ft, 16, 17, front ? [0, 0, -1] : [0, -0.3, 1]);
       tube([at, kn], [front ? 6.5 : 8.5, 5], C, front ? 1.8 : -1.5); tube([kn, an], [4.5, 3.6], C, front ? 1.8 : -1.5);
-      piece(an, front ? 1.9 : -1.4, (x, y) => { g.ell(x + (VIEW === 's' ? 2 : 0), y + 2, 5, 2.6, C.d); g.ell(x + (VIEW === 's' ? 2 : 0), y + 1, 4, 1.8, C.m); });
+      piece(an, front ? 1.9 : -1.4, (x, y) => { g.ell(x + (VIEW === 's' ? 2 * DIRX : 0), y + 2, 5, 2.6, C.d); g.ell(x + (VIEW === 's' ? 2 * DIRX : 0), y + 1, 4, 1.8, C.m); });
     }
     tube([hip, mid, chest], [15, 15, 19], C);
-    for (let i = 0; i < 6; i++) flame(V.add(V.mix(hip, chest, 0.35 + i * 0.13), [0, -14, 0]), 4 + (i % 2), T + i, F, 0.4, VIEW === 'b' ? 0 : -3);   // burning mane along the back
+    for (let i = 0; i < 6; i++) flame(V.add(V.mix(hip, chest, 0.35 + i * 0.13), [0, -14, 0]), 4 + (i % 2), T + i, F, 0.4, VIEW === 's' ? -3 * DIRX : 0);   // burning mane along the back
     // three necks and heads, a spiked collar on each
     for (let i = 0; i < 3; i++) {
       const h = P.heads[i], sx = (i - 1) * 13, base = V.add(chest, [sx, -10, 6]);
       const top = V.add(base, yaw([sx * 0.9, -14 - (i === 1 ? 6 : 0), 10], h.ya * 0.5));
       tube([base, top], [10, 8.5], C, 2 + (i === 1 ? 0.2 : 0));
       piece(V.mix(base, top, 0.45), 2.1 + (i === 1 ? 0.2 : 0), (x, y) => { g.ell(x, y, 9, 3.4, CB.col.d); g.ell(x, y - 1, 9, 2.4, CB.col.m); for (let k = -2; k <= 2; k++) U.spike(g, x + k * 4, y + 1, PI / 2, 4, 1.4, CB.col); });
-      flame(V.add(top, [0, -9, -4]), 4, T + i * 2, F, 1.9, VIEW === 'b' ? 0 : -3);
+      flame(V.add(top, [0, -9, -4]), 4, T + i * 2, F, 1.9, VIEW === 's' ? -3 * DIRX : 0);
       const hd = norm(yaw(pitch([0, 0.25, 1], -h.hp), h.ya));
       houndHead(top, hd, h.mo, p2, 2.5 + (i === 1 ? 0.3 : 0));
     }
@@ -808,7 +809,7 @@ const BEAST3 = (() => {
     // head: a dome with a red eye, the bell and the striking hammer on top
     const hc = V.add(C, [0, -R - 7, 0]);
     sph(hc, 10, Br, 0.2);
-    if (VIEW !== 'b') piece(V.add(hc, [0, 1, VIEW === 'f' ? 9 : 0]), VIEW === 'f' ? 1 : 0.3, (x, y) => { g.r(Math.round(x - (VIEW === 's' ? 0 : 6)), Math.round(y - 2), VIEW === 's' ? 7 : 12, 4, Dk.d); g.r(Math.round(x - (VIEW === 's' ? -2 : 4)), Math.round(y - 1), VIEW === 's' ? 4 : 8, 2, CM.eye); });
+    if (VIEW !== 'b') piece(V.add(hc, [0, 1, VIEW === 'f' ? 9 : 0]), VIEW === 'f' ? 1 : 0.3, (x, y) => { g.r(Math.round(x - (VIEW === 's' ? (DIRX > 0 ? 0 : 7) : 6)), Math.round(y - 2), VIEW === 's' ? 7 : 12, 4, Dk.d); g.r(Math.round(x - (VIEW === 's' ? (DIRX > 0 ? -2 : 5) : 4)), Math.round(y - 1), VIEW === 's' ? 4 : 8, 2, CM.eye); });
     const bell = V.add(hc, [0, -13, 0]);
     piece(bell, 0.25, (x, y) => { const sh = P.ring * Math.sin(T * 60) * 1.5; g.poly([[x - 8 + sh, y + 5], [x - 6 + sh, y - 3], [x + sh, y - 7], [x + 6 + sh, y - 3], [x + 8 + sh, y + 5]], Br.m); g.r(Math.round(x - 8 + sh), Math.round(y + 4), 16, 2, Br.d); g.ell(x - 2 + sh, y - 2, 2, 2, Br.h); if (P.ring > 0.5) for (let i = 0; i < 3; i++) g.line(x + 11 + i * 3, y - 6 + i * 4, x + 14 + i * 3, y - 8 + i * 4, 1, '#fff6c0'); });
     const hmA = -0.9 + P.ring * 0.9, hmp = V.add(bell, [11, -2, 0]);
@@ -853,7 +854,7 @@ const BEAST3 = (() => {
       piece(ep, 0.6 + (s > 0 ? 0.01 : 0), (x, y) => { if (VIEW === 'b') return; g.ell(x, y, 5, 4.4, C.d); g.ell(x, y, 4, 3.6, E); g.r(Math.round(x - 3), Math.round(y), 6, 1, '#120818'); g.p(Math.round(x - 2), Math.round(y - 2), '#ffffff'); });
     }
     const si = [14, -26, 4];
-    piece(si, 0.55, (x, y) => { if (VIEW === 'b') return; g.ell(x, y, 3, 2.4, C.d); if (P.squeeze > 0.3) for (let i = 0; i < 3; i++) g.ell(x + 6 + i * 5, y - 2 + i, 3 - i * 0.6, 2.4 - i * 0.5, '#120818'); });
+    piece(si, 0.55, (x, y) => { if (VIEW === 'b') return; g.ell(x, y, 3, 2.4, C.d); if (P.squeeze > 0.3) for (let i = 0; i < 3; i++) g.ell(x + (6 + i * 5) * DIRX, y - 2 + i, 3 - i * 0.6, 2.4 - i * 0.5, '#120818'); });
   }
   // =============================================================
   //  WHOLE-BODY SWEEPS (指示: ダメージバーではなく体で攻撃): during a sweep the beast's own arms / necks / tail / hands are
@@ -869,7 +870,7 @@ const BEAST3 = (() => {
   // what swings in each sweep: from = anchor index (else the sweep centre), rise = how high it rears in the telegraph
   const LIMB = {
     leviathan: () => ({ C: LV.B, belly: LV.belly, r: [7.5, 2], rise: 46, suckers: '#e8f4ff', foam: LV.foam }),
-    kraken: (B, i) => ({ from: i, C: KR.B, belly: { c: KR.S, s: '#c090e0' }, r: [7, 1.8], rise: 40, suckers: KR.S }),
+    kraken: () => ({ rim: 34, C: KR.B, belly: { c: KR.S, s: '#c090e0' }, r: [7, 1.8], rise: 40, suckers: KR.S }),
     hydra: (B, i) => i < Math.min(nHeads(B), 4) ? { from: i, C: HY.B, belly: HY.belly, r: [7, 5], rise: 52, tip: 'serpent', E: B.phase === 2 ? HY.eye2 : HY.eye, jaw: HY.belly.c, horn: HY.horn } : { from: nHeads(B), C: HY.B, belly: HY.belly, r: [10, 2], rise: 20 },
     cerberus: () => ({ from: 0, C: CB.snake, r: [5, 2.6], rise: 0, tip: 'serpent', E: '#ffe14a', jaw: '#c8e090', actOnly: true }),
     bonedragon: () => ({ from: 0, C: BD.B, r: [3.4, 1.4], actOnly: true, tip: 'blade', spikes: true }),
@@ -905,7 +906,7 @@ const BEAST3 = (() => {
         ctx.restore();
         return;
       }
-      const A = spec.from != null && anchors[spec.from] ? [anchors[spec.from][0] / K, anchors[spec.from][1] / K] : [cxA + cth * 26, cyA + sth * 26 * 0.75];
+      const r0 = spec.rim || 26, A = spec.from != null && anchors[spec.from] ? [anchors[spec.from][0] / K, anchors[spec.from][1] / K] : [cxA + cth * r0, cyA + sth * r0 * 0.75];   // from the body's edge, so nothing passes through it
       if (spec.actOnly && !act) return;
       const k0 = act ? 1 : sstep(sw.t / sw.tele), lay = act ? (spec.actOnly ? 1 : sstep((sw.t - sw.tele) / 0.14)) : 0;
       const tip = [cxA + cth * len, cyA + sth * len], nx = -sth * sg, ny = cth * sg, pts = [], rs = [];
@@ -930,38 +931,38 @@ const BEAST3 = (() => {
   // =============================================================
   const RIGS = { nightmare: [nmPose, nmBuild, 1.05], fenrir: [fnPose, fnBuild, 1.3], bonedragon: [bdPose, bdBuild, 1.2], leviathan: [lvPose, lvBuild, 1.1], quetzal: [qzPose, qzBuild, 1.1],
     hydra: [hyPose, hyBuild, 1.1], cerberus: [cbPose, cbBuild, 1.15], voideye: [vePose, veBuild, 1.1], clockmachine: [cmPose, cmBuild, 1.15], kraken: [krPose, krBuild, 1.1] };   // [pose, build, size]
-  // spinning attacks (指示: 触手だけでなく体ごと回る): while the arms / necks / tail sweep round, the whole body turns with them.
-  // psi = the way the body faces in the world; the view is the nearest of the four, the rest becomes a turn of the 3D model.
-  const FACE_ANG = { f: -PI / 2, r: 0, b: PI / 2, l: PI };
+  // spinning attacks (指示: 触手だけでなく体ごと回る): while the arms / necks / tail sweep round, the whole body turns with them
   const wrapPI = a => ((a + PI) % TAU + TAU) % TAU - PI;
   function spinPsi(B, E, st) {
     const mv = B.mv, n = mvName(B);
     if (!mv || !(n === 'tentacles' || n === 'tail')) return null;
     const sw = B.sweeps[0];
     if (!sw) return st.psiLast != null && mv === st.psiMv ? st.psiLast : null;
-    if (mv !== st.psiMv) { st.psiMv = mv; st.psi0 = n === 'tail' ? sw.ang + PI : E.look; st.ang0 = null; }
+    const sg = Math.sign(sw.vel || 1);
+    if (mv !== st.psiMv) { st.psiMv = mv; st.psi0 = n === 'tail' ? sw.ang + PI : st.psi != null ? st.psi : E.look; st.ang0 = null; }
     let psi;
-    if (sw.t < sw.tele) psi = st.psi0 - Math.sign(sw.vel || 1) * 0.35 * sstep(sw.t / sw.tele);   // winds up, turning back against the coming spin
-    else { if (st.ang0 == null) st.ang0 = sw.ang; psi = st.psi0 - Math.sign(sw.vel || 1) * 0.35 + (sw.ang - st.ang0) + Math.sign(sw.vel || 1) * 0.35 * sstep((sw.t - sw.tele) / 0.25); }
+    if (sw.t < sw.tele) psi = st.psi0 - sg * 0.35 * sstep(sw.t / sw.tele);   // winds up, turning back against the coming spin
+    else { if (st.ang0 == null) st.ang0 = sw.ang; psi = st.psi0 - sg * 0.35 + (sw.ang - st.ang0) + sg * 0.35 * sstep((sw.t - sw.tele) / 0.25); }
     return (st.psiLast = psi);
   }
-  function faceOf(B, E) {
-    const mv = B.mv, st = B.b3 || (B.b3 = {});
-    let want;
-    SPIN = 0;
-    const psi = spinPsi(B, E, st);
-    if (psi != null) { want = face4(psi); const res = wrapPI(psi - FACE_ANG[want]); SPIN = want === 'r' ? -res : res; return (st.f = want); }
-    if (B.type === 'clockmachine' && mv && mvName(B) === 'clock') want = 'f';   // the clock attack: it shows you its face
-    else if (mv && /charge|dash3|firetrail/.test(mv.name) && mv.ph === 'go') want = face4(Math.atan2(B.vy || 0, B.vx || 0) || mv.a0 || 0);
-    else if (mv && (mv.name === 'tail') && B.sweeps.length) want = face4(B.sweeps[0].ang + PI);   // the tail lashes the way the sweep goes: the head faces the other way
-    else if (mv) { if (mv.b3f == null) mv.b3f = face4(E.look); want = mv.b3f; }
-    else { want = face4(E.look); if (st.f && want !== st.f) { if (st.fs == null) st.fs = E.t; if (E.t - st.fs < 0.35) want = st.f; else st.fs = null; } else st.fs = null; }
-    return (st.f = want);
+  function faceOf(B, E) {   // sets PSI / VIEW / DIRX
+    const mv = B.mv, st = B.b3 || (B.b3 = {}), dt = st.t != null ? clamp(E.t - st.t, 0, 0.1) : 1; st.t = E.t;
+    let want = spinPsi(B, E, st), snap = want != null;
+    if (want == null) {
+      if (B.type === 'clockmachine' && mv && mvName(B) === 'clock') want = -PI / 2;   // the clock attack: it shows you its face
+      else if (mv && /charge|dash3|firetrail/.test(mv.name) && mv.ph === 'go') { want = Math.atan2(B.vy || 0, B.vx || 0) || mv.a0 || 0; snap = true; }
+      else if (mv) { if (mv.b3psi == null) mv.b3psi = E.look; want = mv.b3psi; }
+      else want = E.look;
+    }
+    if (st.psi == null || snap) st.psi = want;
+    else { const d = wrapPI(want - st.psi), mx = 5 * dt; st.psi += clamp(d, -mx, mx); }   // turns toward the hero at a steady speed
+    PSI = st.psi; const f = face4(PSI); VIEW = f === 'l' || f === 'r' ? 's' : f; DIRX = Math.cos(PSI) >= 0 ? 1 : -1;
+    return f;
   }
   function draw(ctx, B, x, yFeet, hurt, E) {
     const R = RIGS[B.type]; if (!R) return false;
     E = Object.assign({}, E); E.look = Math.atan2(E.hero.y - B.y, E.hero.x - B.x);
-    const f = faceOf(B, E); E.face = f; VIEW = f === 'l' || f === 'r' ? 's' : f;
+    const f = faceOf(B, E); E.face = f;
     const P = R[0](B, E.t, E);
     OPS = []; ANCHS = []; cx.clearRect(0, 0, CW, CH);
     R[1](B, P, E.t, B.phase === 2);
@@ -971,15 +972,13 @@ const BEAST3 = (() => {
     cx.setTransform(1, 0, 0, 1, 0, 0);
     U.pixelize(cv, '#120a14');
     let src = cv;
-    if (f === 'l' || hurt) {
-      fx.clearRect(0, 0, CW, CH); fx.save();
-      if (f === 'l') { fx.translate(CW, 0); fx.scale(-1, 1); }
-      fx.drawImage(cv, 0, 0); fx.restore();
+    if (hurt) {
+      fx.clearRect(0, 0, CW, CH); fx.drawImage(cv, 0, 0);
       if (hurt) { fx.globalCompositeOperation = 'source-atop'; fx.fillStyle = '#ffffff'; fx.fillRect(0, 0, CW, CH); fx.globalCompositeOperation = 'source-over'; }
       src = fc;
     }
-    const ox = f === 'l' ? CW - OX : OX, X0 = Math.round(x / K - ox) * K, Y0 = Math.round(yFeet / K - OY) * K;
-    const anchors = ANCHS.map(a => { if (!a) return null; const q = pr(a); let ax = OX + (q[0] - OX) * sz; const ay = OY + (q[1] - OY) * sz; if (f === 'l') ax = CW - ax; return [X0 + ax * K, Y0 + ay * K]; });
+    const X0 = Math.round(x / K - OX) * K, Y0 = Math.round(yFeet / K - OY) * K;
+    const anchors = ANCHS.map(a => { if (!a) return null; const q = pr(a); return [X0 + (OX + (q[0] - OX) * sz) * K, Y0 + (OY + (q[1] - OY) * sz) * K]; });
     E.x = x; if (E.cy == null) E.cy = yFeet;
     sweepLimbs(ctx, B, E, anchors, true);
     ctx.imageSmoothingEnabled = false;
