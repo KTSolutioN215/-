@@ -10,13 +10,14 @@ for(const type of types)for(const phase of[1,2])for(const radius of(type==='demo
   const a=tick*Math.PI/180,sweeps=[{ang:a,len:radius,t:2,tele:.7}];if(def.dual)sweeps.push({ang:a+gap,len:radius,t:2,tele:.7});
   const B={type,phase,x:0,y:0,r:44,sweeps,mv:{name:'sweep',t:2,a0:0,n:1}},g=w.spinGeometry(B,def,0,0,K);
   for(const q of g){
-   const error=Math.max(Math.abs(Math.hypot(q.elbow[0]-q.shoulder[0],q.elbow[1]-q.shoulder[1])-def.A1*K),Math.abs(Math.hypot(q.hand[0]-q.elbow[0],q.hand[1]-q.elbow[1])-def.A2*K));
+   const error=Math.max(Math.abs(Math.hypot(...q.elbow.map((v,i)=>v-q.shoulder[i]))-def.A1*K),Math.abs(Math.hypot(...q.hand.map((v,i)=>v-q.elbow[i]))-def.A2*K));
    maxReachError=Math.max(maxReachError,error);assert(error<1e-6,JSON.stringify({type,tick,radius,error,q}));
    if(q.weapon){const tx=tipArt[0]*q.scale*K,ty=tipArt[1]*K,end=[q.hand[0]+Math.cos(q.angle)*tx-Math.sin(q.angle)*ty,q.hand[1]+Math.sin(q.angle)*tx+Math.cos(q.angle)*ty];
     const e=Math.hypot(end[0]-q.tip[0],end[1]-q.tip[1]);maxError=Math.max(maxError,e);assert(e<1e-6,type+' tip drift');
    }
   }
   if(def.twoHand)assert(Math.abs(Math.hypot(g[1].hand[0]-g[0].hand[0],g[1].hand[1]-g[0].hand[1])-4*K)<1e-6,'second hand left club grip');
+  if(prev && def.twoHand)for(let i=0;i<g.length;i++)assert(Math.hypot(...g[i].elbow.map((v,j)=>v-prev[i].elbow[j]))<2,type+' elbow flipped');
   if(prev)for(let i=0;i<g.length;i++)assert(Math.hypot(g[i].hand[0]-prev[i].hand[0],g[i].hand[1]-prev[i].hand[1])<1,type+' hand jumped');prev=g;
   if(tick%45===0){
    const draw=[],pd=w.pd;w.pd=(s,x,y,a=0,sx=1,sy=1,alpha=1)=>{draw.push({s,x,y,a,sx,alpha});return pd(s,x,y,a,sx,sy,alpha);};

@@ -269,3 +269,8 @@ sh tools/build_apk.sh      # 初回は Android SDK（platform 35 / build-tools 3
 - `R3` の対象7体に `spinTip:[x,y]` を設定。`generalSpinGeometry` は名前を保ったまま共通化。既存の将軍も同じ経路を使う。
 - 片手持ちの空き腕、盾・フック、サイクロプスの両手（柄の間隔4 art px）を専用経路に追加。曲刀は非ゼロのtip.yを使い、先端の上下オフセットを補正。
 - `node tools/anim/check_weapon_spins.js` と既存の将軍テスト・全技テストを実行。デスナイト／ゴブリンキングの回転画像は意図した変更なので、baseline比較は回転以外を対象にする。
+
+## 追記：サイクロプスのひじの反転修正（2026-10-29）
+- 回転の `generalSpinGeometry` で `twoHand` の肩に奥行きを追加し、腕のpoleを下向きに固定。平面解で起きていたひじの反転・過度な折り畳みを防ぐ。
+- `upperSpan` / `foreSpan` は部品に描かれた節の実長。サイクロプスにだけ設定し、通常の3Dリグと回転中の両方で関節に届くようにする。
+- `check_weapon_spins.js` の腕長検証を3D距離へ変更し、サイクロプスのひじの全周連続性チェックを追加。

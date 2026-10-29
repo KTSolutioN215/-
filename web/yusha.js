@@ -3852,7 +3852,7 @@
     angel: { enemy: true, motion: .55, hipY: -15, hipX: 5, L1: 7.2, L2: 7.2, ank: -3, shY: -20, shX: 10, neckY: -22, A1: 6.6, A2: 6.05, reach: 27, wings: true, float: true, height: 66, pose: { base: { wid: 7, stride: 4, drop: 0 }, rest: { sw: [.2,-.7,.6] } } },
     dullahan: { enemy: true, motion: .6, hipY: -15, hipX: 5, L1: 7.8, L2: 7.8, ank: -3, shY: -18, shX: 10, neckY: -21, A1: 7.2, A2: 6.6, reach: 21, capeY: -19, capeH: 38.4, carriedHead: true, height: 62, pose: { base: { wid: 7, stride: 6, oh: [-2,18,4] }, rest: { sw: [0,-.85,.5] }, headLift: { hd: [3,16,4], sw: [0,-.85,.5], oh: [-3,-19,-3], drop: -1, yaw: -.15 }, headThrow: { hd: [3,16,4], sw: [0,-.85,.5], oh: [-2,-2,21], drop: 3, pitch: .13, yaw: .2, stride: 10 } } },
     ghostcaptain: { motion: 1, hipY: -38, hipX: 7, L1: 11, L2: 11, ank: -3, shY: -28, shX: 18, neckY: -34, A1: 12, A2: 12, reach: 38, legs: false, tail: true, skirt: true, float: true, hook: true, pose: { base: { drop: 0, stride: 4, pitch: .03 }, rest: { hd: [3,18,7], oh: [-4,12,6], sw: [.2,-.65,.7] }, point: { oh: [-3,-4,19] } } },
-    cyclops: { motion: 1.35, hipY: -34, hipX: 13, L1: 17.55, L2: 17.55, ank: -8, shY: -30, shX: 26, neckY: -35, A1: 19, A2: 18, reach: 65, twoHand: true, skirtOccludesLegs: true, pose: { base: { wid: 10, stride: 6, hd: [-18,8,7], freeHand: 0, heldRock: 0 }, rest: { hd: [-18,8,7], sw: [.4,-.85,.3] }, ready: { hd: [-18,1,11] }, up: { hd: [-18,-12,-4], sw: [.1,-.6,-.8] }, slam: { hd: [-18,8,13], drop: 5, stride: 12, pitch: .2 }, low: { hd: [-18,14,-3], drop: 5 }, hi: { hd: [-18,-12,9] }, sideB: { hd: [-16,-2,-8], yaw: .4 }, thrust: { hd: [-18,0,15], pitch: .2, stride: 12 }, rockUp: { hd: [1,15,5], sw: [.2,-.8,.5], oh: [-3,-17,-6], heldRock: 1, freeHand: 1, drop: -1 }, rockThrow: { hd: [1,15,5], sw: [.2,-.8,.5], oh: [-3,-3,21], freeHand: 1, drop: 3, pitch: .16 } } },
+    cyclops: { motion: 1.35, hipY: -34, hipX: 13, L1: 17.55, L2: 17.55, ank: -8, shY: -30, shX: 26, neckY: -35, A1: 19, A2: 18, reach: 65, upperSpan: 12*1.35, foreSpan: 11*1.35, twoHand: true, skirtOccludesLegs: true, pose: { base: { wid: 10, stride: 6, hd: [-18,8,7], freeHand: 0, heldRock: 0 }, rest: { hd: [-18,8,7], sw: [.4,-.85,.3] }, ready: { hd: [-18,1,11] }, up: { hd: [-18,-12,-4], sw: [.1,-.6,-.8] }, slam: { hd: [-18,8,13], drop: 5, stride: 12, pitch: .2 }, low: { hd: [-18,14,-3], drop: 5 }, hi: { hd: [-18,-12,9] }, sideB: { hd: [-16,-2,-8], yaw: .4 }, thrust: { hd: [-18,0,15], pitch: .2, stride: 12 }, rockUp: { hd: [1,15,5], sw: [.2,-.8,.5], oh: [-3,-17,-6], heldRock: 1, freeHand: 1, drop: -1 }, rockThrow: { hd: [1,15,5], sw: [.2,-.8,.5], oh: [-3,-3,21], freeHand: 1, drop: 3, pitch: .16 } } },
     shadowhero: { motion: 1, hipY: -27, hipX: 7, L1: 13, L2: 13, ank: -4, shY: -27, shX: 16, neckY: -28, A1: 12, A2: 11, reach: 45, capeY: -27, capeH: 64, shield: true, pose: { base: { oh: [-1,8,13], wid: 6, stride: 7 }, ready: { oh: [1,2,18] }, thrust: { oh: [1,2,18] }, point: { oh: [1,1,18] } } },
     demongeneral: { motion: 1.15, hipY: -33, hipX: 9, L1: 14.95, L2: 14.95, ank: -5, shY: -35, shX: 24, neckY: -40, A1: 13.8, A2: 12.65, reach: 46, capeY: -35, capeH: 73.6, dual: true, pose: { base: { wid: 8, stride: 7 }, rest: { hd: [4,18,6], sw: [.3,.9,.3] }, sideB: { hd: [12,-4,-8], yaw: .5 }, sideF: { hd: [-10,2,17], yaw: -.5 } } },
     fallenangel: { motion: 1, hipY: -48, hipX: 8, L1: 13, L2: 13, ank: -5, shY: -24, shX: 19, neckY: -20, A1: 12, A2: 11, reach: 49, legs: false, wings: true, skirt: true, float: true, pose: { base: { drop: 0, stride: 4 }, rest: { hd: [3,17,4], sw: [.1,-.9,.4], oh: [-3,12,6] }, up: { oh: [-4,-15,7], pitch: -.08 }, slam: { drop: 2, pitch: .16 }, point: { oh: [-3,-9,17] } } },
@@ -3994,7 +3994,10 @@
       const gripR=Math.min((def.twoHand?reach-def.shX-1:reach+def.shX*.3-1)*K,radius*.4);
       const shoulder=[center[0]+u[0]*def.shX*K,center[1]+u[1]*def.shX*K*.3,0];
       const hand=[center[0]+u[0]*gripR,center[1]+u[1]*gripR,0];
-      const pole=[-u[1]*(i?-1:1),u[0]*(i?-1:1),0];
+      // Cyclops' broad shoulders rotate through depth. Solving them flat made the
+      // elbows double back when the projected shoulder approached the grip.
+      if(def.twoHand) shoulder[2]=u[1]*def.shX*K*Math.sqrt(1-.3*.3);
+      const pole=def.twoHand?[0,1,0]:[-u[1]*(i?-1:1),u[0]*(i?-1:1),0];
       const [elbow,reached]=ik3(shoulder,hand,def.A1*K,def.A2*K,pole);
       const tip=[center[0]+u[0]*radius,center[1]+u[1]*radius];
       // A cutlass tip is above its axis; account for that offset without changing blade thickness.
@@ -4005,8 +4008,9 @@
     if(!def.dual && result.length) {
       const first=result[0],a=B.sweeps[0].ang,u=[Math.cos(a),-Math.sin(a)];
       const shoulder=[center[0]-u[0]*def.shX*K,center[1]-u[1]*def.shX*K*.3,0];
+      if(def.twoHand) shoulder[2]=-u[1]*def.shX*K*Math.sqrt(1-.3*.3);
       const hand=def.twoHand?[first.hand[0]-Math.cos(first.angle)*4*K,first.hand[1]-Math.sin(first.angle)*4*K,0]:[shoulder[0],shoulder[1]+Math.min(18,def.A1+def.A2-1)*K,0];
-      const [elbow,reached]=ik3(shoulder,hand,def.A1*K,def.A2*K,def.twoHand?[u[1],-u[0],0]:[1,0,0]);
+      const [elbow,reached]=ik3(shoulder,hand,def.A1*K,def.A2*K,def.twoHand?[0,1,0]:[1,0,0]);
       result.push({center,shoulder,hand:reached,elbow,depth:def.twoHand?first.depth:-first.depth,weapon:false});
     }
     return result;
@@ -4032,7 +4036,7 @@
     const ftO = [-p.wid, def.ank - p.lf, p.stride / 2 + p.fz + p.sz * 0.4], ftS = [p.wid, def.ank - p.lb, -p.stride / 2 + p.nz + p.sz * 0.4];
     const [knS, aS] = ik3(hipS, ftS, def.L1, def.L2, [0.15, 0, 1]), [knO, aO] = ik3(hipO, ftO, def.L1, def.L2, [-0.15, 0, 1]);
     const items = [], add = (d, fn) => items.push([d, fn]);
-    const seg = (part, a, b, L, d) => add(d, () => { const A = S(a), Q = S(b); pd(P_(part, {}, fl), A[0], A[1], Math.atan2(Q[1] - A[1], Q[0] - A[0]), Math.max(0.3, Math.hypot(Q[0] - A[0], Q[1] - A[1]) / (L * K)), 1); });
+    const seg = (part, a, b, L, d) => add(d, () => { const A = S(a), Q = S(b); pd(P_(part, {}, fl), A[0], A[1], Math.atan2(Q[1] - A[1], Q[0] - A[0]), Math.max(0.3, Math.hypot(Q[0] - A[0], Q[1] - A[1]) / ((part===def.upper?(def.upperSpan||L):part===def.fore?(def.foreSpan||L):L) * K)), 1); });
     const spr = (part, P, at, rot, d, sy2 = 1) => add(d, () => { const A = S(at); pd(P_(part, P, fl), A[0], A[1], rot, mir, sy2); });
     const mid = (a, b) => V3.mul(V3.add(a, b), 0.5);
     // the cape hangs from the shoulders to the floor and trails the lunge
@@ -4092,7 +4096,7 @@
       add(dp(hO)+1.4,()=>pd(P_(def.hand,{},fl),O[0],O[1]));
     }
     } else {
-      const line=(part,a,b,L)=>pd(P_(part,{},fl),a[0],a[1],Math.atan2(b[1]-a[1],b[0]-a[0]),Math.hypot(b[0]-a[0],b[1]-a[1])/(L*K),1);
+      const line=(part,a,b,L)=>pd(P_(part,{},fl),a[0],a[1],Math.atan2(b[1]-a[1],b[0]-a[0]),Math.hypot(b[0]-a[0],b[1]-a[1])/((part===def.upper?(def.upperSpan||L):part===def.fore?(def.foreSpan||L):L)*K),1);
       // Draw each complete arm in its rotating depth order; no four-view hand-position jumps.
       const history=B.r3SpinG||(B.r3SpinG=[[],[]]);
       orbit.forEach((g,i)=>{
