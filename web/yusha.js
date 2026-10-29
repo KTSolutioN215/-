@@ -3903,7 +3903,7 @@
   function r3Face(B, p) {
     const mv = B.mv, look = Math.atan2(hero.y - B.y, hero.x - B.x);
     let want;
-    if (p.sweep) want = face4(p.sweep.ang + (R3[B.type].spinTip && p.sweep.t>=p.sweep.tele ? Math.PI/2 : 0));   // a full swing turns the whole body round with the blade
+    if (p.sweep) want = face4(p.sweep.ang + (R3[B.type].spinTip && !R3[B.type].twoHand && p.sweep.t>=p.sweep.tele ? Math.PI/2 : 0));   // a full swing turns the whole body round with the blade
     else if (mv && /charge|dash3|firetrail/.test(mv.name) && mv.a0 != null && mv.ph) want = face4(mv.a0);
     else if (mv) { if (mv.f3 == null) mv.f3 = face4(look); want = mv.f3; }
     else { want = face4(look); if (want !== B.f3 && B.f3) { if (B.f3s == null) B.f3s = globalT; if (globalT - B.f3s < 0.25) want = B.f3; else B.f3s = null; } else B.f3s = null; }
@@ -3996,8 +3996,15 @@
       const hand=[center[0]+u[0]*gripR,center[1]+u[1]*gripR,0];
       // Cyclops' broad shoulders rotate through depth. Solving them flat made the
       // elbows double back when the projected shoulder approached the grip.
-      if(def.twoHand) shoulder[2]=u[1]*def.shX*K*Math.sqrt(1-.3*.3);
-      const pole=def.twoHand?[0,1,0]:[-u[1]*(i?-1:1),u[0]*(i?-1:1),0];
+      if(def.twoHand) {
+        shoulder[0]=center[0]+Math.sin(a)*def.shX*K;
+        shoulder[1]=center[1]+Math.cos(a)*def.shX*K*.3;
+        shoulder[2]=Math.cos(a)*def.shX*K*Math.sqrt(1-.3*.3);
+        // Both grips stay on the character's forward axis. Height compensates the
+        // view tilt so the on-screen tip still follows the approved circle.
+        hand[2]=u[1]*gripR*.7/Math.sqrt(1-.3*.3);
+      }
+      const pole=def.twoHand?[u[0],u[1]*.3,u[1]*Math.sqrt(1-.3*.3)]:[-u[1]*(i?-1:1),u[0]*(i?-1:1),0];
       const [elbow,reached]=ik3(shoulder,hand,def.A1*K,def.A2*K,pole);
       const tip=[center[0]+u[0]*radius,center[1]+u[1]*radius];
       // A cutlass tip is above its axis; account for that offset without changing blade thickness.
@@ -4008,9 +4015,13 @@
     if(!def.dual && result.length) {
       const first=result[0],a=B.sweeps[0].ang,u=[Math.cos(a),-Math.sin(a)];
       const shoulder=[center[0]-u[0]*def.shX*K,center[1]-u[1]*def.shX*K*.3,0];
-      if(def.twoHand) shoulder[2]=-u[1]*def.shX*K*Math.sqrt(1-.3*.3);
-      const hand=def.twoHand?[first.hand[0]-Math.cos(first.angle)*4*K,first.hand[1]-Math.sin(first.angle)*4*K,0]:[shoulder[0],shoulder[1]+Math.min(18,def.A1+def.A2-1)*K,0];
-      const [elbow,reached]=ik3(shoulder,hand,def.A1*K,def.A2*K,def.twoHand?[0,1,0]:[1,0,0]);
+      if(def.twoHand) {
+        shoulder[0]=center[0]-Math.sin(a)*def.shX*K;
+        shoulder[1]=center[1]-Math.cos(a)*def.shX*K*.3;
+        shoulder[2]=-Math.cos(a)*def.shX*K*Math.sqrt(1-.3*.3);
+      }
+      const hand=def.twoHand?[first.hand[0]-Math.cos(first.angle)*4*K,first.hand[1]-Math.sin(first.angle)*4*K,first.hand[2]-u[1]*4*K*.7/Math.sqrt(1-.3*.3)]:[shoulder[0],shoulder[1]+Math.min(18,def.A1+def.A2-1)*K,0];
+      const [elbow,reached]=ik3(shoulder,hand,def.A1*K,def.A2*K,def.twoHand?[u[0],u[1]*.3,u[1]*Math.sqrt(1-.3*.3)]:[1,0,0]);
       result.push({center,shoulder,hand:reached,elbow,depth:def.twoHand?first.depth:-first.depth,weapon:false});
     }
     return result;
@@ -4020,7 +4031,8 @@
     const S = q => { const r = proj3(f, q); return [x + r[0] * K, yFeet + r[1] * K, r[2]]; }, dp = q => proj3(f, q)[2];
     const hip = [0, def.hipY + p.drop, p.sz], R = q => rot3(q, p.yaw, p.pitch), T = q => V3.add(hip, R(q));
     const shS = T([def.shX, def.shY, 0]), shO = T([-def.shX, def.shY, 0]);
-    let targetS=V3.add(shS,R(p.hd));
+    const held=def.twoHand?[p.hd[0],p.hd[1],Math.max(6,p.hd[2])]:p.hd;
+    let targetS=V3.add(shS,R(held));
     if(def.twoHand && !p.freeHand) {
       // A shared grip must be reachable by both arms, including while winding up.
       // Project it into the intersection of their reach spheres before solving either elbow.
@@ -4029,9 +4041,9 @@
         const d=V3.sub(targetS,center),len=V3.len(d);if(len>reach)targetS=V3.add(center,V3.mul(d,reach/len));
       }
     }
-    const [elS, hS] = ik3(shS, targetS, def.A1, def.A2, R([0.7, 0.6, -0.4]));
-    const offTarget = def.twoHand && !p.freeHand ? V3.add(hS,V3.mul(norm3(R(p.sw)),6)) : V3.add(shO,R(p.oh));
-    const [elO, hO] = ik3(shO, offTarget, def.A1, def.A2, R([-0.7, 0.6, -0.4]));
+    const [elS, hS] = ik3(shS, targetS, def.A1, def.A2, R(def.twoHand?[0.2,0.6,1]:[0.7, 0.6, -0.4]));
+    const offTarget = def.twoHand && !p.freeHand ? V3.add(hS,V3.mul(norm3(R(p.sw)),6)) : V3.add(shO,R(def.twoHand?[p.oh[0],p.oh[1],Math.max(6,p.oh[2])]:p.oh));
+    const [elO, hO] = ik3(shO, offTarget, def.A1, def.A2, R(def.twoHand?[-0.2,0.6,1]:[-0.7, 0.6, -0.4]));
     const hipS = V3.add(hip, rot3([def.hipX, 0, 0], p.yaw * 0.5, 0)), hipO = V3.add(hip, rot3([-def.hipX, 0, 0], p.yaw * 0.5, 0));
     const ftO = [-p.wid, def.ank - p.lf, p.stride / 2 + p.fz + p.sz * 0.4], ftS = [p.wid, def.ank - p.lb, -p.stride / 2 + p.nz + p.sz * 0.4];
     const [knS, aS] = ik3(hipS, ftS, def.L1, def.L2, [0.15, 0, 1]), [knO, aO] = ik3(hipO, ftO, def.L1, def.L2, [-0.15, 0, 1]);
@@ -4066,11 +4078,12 @@
     const orbit = def.spinTip && B.sweeps.length && p.sweep && p.sweep.t>=p.sweep.tele ? generalSpinGeometry(B,def,x,yFeet,K) : null;
     if(!orbit) {
     B.r3SpinG=null;
+    const armDepth=d=>def.twoHand?(v==='b'?Math.min(d,-3):v==='f'?Math.max(d,2):d):d;
     const pm = sd => v === 's' ? 1 : (v === 'f' ? sd : -sd) * mir;
-    spr(def.p + '_pauld', { v, m: pm(-1) }, shO, 0, dp(shO) + 0.8); spr(def.p + '_pauld', { v, m: pm(1) }, shS, 0, dp(shS) + 0.8);
+    spr(def.p + '_pauld', { v, m: pm(-1) }, shO, 0, armDepth(dp(shO)) + 0.8); spr(def.p + '_pauld', { v, m: pm(1) }, shS, 0, armDepth(dp(shS)) + 0.8);
     for (const [sh, el, hd, ex] of [[shO, elO, hO, 0], [shS, elS, hS, 0.2]]) {
-      seg(def.upper, sh, el, def.A1, dp(mid(sh, el)) + 1 + ex); seg(def.fore, el, hd, def.A2, dp(mid(el, hd)) + 1.1 + ex);
-      add(dp(hd) + 1.3 + ex, () => { const A = S(hd); pd(P_(def.hand, {}, fl), A[0], A[1]); });
+      seg(def.upper, sh, el, def.A1, armDepth(dp(mid(sh, el))) + 1 + ex); seg(def.fore, el, hd, def.A2, armDepth(dp(mid(el, hd))) + 1.1 + ex);
+      add(armDepth(dp(hd)) + 1.3 + ex, () => { const A = S(hd); pd(P_(def.hand, {}, fl), A[0], A[1]); });
     }
     if (B.type === 'goblinking' && p.bomb > 0.55) spr('gk3_bomb', {}, V3.add(hO, [0, -4, 0]), 0, dp(hO) + 1.5);
     if(def.shield) spr(def.p+'_shield',{v},hO,v==='s'?mir*p.pitch*.4:0,dp(hO)+1.6);
@@ -4081,12 +4094,12 @@
     let ang = Math.atan2(Tp[1] - H[1], Tp[0] - H[0]), sc = Math.max(0.25, Math.hypot(Tp[0] - H[0], Tp[1] - H[1]) / (def.reach * K));
     if (p.sweep && p.sweep.t >= p.sweep.tele) { ang = -p.sweep.ang; sc = Math.max(1, (p.sweep.len - Math.hypot(H[0] - x, H[1] - (yFeet - 40 * K))) / (def.reach * K)); }
     const ghosts = B.r3G || (B.r3G = []);
-    if(!def.unarmed) add(dp(V3.add(hS, V3.mul(swd, 14))) + 1.25, () => {
+    if(!def.unarmed) add(armDepth(dp(V3.add(hS, V3.mul(swd, 14)))) + 1.25, () => {
       for (let i = 0; i < ghosts.length; i++) { const g0 = ghosts[i]; if (Math.abs(g0[2] - ang) > 0.2) pd(P_(def.sword, {}, false), g0[0], g0[1], g0[2], g0[3], 1, 0.22 / (i + 1)); }
       pd(P_(def.sword, {p2:P2}, fl), H[0], H[1], ang, sc, 1);
       ghosts.unshift([H[0], H[1], ang, sc]); if (ghosts.length > 2) ghosts.length = 2;
     });
-    add(dp(hS) + 1.4, () => { pd(P_(def.hand, {}, fl), H[0], H[1]); });   // the fist closes over the grip
+    add(armDepth(dp(hS)) + 1.4, () => { pd(P_(def.hand, {}, fl), H[0], H[1]); });   // the fist closes over the grip
     if(def.offWeapon) spr(def.p+'_offweapon',{},hO,Math.atan2(Tp[1]-H[1],Tp[0]-H[0]),dp(hO)+1.25);
     if(def.dual) {
       const d=norm3(R(p.osw||p.sw)), O=S(hO), tip=S(V3.add(hO,V3.mul(d,def.reach))), second=B.sweeps[1];
@@ -4100,8 +4113,9 @@
       // Draw each complete arm in its rotating depth order; no four-view hand-position jumps.
       const history=B.r3SpinG||(B.r3SpinG=[[],[]]);
       orbit.forEach((g,i)=>{
-        const d=g.depth, ghosts=history[i];
-        add(d+.8,()=>{pd(P_(def.p+'_pauld',{v,m:i?-1:1},fl),g.shoulder[0],g.shoulder[1],0,mir,1);line(def.upper,g.shoulder,g.elbow,def.A1);line(def.fore,g.elbow,g.hand,def.A2);});
+        const order=q=>v==='b'?Math.min(q,-3):v==='f'?Math.max(q,2):q;
+        const d=def.twoHand?order(g.hand[2]/K):g.depth, da=def.twoHand?order((g.shoulder[2]+g.elbow[2]+g.hand[2])/(3*K)):d, ghosts=history[i];
+        add(da+.8,()=>{pd(P_(def.p+'_pauld',{v,m:i?-1:1},fl),g.shoulder[0],g.shoulder[1],0,mir,1);line(def.upper,g.shoulder,g.elbow,def.A1);line(def.fore,g.elbow,g.hand,def.A2);});
         add(d+1.25,()=>{
           if(g.weapon) {
           for(let j=0;j<ghosts.length;j++){const h=ghosts[j];pd(P_(def.sword,{p2:P2},false),h[0],h[1],h[2],h[3],1,.18/(j+1));}

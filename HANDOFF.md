@@ -274,3 +274,9 @@ sh tools/build_apk.sh      # 初回は Android SDK（platform 35 / build-tools 3
 - 回転の `generalSpinGeometry` で `twoHand` の肩に奥行きを追加し、腕のpoleを下向きに固定。平面解で起きていたひじの反転・過度な折り畳みを防ぐ。
 - `upperSpan` / `foreSpan` は部品に描かれた節の実長。サイクロプスにだけ設定し、通常の3Dリグと回転中の両方で関節に届くようにする。
 - `check_weapon_spins.js` の腕長検証を3D距離へ変更し、サイクロプスのひじの全周連続性チェックを追加。
+
+## 追記：サイクロプスの体の正面と腕の前後（2026-10-29）
+- `twoHand` は回転中のfacingを武器の角度に一致させる。他の片手・二刀流のfacingはそのまま。
+- 回転の両肩はキャラクターの横軸、手とひじは前軸を基準に計算。真円の画面軌道を保つため、手の高さと奥行きを補正。腕のpoleも前軸にする。
+- 後ろ向きの通常描画は `armDepth`、回転描画は `order` で腕・手・武器を胴の奥に置く。前向きは手前、横向きは奥行き順。
+- 新しい回帰確認：`node tools/anim/check_cyclops_front.js`。既存の軌道・ひじ連続性・全技の検証も実行。
