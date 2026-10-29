@@ -300,7 +300,7 @@ const BEAST3 = (() => {
       tl.push(V.add(prev, V.mul(dir, P.tail ? 8 : 6)));
     }
     const tn = P.tail && P.tail[2] >= 1 ? 2 : tl.length;   // in a tail sweep the rest of the tail is drawn out along the swing (sweepLimbs)
-    if (tn < tl.length) ANCH = tl[tn - 1];
+    if (tn < tl.length) ANCHS[0] = tl[tn - 1];
     for (let i = 1; i < tn; i++) { tube([tl[i - 1], tl[i]], [3.6 - i * 0.25, 3.4 - i * 0.25], C, -2); if (i % 2) piece(tl[i], -1.9, (x, y) => U.spike(g, x, y - 2, -PI / 2, 4, 1.6, C)); }
     // hind legs (digitigrade): hip -> knee (forward) -> ankle -> claws
     for (const s of [-1, 1]) {
@@ -479,7 +479,7 @@ const BEAST3 = (() => {
       sp.push(p); rs.push(s < 0.15 ? lerp(5, 8, s / 0.15) : lerp(8, 2.5, (s - 0.15) / 0.85));
     }
     const cut = P.tail && P.tail[2] >= 1 ? 9 : N;   // in a tail sweep the body's rear half lashes out along the swing (sweepLimbs)
-    if (cut < N) ANCH = sp[cut - 1];
+    if (cut < N) ANCHS[0] = sp[cut - 1];
     tube(sp.slice(0, cut), rs.slice(0, cut), C, 0, { belly: { c: QZ.belly.c, s: QZ.belly.s, w: 0.4 }, scale: 1 });
     // tail fan
     if (cut === N) piece(sp[N - 1], 0, (x, y) => { for (let i = -1; i <= 1; i++) U.feather(g, x, y, PI / 2 + i * 0.5 + (VIEW === 's' ? -0.8 : 0), 12, 3, { m: QZ.F[(i + 2) % 5], d: QZ.F[(i + 3) % 5], tip: '#ffffff' }); });
@@ -522,66 +522,417 @@ const BEAST3 = (() => {
   }
 
   // =============================================================
-  //  WHOLE-BODY SWEEPS (指示: ダメージバーではなく体で攻撃): during a sweep the beast's own tail / tentacles are the weapon.
-  //  They are drawn in screen space, from the sweep's centre out to its full length (= the real hit area), lagging a little
-  //  behind the turn; the game only keeps the faint motion blur of the swing.
+  //  HYDRA — a squat swamp dragon with three heads (five once it is hurt). Each neck sways on its own; the heads
+  //  breathe three ways at once, rear and spit, droop and regrow. In the neck-sweep every neck lashes out on its own.
+  // =============================================================
+  const HY = { B: { d: '#22581a', m: '#5aa83a', h: '#b0e878' }, belly: { c: '#d8e8a0', s: '#a0b060' }, eye: '#ffe14a', eye2: '#ff3a3a', in: '#5a0a10', horn: { d: '#a89870', m: '#e8e0c0', h: '#ffffff' } };
+  const nHeads = B => B.phase === 2 ? 5 : 3;
+  function headSpread(N, i) { return (i - (N - 1) / 2) * (N === 3 ? 0.5 : 0.34); }
+  function hyPose(B, T, E) {
+    const n = mvName(B), mv = B.mv, t = mv ? mv.t : 0, N = nHeads(B);
+    const P = { N, cr: Math.sin(T * 2) * 0.6, gal: 0, ph: 0, heads: [], glow: 0, hide: 0 };
+    for (let i = 0; i < N; i++) P.heads.push({ hp: Math.sin(T * 1.3 + i * 1.7) * 0.15, ya: headSpread(N, i) + Math.sin(T * 0.7 + i * 2.1) * 0.3, mo: Math.max(0, Math.sin(T * 0.9 + i * 2.5) - 0.8) * 2, lunge: 0 });
+    if (n === 'breath3') {
+      const k = env(t, 0, 0.4, 2.0, 2.3), a = mv.a0 != null && mv.dir != null ? mv.a0 + clamp((t - 0.55) / 1.75, 0, 1) * 1.0 * mv.dir : E.look, mid = (N - 1) / 2;
+      [-0.85, 0, 0.85].forEach((o, j) => { const h = P.heads[mid - 1 + j]; const d = groundDir(E.face, a + o); h.ya = lerp(h.ya, Math.atan2(d[0], d[1]), k); h.hp = lerp(h.hp, 0.45, k); h.mo = Math.max(h.mo, env(t, 0.45, 0.55, 2.05, 2.25)); h.lunge = 0.3 * k; });
+      P.cr = 3 * k;
+    } else if (n === 'regen') {
+      const d = env(t, 0, 0.35, 0.8, 1.4); P.glow = env(t, 0.5, 0.9, 1.6, 2.2); P.heads.forEach((h, i) => { h.hp += 1.0 * d * (1 - i * 0.05); h.mo = 0; }); P.cr = 4 * d;
+    } else if (n === 'dash3') {
+      if (mv.ph === 'go') { P.gal = 1; P.ph = T * 18; P.heads.forEach(h => { h.hp = 0.35; h.mo = 0.6; }); }
+      else P.cr = 4 * sstep((mv.pt || 0) / 0.3);
+    } else if (n === 'tentacles') {
+      P.hide = Math.min(N, 4); P.cr = 3;
+    } else if (CAST[n]) {
+      P.heads.forEach((h, i) => { const s = 0.25 + i * 0.07, L = env(t, s + 0.15, s + 0.25, s + 0.4, s + 0.7), R = env(t, 0, s + 0.12, s + 0.15, s + 0.25); h.hp += -0.6 * R + 0.55 * L; h.mo = Math.max(R, L); h.lunge = L; });
+    }
+    return P;
+  }
+  function hyBuild(B, P, T, p2) {
+    const C = HY.B, belly = { c: HY.belly.c, s: HY.belly.s, w: 0.42 }, bob = Math.sin(P.ph * 2) * 1.5 * P.gal;
+    const hip = [0, -20 + P.cr + bob, -16], chest = [0, -24 + P.cr + bob, 14];
+    tube([hip, V.mix(hip, chest, 0.5), chest], [17, 20, 19], C, 0, { belly });
+    if (P.glow) { const k = P.glow; piece(V.mix(hip, chest, 0.5), 0.5, (x, y) => { for (let i = 0; i < 6; i++) { const a = T * 3 + i; g.ell(x + Math.cos(a) * 14 * k, y - 10 - ((T * 30 + i * 9) % 30) * k, 2, 2, '#c0ff90'); } }); }
+    // the tail drags behind (in the neck sweep with only three heads it becomes the fourth lash)
+    const tailHidden = P.hide && P.N < 4;
+    if (!tailHidden) { const tl = [V.add(hip, [0, 4, -10])]; for (let i = 1; i < 7; i++) tl.push(V.add(tl[i - 1], [Math.sin(T * 1.6 + i) * 3, i < 3 ? 3 : 0.5, -7])); tube(tl, [10, 9, 7, 6, 4.5, 3, 2], C, -3, { belly }); }
+    else ANCHS[P.N] = V.add(hip, [0, 4, -12]);
+    // four short legs
+    for (const s of [-1, 1]) for (const [at, base, o] of [[V.add(chest, [s * 15, 8, 4]), [s * 17, -3, chest[2] + 6], 0], [V.add(hip, [s * 15, 6, -2]), [s * 17, -3, hip[2] - 2], 0.5]]) {
+      let ft = base; if (P.gal) { const a = P.ph + (s > 0 ? 0 : PI) + o * PI; ft = V.add(ft, [0, -Math.max(0, Math.sin(a)) * 7, Math.cos(a) * 9]); }
+      const [kn, an] = ik(at, ft, 9, 9, [s * 0.5, -0.2, 0.6]);
+      tube([at, kn], [7, 5.5], C, -1.5); tube([kn, an], [5, 4], C, -1.5);
+      piece(an, -1.4, (x, y) => { for (let i = -1; i <= 1; i++) g.line(x, y, x + i * 3 + (VIEW === 's' ? 3 : 0), y + 4, 1.6, '#e8e0c0'); });
+    }
+    // the necks
+    for (let i = 0; i < P.N; i++) {
+      const sx = (i - (P.N - 1) / 2) * (P.N === 3 ? 10 : 7.5), base = V.add(chest, [sx, -14, 8]), h = P.heads[i];
+      if (i < P.hide) { ANCHS[i] = base; continue; }
+      const pts = [];
+      for (let j = 0; j <= 6; j++) { const k = j / 6; pts.push(V.add(base, yaw([sx * 1.3 * k, -44 * k + 6 * k * k + h.lunge * 16 * k * k - Math.sin(T * 1.8 + i) * 3 * k, 8 * k + 12 * k * k + h.lunge * 20 * k * k], h.ya * k * 0.8))); }
+      tube(pts, [7, 6.5, 6, 5.5, 5.2, 5, 4.8], C, 1 + (VIEW === 's' ? i * 0.01 : 0), { belly });
+      const hd = norm(yaw(pitch([0, 0.2, 1], -h.hp), h.ya));
+      serpentHead(pts[6], hd, h.mo, p2 ? HY.eye2 : HY.eye, C, HY.belly.c, HY.horn, 2);
+    }
+  }
+  // a dragon / serpent head for many-headed beasts, front / side / back
+  function serpentHead(at, hd, mo, E, C, jawCol, horn, d0) {
+    piece(at, d0, (x, y) => {
+      if (VIEW === 's') {
+        const q = pr(V.add(at, hd)), ang = Math.atan2(q[1] - y, q[0] - x), jaw = mo * 0.6;
+        rot2(() => {
+          if (horn) U.spike(g, -2, -6, -PI * 0.8, 9, 2.4, horn);
+          g.poly([[-6, -6], [8, -7], [18, -3], [21, 1], [10, 3], [-5, 5]], C.m); g.poly([[-5, 1], [-5, 5], [10, 3], [21, 1], [19, 0]], C.d);
+          cx.save(); cx.translate(2, 3); cx.rotate(jaw); g.poly([[-6, -1], [17, -1], [15, 2], [-4, 3]], jawCol); if (mo > 0.25) { g.p(6, -2, '#ffffff'); g.p(12, -2, '#ffffff'); } cx.restore();
+          if (mo > 0.25) g.poly([[0, 4], [18, 3], [10, 8]], HY.in);
+          g.ell(5, -3, 2, 1.6, E); g.p(6, -4, '#ffffff'); g.p(19, -1, '#102010');
+        }, x, y, ang);
+        return;
+      }
+      cx.translate(x, y);
+      if (VIEW === 'f') {
+        const gap = mo * 6;
+        frontJaw(9, 5, gap, 4, jawCol, HY.in);
+        if (horn) for (const m of [-1, 1]) U.spike(g, m * 5, -6, -PI / 2 + m * 0.5, 8, 2.2, horn);
+        g.poly([[-8, -7], [8, -7], [7, 3], [4, 9], [-4, 9], [-7, 3]], C.m); g.poly([[1, -7], [8, -7], [7, 3], [4, 9], [1, 9]], C.d);
+        for (const m of [-1, 1]) { g.ell(m * 5, -2, 2, 1.8, E); g.p(m * 5, -3, '#ffffff'); g.p(m * 2, 7, '#102010'); }
+        upperTeeth(9, 5, gap);
+        return;
+      }
+      if (horn) for (const m of [-1, 1]) U.spike(g, m * 5, -6, -PI / 2 + m * 0.5, 8, 2.2, horn);
+      g.ell(0, -1, 8, 8, C.m); g.ell(2, 0, 6, 6, C.d);
+    });
+  }
+
+  // =============================================================
+  //  CERBERUS — the three-headed hound of hell with a mane of fire and a serpent for a tail.
+  // =============================================================
+  const CB = { B: { d: '#140806', m: '#3a1812', h: '#6a3024' }, fire: ['#ff5a1a', '#ffd04a', '#ffffff'], fire2: ['#ff2a5a', '#ffb0c0', '#ffffff'], eye: '#ffe14a', eye2: '#ff3a3a', col: { d: '#2a2a34', m: '#8a8a94', h: '#d0d0d8' }, snake: { d: '#16300f', m: '#3a6a2a', h: '#8ac060' }, in: '#ff8a2a' };
+  function cbPose(B, T, E) {
+    const n = mvName(B), mv = B.mv, t = mv ? mv.t : 0;
+    const P = { cr: Math.sin(T * 2.2) * 0.6, gal: 0, ph: 0, rear: 0, heads: [], hideTail: false, tailW: Math.sin(T * 2) };
+    for (let i = 0; i < 3; i++) P.heads.push({ hp: Math.sin(T * 1.4 + i * 2) * 0.12, ya: (i - 1) * 0.45 + Math.sin(T * 0.8 + i * 2.3) * 0.2, mo: Math.max(0, Math.sin(T * 1.1 + i * 2.2) - 0.7) * 1.5 });
+    if (n === 'breath3') {
+      const k = env(t, 0, 0.4, 2.0, 2.3), a = mv.a0 != null && mv.dir != null ? mv.a0 + clamp((t - 0.55) / 1.75, 0, 1) * 1.0 * mv.dir : E.look;
+      [-0.85, 0, 0.85].forEach((o, j) => { const h = P.heads[j], d = groundDir(E.face, a + o); h.ya = lerp(h.ya, Math.atan2(d[0], d[1]), k); h.hp = lerp(h.hp, 0.35, k); h.mo = Math.max(h.mo, env(t, 0.45, 0.55, 2.05, 2.25)); });
+      P.cr = 3 * k;
+    } else if (n === 'dash3' || n === 'firetrail' || n === 'charge') {
+      if (mv.ph === 'go') { P.gal = 1; P.ph = T * 20; P.heads.forEach(h => { h.hp = 0.25; h.mo = 0.5; }); }
+      else { const k = sstep((mv.pt || 0) / 0.3); P.cr = 5 * k; P.heads.forEach(h => { h.hp = 0.3 * k; h.mo = 0.4 * k; }); }
+    } else if (n === 'quake') {
+      let up = 0, hit = 0; for (const T0 of [0.45, 1.0, 1.55]) { up = Math.max(up, env(t, T0 - 0.33, T0 - 0.08, T0 - 0.06, T0)); hit = Math.max(hit, env(t, T0 - 0.02, T0, T0 + 0.1, T0 + 0.35)); }
+      P.rear = up * 0.55; P.cr += hit * 5; P.heads.forEach(h => { h.hp = -0.4 * up + 0.3 * hit; h.mo = Math.max(up, hit) * 0.8; });
+    } else if (n === 'tail') {
+      P.hideTail = !!(B.sweeps.length && B.sweeps[0].t >= B.sweeps[0].tele); P.cr = 3; P.heads.forEach(h => { h.mo = 0.5; });
+    } else if (CAST[n]) {
+      P.heads.forEach((h, i) => { const k = env(t, 0.05 + i * 0.12, 0.3 + i * 0.12, 0.8 + i * 0.1, 1.2 + i * 0.1); h.hp -= 0.7 * k; h.mo = Math.max(h.mo, k); });
+    }
+    return P;
+  }
+  function cbBuild(B, P, T, p2) {
+    const C = CB.B, F = p2 ? CB.fire2 : CB.fire, bob = Math.sin(P.ph * 2) * 2 * P.gal, bp = P.rear * 0.5;
+    const hip = [0, -34 + P.cr + bob, -20], chest = V.add(hip, pitch([0, -6, 38], bp)), mid = V.add(V.mix(hip, chest, 0.5), [0, 2, 0]);
+    // the serpent tail, a snake's head at its end
+    if (!P.hideTail) {
+      const tl = [V.add(hip, [0, -4, -12])];
+      for (let i = 1; i < 8; i++) { const k = i / 7; tl.push(V.add(tl[i - 1], [Math.sin(T * 2.4 + k * 4) * 3 + P.tailW * 2 * k, -2 + k * 4, -7 + k * 2])); }
+      tube(tl, [5, 4.5, 4, 3.6, 3.2, 3, 2.8, 2.6], CB.snake, -3);
+      serpentHead(tl[7], norm(V.sub(tl[7], tl[6])), 0.3 + Math.max(0, Math.sin(T * 3)) * 0.4, '#ffe14a', CB.snake, '#c8e090', null, -2.9);
+    } else ANCHS[0] = V.add(hip, [0, -4, -12]);
+    // legs
+    for (const sd of [-1, 1]) for (const [at, base, o, front] of [[V.add(chest, [sd * 10, 9, 3]), [sd * 10, -3, chest[2] + 3], 0, 1], [V.add(hip, [sd * 10, 4, -1]), [sd * 10, -3, hip[2] - 3], 0.5, 0]]) {
+      let ft = base;
+      if (P.gal) { const a = P.ph + (sd > 0 ? 0 : 0.5) * PI + o * 2.4; ft = V.add(ft, [0, -Math.max(0, Math.sin(a)) * 11, Math.cos(a) * 13]); }
+      if (front && P.rear) ft = V.mix(ft, V.add(at, [0, 12, 10]), P.rear * 1.6);
+      const [kn, an] = ik(at, ft, 16, 17, front ? [0, 0, -1] : [0, -0.3, 1]);
+      tube([at, kn], [front ? 6.5 : 8.5, 5], C, front ? 1.8 : -1.5); tube([kn, an], [4.5, 3.6], C, front ? 1.8 : -1.5);
+      piece(an, front ? 1.9 : -1.4, (x, y) => { g.ell(x + (VIEW === 's' ? 2 : 0), y + 2, 5, 2.6, C.d); g.ell(x + (VIEW === 's' ? 2 : 0), y + 1, 4, 1.8, C.m); });
+    }
+    tube([hip, mid, chest], [15, 15, 19], C);
+    for (let i = 0; i < 6; i++) flame(V.add(V.mix(hip, chest, 0.35 + i * 0.13), [0, -14, 0]), 4 + (i % 2), T + i, F, 0.4, VIEW === 'b' ? 0 : -3);   // burning mane along the back
+    // three necks and heads, a spiked collar on each
+    for (let i = 0; i < 3; i++) {
+      const h = P.heads[i], sx = (i - 1) * 13, base = V.add(chest, [sx, -10, 6]);
+      const top = V.add(base, yaw([sx * 0.9, -14 - (i === 1 ? 6 : 0), 10], h.ya * 0.5));
+      tube([base, top], [10, 8.5], C, 2 + (i === 1 ? 0.2 : 0));
+      piece(V.mix(base, top, 0.45), 2.1 + (i === 1 ? 0.2 : 0), (x, y) => { g.ell(x, y, 9, 3.4, CB.col.d); g.ell(x, y - 1, 9, 2.4, CB.col.m); for (let k = -2; k <= 2; k++) U.spike(g, x + k * 4, y + 1, PI / 2, 4, 1.4, CB.col); });
+      flame(V.add(top, [0, -9, -4]), 4, T + i * 2, F, 1.9, VIEW === 'b' ? 0 : -3);
+      const hd = norm(yaw(pitch([0, 0.25, 1], -h.hp), h.ya));
+      houndHead(top, hd, h.mo, p2, 2.5 + (i === 1 ? 0.3 : 0));
+    }
+  }
+  function houndHead(at, hd, mo, p2, d0) {
+    const C = CB.B, E = p2 ? CB.eye2 : CB.eye;
+    piece(at, d0, (x, y) => {
+      cx.translate(x, y); cx.scale(1.3, 1.3); cx.translate(-x, -y);   // big heads: they are the hound's face
+      if (VIEW === 's') {
+        const q = pr(V.add(at, hd)), ang = Math.atan2(q[1] - y, q[0] - x), jaw = mo * 0.55;
+        rot2(() => {
+          g.poly([[-7, -7], [5, -8], [12, -3], [21, 0], [22, 3], [10, 4], [-5, 7]], C.m); g.poly([[-6, 2], [-5, 7], [10, 4], [22, 3], [21, 2]], C.d);
+          cx.save(); cx.translate(8, 4); cx.rotate(jaw); g.poly([[-7, -1], [11, -1], [11, 2], [-5, 3]], C.d); if (mo > 0.25) { g.p(2, -1, '#ffffff'); g.p(8, -1, '#ffffff'); } cx.restore();
+          if (mo > 0.25) g.poly([[2, 4], [18, 3], [10, 7]], CB.in);
+          g.r(20, -1, 3, 2, '#000000'); g.ell(5, -3, 2, 1.4, E); g.p(6, -4, '#ffffff');
+          g.poly([[-5, -6], [-7, -16], [0, -8]], C.m);
+        }, x, y, ang);
+        return;
+      }
+      cx.translate(x, y);
+      if (VIEW === 'f') {
+        const gap = mo * 6;
+        frontJaw(10, 5, gap, 4, C.d, CB.in, '#ffd04a');
+        g.poly([[-10, -7], [10, -7], [6, 4], [4, 10], [-4, 10], [-6, 4]], C.m); g.poly([[1, -7], [10, -7], [6, 4], [4, 10], [1, 10]], C.d);
+        for (const m of [-1, 1]) { g.poly([[m * 5, -7], [m * 10, -16], [m * 11, -5]], C.m); g.ell(m * 5, -2, 2, 1.6, E); g.p(m * 5, -3, '#ffffff'); }
+        g.ell(0, 6, 2.6, 1.8, '#000000');
+        upperTeeth(10, 5, gap);
+        return;
+      }
+      g.ell(0, -1, 10, 9, C.m); g.ell(2, 0, 7, 7, C.d); for (const m of [-1, 1]) g.poly([[m * 5, -7], [m * 10, -16], [m * 11, -5]], C.m);
+    });
+  }
+
+  // =============================================================
+  //  VOID EYE — a great floating eyeball. The iris truly looks around (it is drawn on the ball in 3D); six tentacles
+  //  writhe from behind it, a nerve trails from its back. Beams make the iris blaze and the tentacles splay out stiff.
+  // =============================================================
+  const VE = { W: { d: '#a090c0', m: '#f2ecfa', h: '#ffffff' }, vein: '#d84a6a', iris: '#8a3ae0', iris2: '#e02a4a', irisL: '#d0a0ff', irisL2: '#ffa0b0', T: { d: '#24103a', m: '#5a2a8a', h: '#a070d8' } };
+  function vePose(B, T, E) {
+    const n = mvName(B), mv = B.mv, t = mv ? mv.t : 0;
+    const d = groundDir(E.face, E.look);
+    const P = { look: norm([d[0] + Math.sin(T * 0.9) * 0.25, 0.25 + Math.sin(T * 1.3) * 0.1, d[1]]), bob: Math.sin(T * 1.8) * 3, glow: 0, ps: 1, sp: 0.3 + Math.sin(T * 1.2) * 0.1, curl: 0, roll: 0 };
+    if (n === 'laser' || n === 'laser3' || n === 'cross' || n === 'gaze') { const k = env(t, 0, 0.4, n === 'cross' ? 3.6 : n === 'gaze' ? 3 : 1.3, (n === 'cross' ? 3.6 : n === 'gaze' ? 3 : 1.3) + 0.4); P.glow = k; P.ps = 1 - 0.6 * k; P.sp = lerp(P.sp, 1, k); P.look = norm(V.mix(P.look, [d[0], 0.1, d[1]], k)); }
+    else if (n === 'warp') { const k = env(t, 0, 0.3, 0.6, 1.2); P.curl = k; P.ps = 1 + 0.5 * k; }
+    else if (CAST[n]) { const k = env(t, 0.1, 0.4, 0.8, 1.3); P.glow = k * 0.7; P.sp = lerp(P.sp, 0.9, k); P.ps = 1 - 0.4 * k; P.roll = Math.sin(t * 8) * 0.3 * k; }
+    return P;
+  }
+  function discPts(c, nrm, r, sx, sy, n = 18) {   // a disc lying on the eyeball, perpendicular to nrm
+    const up = Math.abs(nrm[1]) > 0.9 ? [1, 0, 0] : [0, -1, 0];
+    const u = norm([nrm[1] * up[2] - nrm[2] * up[1], nrm[2] * up[0] - nrm[0] * up[2], nrm[0] * up[1] - nrm[1] * up[0]]);
+    const w = [nrm[1] * u[2] - nrm[2] * u[1], nrm[2] * u[0] - nrm[0] * u[2], nrm[0] * u[1] - nrm[1] * u[0]];
+    const out = []; for (let i = 0; i < n; i++) { const a = i / n * TAU; out.push(V.add(c, V.add(V.mul(u, Math.cos(a) * r * sx), V.mul(w, Math.sin(a) * r * sy)))); }
+    return out;
+  }
+  function veBuild(B, P, T, p2) {
+    const C = [0, -60 + P.bob, 0], R = 25, L = P.look;
+    // nerve stalk out of its back
+    tube([V.add(C, [0, 4, -18]), V.add(C, [Math.sin(T) * 3, 14, -30]), V.add(C, [Math.sin(T * 1.3) * 6, 26, -36])], [8, 5.5, 3], VE.T, -1);
+    // six tentacles from behind, writhing; splayed stiff while it fires
+    for (let k = 0; k < 6; k++) {
+      const ph = k / 6 * TAU + 0.3, root = V.add(C, [Math.cos(ph) * R * 0.75, Math.sin(ph) * R * 0.6 + 4, -R * 0.55]), pts = [root];
+      for (let j = 1; j <= 7; j++) {
+        const s = j / 7, wav = Math.sin(T * 3 + k * 1.3 + j * 0.8) * (1 - P.sp * 0.7) * 5 * s, rr = (7 + 3 * P.sp) * (1 - P.curl * 0.6);
+        pts.push(V.add(pts[j - 1], [Math.cos(ph) * rr + Math.sin(ph) * wav, Math.sin(ph) * rr * 0.7 + 1.5 + Math.cos(ph) * wav * 0.6 + P.curl * 3 * s, -2 + P.curl * 4 * s]));
+      }
+      tube(pts, [4.5, 4, 3.6, 3.2, 2.8, 2.4, 2, 1.6], VE.T, 0);
+      const tp = pts[7]; piece(tp, 0.1, (x, y) => U.spike(g, x, y, Math.atan2(pr(tp)[1] - pr(pts[6])[1], pr(tp)[0] - pr(pts[6])[0]), 6, 2, VE.T));
+    }
+    sph(C, R, VE.W, 0);
+    // veins creeping from the iris over the ball (only the ones on the near side show: the rest sort behind the ball)
+    for (let k = 0; k < 7; k++) {
+      const a = k / 7 * TAU + 0.4, side = norm(V.add(discPts([0, 0, 0], L, 1, 1, 1, 7)[k], [0, 0, 0]));
+      let prev = null;
+      for (let j = 0; j <= 4; j++) { const b = 0.55 + j * 0.2, p = V.add(C, V.mul(norm(V.add(V.mul(L, Math.cos(b)), V.mul(side, Math.sin(b)))), R * 0.98)); if (prev) line(prev, p, 1, VE.vein, 0.2); prev = p; }
+    }
+    // the iris and the slit pupil, laid on the ball where it is looking
+    const ic = V.add(C, V.mul(L, R * 0.93)), IR = p2 ? VE.iris2 : VE.iris, IL = p2 ? VE.irisL2 : VE.irisL;
+    if (P.glow) piece(ic, 0.3, (x, y) => { g.ell(x, y, 15 + P.glow * 6, 15 + P.glow * 6, `rgba(255,140,255,${0.25 * P.glow})`); });
+    poly(discPts(ic, L, 12, 1, 1), IL, 0.4); poly(discPts(V.add(ic, V.mul(L, 0.3)), L, 10, 1, 1), IR, 0.45);
+    poly(discPts(V.add(ic, V.mul(L, 0.6)), L, 10, 0.22 * P.ps, 0.85, 12), '#120818', 0.5);
+    piece(V.add(ic, V.mul(L, 0.8)), 0.55, (x, y) => { g.r(Math.round(x) - 4, Math.round(y) - 5, 2, 2, '#ffffff'); });
+  }
+
+  // =============================================================
+  //  CLOCK MACHINE — a walking clockwork clock. Its face is a real disc (seen edge-on from the side, gears and a turning
+  //  key from behind); the hammer strikes the bell on its head; in the clock attack its hands come out of the face.
+  // =============================================================
+  const CM = { Br: { d: '#6a4a18', m: '#c8963a', h: '#ffe0a0' }, Dk: { d: '#2a1e10', m: '#5a4428', h: '#9a7a48' }, face: '#f4ecd8', num: '#3a2a18', hand: '#2a1e10', eye: '#ff3a3a' };
+  function cmPose(B, T, E) {
+    const n = mvName(B), mv = B.mv, t = mv ? mv.t : 0;
+    const P = { cr: Math.abs(Math.sin(T * 3)) * 0.8, gal: 0, ph: 0, arms: 0, ring: 0, spin: 1, lean: 0, steam: 0, tick: T };
+    if (n === 'clock') { const k = env(t, 0, 0.5, 4.2, 4.6); P.arms = k; P.spin = 6 * k + 1; P.steam = k; }
+    else if (n === 'timestop') { P.ring = env(t, 0.1, 0.2, 0.25, 0.5); P.spin = t < 0.3 ? 8 : 0; P.arms = env(t, 0, 0.2, 2, 2.5); P.tick = T - t + 0.3; }
+    else if (n === 'dash3') { if (mv.ph === 'go') { P.gal = 1; P.ph = T * 16; P.lean = 0.2; P.steam = 1; } else P.cr = 3 * sstep((mv.pt || 0) / 0.3); }
+    else if (CAST[n]) { const times = n === 'triple' ? [0.4, 0.72, 1.04] : [0.45]; for (const T0 of times) P.ring = Math.max(P.ring, env(t, T0 - 0.15, T0, T0 + 0.02, T0 + 0.18)); P.spin = 3; P.arms = env(t, 0, 0.3, 1.2, 1.6) * 0.5; }
+    return P;
+  }
+  function cmBuild(B, P, T, p2) {
+    const Br = CM.Br, Dk = CM.Dk, bob = Math.abs(Math.sin(P.ph)) * 2 * P.gal;
+    const C = V.add([0, -50 + P.cr - bob, 0], pitch([0, 0, 0], 0)), R = 26, nF = pitch([0, 0, 1], -P.lean), F = V.add(C, V.mul(nF, 7)), Bk = V.add(C, V.mul(nF, -7));
+    // piston legs and feet
+    for (const s of [-1, 1]) {
+      const hp = V.add(C, [s * 11, 22, 0]); let ft = [s * 13, -4, 0];
+      if (P.gal) { const a = P.ph + (s > 0 ? 0 : PI); ft = V.add(ft, [0, -Math.max(0, Math.sin(a)) * 8, Math.cos(a) * 10]); }
+      const [kn, an] = ik(hp, ft, 10, 10, [s * 0.2, 0, 1]);
+      tube([hp, kn], [4, 3.6], Dk, -1); tube([kn, an], [3.6, 3.2], Br, -1); sph(kn, 4, Br, -0.9);
+      piece(an, -0.8, (x, y) => { g.r(Math.round(x - 7), Math.round(y), 14, 5, Dk.m); g.r(Math.round(x - 7), Math.round(y), 14, 1, Dk.h); });
+    }
+    // the case: a drum. Front / back: a round plate; side: a band as deep as the drum, with its rim and rivets
+    op(0, () => {
+      const q = pr(C);
+      if (VIEW === 's') {
+        const xa = pr(Bk)[0], xb = pr(F)[0], x0 = Math.min(xa, xb), w = Math.abs(xb - xa);
+        g.ell(x0 + w / 2, q[1], w / 2 + 2, R, Br.d); g.r(Math.round(x0), Math.round(q[1] - R + 2), Math.round(w), Math.round(R * 2 - 4), Br.m);
+        g.r(Math.round(xb > xa ? xb - 3 : xb + 1), Math.round(q[1] - R + 3), 2, Math.round(R * 2 - 6), Br.h); g.r(Math.round(x0), Math.round(q[1] - R + 3), Math.round(w), 2, Br.h);
+        for (let i = -2; i <= 2; i++) g.p(Math.round(x0 + w / 2), Math.round(q[1] + i * R * 0.38), Br.d);
+        return;
+      }
+      g.ell(q[0], q[1], R, R, Br.d); g.ell(q[0] - 1, q[1] - 1, R - 2, R - 2, Br.m); g.ell(q[0] - R * 0.4, q[1] - R * 0.45, R * 0.25, R * 0.15, Br.h);
+    });
+    if (VIEW === 'f') {
+      op(dp(F) + 0.1, () => {
+        const q = pr(F); g.ell(q[0], q[1], R - 3, R - 3, CM.face);
+        for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; g.r(Math.round(q[0] + Math.cos(a) * (R - 7)) - (i % 3 ? 0 : 1), Math.round(q[1] + Math.sin(a) * (R - 7)) - (i % 3 ? 0 : 1), i % 3 ? 1 : 2, i % 3 ? 1 : 2, CM.num); }
+        const hm = P.tick * 0.25 * P.spin, mm = P.tick * 3 * P.spin;
+        if (!(B.mv && mvName(B) === 'clock' && B.sweeps.length)) { g.line(q[0], q[1], q[0] + Math.cos(hm - PI / 2) * 12, q[1] + Math.sin(hm - PI / 2) * 12, 2.4, CM.hand); g.line(q[0], q[1], q[0] + Math.cos(mm - PI / 2) * 18, q[1] + Math.sin(mm - PI / 2) * 18, 1.6, CM.hand); }
+        g.ell(q[0], q[1], 2.6, 2.6, p2 ? CM.eye : Br.m);
+      });
+    }
+    if (VIEW === 'b') {
+      op(dp(Bk) + 0.1, () => {
+        const q = pr(Bk); g.ell(q[0], q[1], R - 4, R - 4, Dk.m);
+        for (const [ox, oy, rr, sp] of [[-8, -6, 9, 1], [9, -2, 7, -1.4], [-2, 10, 6, 1.8]]) { const a0 = T * sp * P.spin; g.ell(q[0] + ox, q[1] + oy, rr, rr, Br.d); g.ell(q[0] + ox, q[1] + oy, rr - 2, rr - 2, Br.m); for (let i = 0; i < 8; i++) { const a = a0 + i / 8 * TAU; g.r(Math.round(q[0] + ox + Math.cos(a) * rr) - 1, Math.round(q[1] + oy + Math.sin(a) * rr) - 1, 2, 2, Br.d); } g.ell(q[0] + ox, q[1] + oy, 1.6, 1.6, Dk.d); }
+      });
+    }
+    // the winding key at the back, turning
+    const kb = V.add(Bk, V.mul(nF, -4)), ka = T * 2 * P.spin;
+    tube([Bk, kb], [2.4, 2.4], Dk, -0.5);
+    for (const s of [-1, 1]) { const lp = V.add(kb, V.add(V.mul([Math.cos(ka), Math.sin(ka), 0], s * 8), V.mul(nF, -1))); tube([kb, lp], [2.2, 3.6], Br, -0.6); }
+    // arms with gear joints
+    for (const s of [-1, 1]) {
+      const sh = V.add(C, [s * (R - 1), -4, 0]), hand = V.add(C, [s * (R + 8 + P.arms * 4), lerp(18, -26, P.arms) + Math.sin(T * 4 + s) * 2, 6 + P.arms * 2]);
+      const [el, hd] = ik(sh, hand, 13, 13, [s, 0.6, -0.3]);
+      tube([sh, el], [3.4, 3], Dk, 0.6); tube([el, hd], [3, 2.6], Dk, 0.6); sph(el, 3.6, Br, 0.7); sph(sh, 5, Br, 0.65);
+      piece(hd, 0.8, (x, y) => { g.ell(x, y, 4, 4, Br.m); for (let i = -1; i <= 1; i++) g.line(x, y, x + i * 3, y + 6, 1.6, Dk.m); });
+    }
+    // head: a dome with a red eye, the bell and the striking hammer on top
+    const hc = V.add(C, [0, -R - 7, 0]);
+    sph(hc, 10, Br, 0.2);
+    if (VIEW !== 'b') piece(V.add(hc, [0, 1, VIEW === 'f' ? 9 : 0]), VIEW === 'f' ? 1 : 0.3, (x, y) => { g.r(Math.round(x - (VIEW === 's' ? 0 : 6)), Math.round(y - 2), VIEW === 's' ? 7 : 12, 4, Dk.d); g.r(Math.round(x - (VIEW === 's' ? -2 : 4)), Math.round(y - 1), VIEW === 's' ? 4 : 8, 2, CM.eye); });
+    const bell = V.add(hc, [0, -13, 0]);
+    piece(bell, 0.25, (x, y) => { const sh = P.ring * Math.sin(T * 60) * 1.5; g.poly([[x - 8 + sh, y + 5], [x - 6 + sh, y - 3], [x + sh, y - 7], [x + 6 + sh, y - 3], [x + 8 + sh, y + 5]], Br.m); g.r(Math.round(x - 8 + sh), Math.round(y + 4), 16, 2, Br.d); g.ell(x - 2 + sh, y - 2, 2, 2, Br.h); if (P.ring > 0.5) for (let i = 0; i < 3; i++) g.line(x + 11 + i * 3, y - 6 + i * 4, x + 14 + i * 3, y - 8 + i * 4, 1, '#fff6c0'); });
+    const hmA = -0.9 + P.ring * 0.9, hmp = V.add(bell, [11, -2, 0]);
+    piece(hmp, 0.3, (x, y) => rot2(() => { g.line(0, 0, -10, 0, 1.6, Dk.m); g.r(-13, -3, 5, 6, Dk.d); }, x, y, hmA));
+    if (P.steam) for (let i = 0; i < 3; i++) { const k = ((T * 1.6 + i / 3) % 1); piece(V.add(hc, [(i - 1) * 6, -18 - k * 20, -4]), 0.4, (x, y) => g.ell(x, y, 3 + k * 4, 2 + k * 3, `rgba(240,240,240,${0.7 * (1 - k) * P.steam})`)); }
+  }
+
+  // =============================================================
+  //  KRAKEN — a giant octopus: a swelling mantle, slit-pupilled eyes, eight arms curling on the floor.
+  //  In the arm sweep four of its arms rise, slam down and sweep the room.
+  // =============================================================
+  const KR = { B: { d: '#3a124e', m: '#a85ad8', h: '#e8c0ff' }, S: '#f0d8ff', eye: '#ffe14a', eye2: '#ff3a3a' };
+  function krPose(B, T, E) {
+    const n = mvName(B), mv = B.mv, t = mv ? mv.t : 0;
+    const P = { pulse: Math.sin(T * 1.8) * 0.06, up: 0, wig: 1, hide: false, jet: 0, squeeze: 0 };
+    if (n === 'tentacles') P.hide = true;
+    else if (n === 'ink' || n === 'rain') { const k = env(t, 0, 0.3, 0.6, 1.0); P.squeeze = k; P.pulse = -0.12 * k; }
+    else if (n === 'dash3') { P.jet = mv.ph === 'go' ? 1 : 0.4 * sstep((mv.pt || 0) / 0.3); }
+    else if (CAST[n]) { const k = env(t, 0.05, 0.35, 0.5, 0.7), slap = env(t, 0.45, 0.55, 0.7, 1.0); P.up = k; P.pulse = 0.1 * k - 0.06 * slap; P.wig = 1 + 2 * slap; }
+    return P;
+  }
+  function krBuild(B, P, T, p2) {
+    const C = KR.B, E = p2 ? KR.eye2 : KR.eye, sw = 1 + P.pulse, j = P.jet;
+    // eight arms around the base, curling at the tips
+    for (let k = 0; k < 8; k++) {
+      const ph = (k + 0.5) / 8 * TAU, root = [Math.cos(ph) * 13, -15, Math.sin(ph) * 11];
+      if (P.hide && k % 2 === 0) { ANCHS[k / 2] = root; continue; }
+      const pts = [root], dirx = lerp(Math.cos(ph), Math.cos(ph) * 0.3, j), dirz = lerp(Math.sin(ph), -1, j);
+      for (let i = 1; i <= 8; i++) {
+        const s = i / 8, wv = Math.sin(T * 2.6 * P.wig + k * 0.9 + i * 0.7) * 3.5 * s, lift = P.up * Math.sin(s * PI) * 22, curl = s > 0.7 ? (s - 0.7) * 30 : 0;
+        pts.push([root[0] + dirx * s * 40 - dirz * wv, Math.min(-3, -15 + 14 * Math.min(1, s * 2.2)) - lift - curl * (1 - j), root[2] + dirz * s * 38 + dirx * wv]);
+      }
+      tube(pts, [7, 6.2, 5.5, 4.8, 4.1, 3.4, 2.7, 2.1, 1.6], C, -0.5, { belly: { c: KR.S, s: '#c090e0', w: 0.4 } });
+    }
+    // the mantle (squeezes when it squirts ink, streams back when it jets)
+    const m0 = [0, -22, 0], m1 = V.add([0, -46 * sw, -4], [0, 0, -j * 14]), m2 = V.add([0, -70 * sw, -12], [0, j * 12, -j * 34]);
+    tube([m0, m1, m2], [20, 26 * (1 - P.squeeze * 0.12), 17 * (1 - P.squeeze * 0.1)], C, 0);
+    for (const [a, b, r] of [[-0.6, -40, 3], [0.5, -52, 2.5], [0.1, -62, 2], [-0.2, -34, 2]]) { const p = V.add([Math.sin(a) * 22, b * sw, Math.cos(a) * 20 - 4], [0, 0, -j * 10]); piece(p, 0.5, (x, y) => g.ell(x, y, r, r * 0.8, C.h)); }   // spots
+    // eyes, siphon
+    for (const s of [-1, 1]) {
+      const ep = [s * 11, -30 * sw, 15 - j * 4];
+      piece(ep, 0.6 + (s > 0 ? 0.01 : 0), (x, y) => { if (VIEW === 'b') return; g.ell(x, y, 5, 4.4, C.d); g.ell(x, y, 4, 3.6, E); g.r(Math.round(x - 3), Math.round(y), 6, 1, '#120818'); g.p(Math.round(x - 2), Math.round(y - 2), '#ffffff'); });
+    }
+    const si = [14, -26, 4];
+    piece(si, 0.55, (x, y) => { if (VIEW === 'b') return; g.ell(x, y, 3, 2.4, C.d); if (P.squeeze > 0.3) for (let i = 0; i < 3; i++) g.ell(x + 6 + i * 5, y - 2 + i, 3 - i * 0.6, 2.4 - i * 0.5, '#120818'); });
+  }
+  // =============================================================
+  //  WHOLE-BODY SWEEPS (指示: ダメージバーではなく体で攻撃): during a sweep the beast's own arms / necks / tail / hands are
+  //  the weapon. They are drawn in screen space from where they grow out to the sweep's full length (= the real hit area),
+  //  lagging a little behind the turn; the game only keeps the faint motion blur of the swing.
   // =============================================================
   const OUTL = '#120a14';
-  let ANCH = null;   // model point the swinging tail grows from (set by the build)
+  let ANCHS = [];   // model points the swinging limbs grow from (set by the builds)
   function limbTube(gc, pts, rs, C, opt) {   // pts in art px
     U.tube(gc, pts.map((p, i) => [p[0], p[1], rs[i] + 1]), { d: OUTL, m: OUTL, h: OUTL });
     U.tube(gc, pts.map((p, i) => [p[0], p[1], rs[i]]), C, opt || {});
   }
-  function sweepLimbs(ctx, B, E, anchorS, back) {
-    if (!B.sweeps || !B.sweeps.length) return;
+  // what swings in each sweep: from = anchor index (else the sweep centre), rise = how high it rears in the telegraph
+  const LIMB = {
+    leviathan: () => ({ C: LV.B, belly: LV.belly, r: [7.5, 2], rise: 46, suckers: '#e8f4ff', foam: LV.foam }),
+    kraken: (B, i) => ({ from: i, C: KR.B, belly: { c: KR.S, s: '#c090e0' }, r: [7, 1.8], rise: 40, suckers: KR.S }),
+    hydra: (B, i) => i < Math.min(nHeads(B), 4) ? { from: i, C: HY.B, belly: HY.belly, r: [7, 5], rise: 52, tip: 'serpent', E: B.phase === 2 ? HY.eye2 : HY.eye, jaw: HY.belly.c, horn: HY.horn } : { from: nHeads(B), C: HY.B, belly: HY.belly, r: [10, 2], rise: 20 },
+    cerberus: () => ({ from: 0, C: CB.snake, r: [5, 2.6], rise: 0, tip: 'serpent', E: '#ffe14a', jaw: '#c8e090', actOnly: true }),
+    bonedragon: () => ({ from: 0, C: BD.B, r: [3.4, 1.4], actOnly: true, tip: 'blade', spikes: true }),
+    quetzal: () => ({ from: 0, C: QZ.B, belly: QZ.belly, r: [6, 2.2], actOnly: true, tip: 'feathers' }),
+    clockmachine: (B, i) => ({ hand: i === 0 ? 'hour' : 'minute' }),
+  };
+  function tipSerpent(gc, ctx, p, q, sp, open) {   // a snake / dragon head at the end of a lashing neck or tail
+    ctx.save(); ctx.translate(p[0], p[1]); ctx.rotate(Math.atan2(p[1] - q[1], p[0] - q[0]));
+    if (sp.horn) U.spike(gc, -2, -5, -PI * 0.8, 8, 2.2, sp.horn);
+    gc.poly([[-7, -7], [8, -7], [18, -3], [21, 1], [10, 3], [-6, 5]], OUTL); gc.poly([[-6, -6], [8, -6], [17, -3], [20, 1], [10, 2], [-5, 4]], sp.C.m);
+    ctx.save(); ctx.translate(2, 3); ctx.rotate(open * 0.6); gc.poly([[-6, -1], [17, -1], [15, 2], [-4, 3]], sp.jaw); gc.p(7, -2, '#ffffff'); gc.p(12, -2, '#ffffff'); ctx.restore();
+    gc.poly([[0, 4], [17, 3], [10, 7]], '#5a0a10'); gc.ell(5, -3, 2, 1.6, sp.E); gc.p(6, -4, '#ffffff');
+    ctx.restore();
+  }
+  function sweepLimbs(ctx, B, E, anchors, back) {
+    if (!B.sweeps || !B.sweeps.length || !LIMB[B.type]) return;
     const gc = U.api(ctx), T = E.t;
     ctx.save(); ctx.scale(K, K);
     const cxA = E.x / K, cyA = E.cy / K;   // sweep centre, art px
-    for (const sw of B.sweeps) {
+    B.sweeps.forEach((sw, si) => {
+      const spec = LIMB[B.type](B, si); if (!spec) return;
       const th = -sw.ang, up = Math.sin(th) < -0.15;
-      if (up !== back) continue;
+      if (up !== back) return;
       sw.own = true;
-      const act = sw.t >= sw.tele, len = sw.len / K, sg = Math.sign(sw.vel) || 1, n = 12;
-      if (B.type === 'leviathan') {   // a tentacle bursts out of the sea, rears up, then slams down and sweeps round
-        const r0 = 26, bx = cxA + Math.cos(th) * r0, by = cyA + Math.sin(th) * r0 * 0.75;
-        const k0 = act ? 1 : sstep(sw.t / sw.tele), lay = act ? sstep((sw.t - sw.tele) / 0.14) : 0, pts = [], rs = [];
-        for (let i = 0; i <= n; i++) {
-          const k = i / n, a = th + sg * 0.16 * k * k, rho = r0 + (len - r0) * k;
-          const flat = [cxA + Math.cos(a) * rho, cyA + Math.sin(a) * rho - Math.sin(PI * k) * 7 - 3];
-          const H = 46 * k0, rear = [bx + Math.sin(T * 6 + k * 3) * 4 * k + Math.cos(th) * 10 * k * k, by - H * k - Math.sin(k * PI) * 3];
-          pts.push([lerp(rear[0], flat[0], lay), lerp(rear[1], flat[1], lay)]); rs.push(lerp(7.5, 2, k) * (0.4 + 0.6 * Math.max(k0, lay)));
-        }
-        limbTube(gc, pts, rs, LV.B, { belly: { c: LV.belly.c, s: LV.belly.s, w: 0.4 } });
-        for (let i = 2; i < n; i += 2) { const p = pts[i]; gc.ell(p[0] + rs[i] * 0.3, p[1] + rs[i] * 0.45, Math.max(1, rs[i] * 0.3), Math.max(1, rs[i] * 0.22), '#e8f4ff'); }   // suckers
-        gc.ell(bx, by + 1, 11, 3, LV.foam); gc.ell(bx, by + 1, 7, 1.8, '#d0f0ff');
-        continue;
+      const act = sw.t >= sw.tele, len = sw.len / K, sg = Math.sign(sw.vel) || 1, n = 12, cth = Math.cos(th), sth = Math.sin(th);
+      if (spec.hand) {   // the clock's hands grow out of its face; their shadow on the floor is where they hit
+        const k0 = act ? 1 : sstep(sw.t / sw.tele), L = len * k0, h = 30, w = spec.hand === 'hour' ? 7 : 5;
+        gc.line(cxA + cth * 10, cyA + sth * 10, cxA + cth * L, cyA + sth * L, w * 1.6, 'rgba(20,10,0,0.35)');
+        ctx.save(); ctx.translate(cxA, cyA - h); ctx.rotate(th);
+        gc.poly([[0, -w * 0.5 - 1], [L * 0.82, -w * 0.5 - 1], [L * 0.82, -w - 1], [L + 2, 0], [L * 0.82, w + 1], [L * 0.82, w * 0.5 + 1], [0, w * 0.5 + 1]], OUTL);
+        gc.poly([[0, -w * 0.5], [L * 0.82, -w * 0.5], [L * 0.82, -w], [L, 0], [L * 0.82, w], [L * 0.82, w * 0.5], [0, w * 0.5]], CM.Br.m);
+        gc.line(2, -w * 0.25, L * 0.8, -w * 0.25, 1, CM.Br.h); gc.ell(L * 0.82, 0, w * 0.45, w * 0.45, CM.Dk.m);
+        ctx.restore();
+        return;
       }
-      if (!act || !anchorS) continue;
-      // bone dragon / quetzalcoatl: the tail streams from the body out along the swing
-      const A = [anchorS[0] / K, anchorS[1] / K], tip = [cxA + Math.cos(th) * len, cyA + Math.sin(th) * len], pts = [], rs = [];
-      const nx = -Math.sin(th) * sg, ny = Math.cos(th) * sg;
-      for (let i = 0; i <= n; i++) { const k = i / n, bend = Math.sin(PI * k) * 10 + k * k * 6; pts.push([lerp(A[0], tip[0], k) - nx * bend, lerp(A[1], tip[1], k) - ny * bend - Math.sin(PI * k) * 4]); }
-      if (B.type === 'bonedragon') {
-        for (let i = 0; i <= n; i++) rs.push(lerp(3.4, 1.4, i / n));
-        limbTube(gc, pts, rs, BD.B);
-        for (let i = 1; i < n; i += 2) U.spike(gc, pts[i][0], pts[i][1] - rs[i], -PI / 2 - (th > 0 ? 0.3 : -0.3), 5, 1.8, BD.B);
-        const p = pts[n], q = pts[n - 1]; U.spike(gc, p[0], p[1], Math.atan2(p[1] - q[1], p[0] - q[0]), 11, 3.4, BD.B);   // the bone blade at the tip
-      } else {
-        for (let i = 0; i <= n; i++) rs.push(lerp(6, 2.2, i / n));
-        limbTube(gc, pts, rs, QZ.B, { belly: { c: QZ.belly.c, s: QZ.belly.s, w: 0.4 } });
-        const p = pts[n], q = pts[n - 1], a = Math.atan2(p[1] - q[1], p[0] - q[0]);
-        for (let i = -1; i <= 1; i++) U.feather(gc, p[0], p[1], a + i * 0.45, 13, 3, { m: QZ.F[(i + 2) % 5], d: QZ.F[(i + 3) % 5], tip: '#ffffff' });
+      const A = spec.from != null && anchors[spec.from] ? [anchors[spec.from][0] / K, anchors[spec.from][1] / K] : [cxA + cth * 26, cyA + sth * 26 * 0.75];
+      if (spec.actOnly && !act) return;
+      const k0 = act ? 1 : sstep(sw.t / sw.tele), lay = act ? (spec.actOnly ? 1 : sstep((sw.t - sw.tele) / 0.14)) : 0;
+      const tip = [cxA + cth * len, cyA + sth * len], nx = -sth * sg, ny = cth * sg, pts = [], rs = [];
+      for (let i = 0; i <= n; i++) {
+        const k = i / n, bend = Math.sin(PI * k) * 8 + k * k * 6;
+        const flat = [lerp(A[0], tip[0], k) - nx * bend, lerp(A[1], tip[1], k) - ny * bend - Math.sin(PI * k) * 6];
+        const H = (spec.rise || 0) * k0, rear = [A[0] + Math.sin(T * 6 + k * 3) * 4 * k + cth * 10 * k * k, A[1] - H * k - Math.sin(k * PI) * 3];
+        pts.push([lerp(rear[0], flat[0], lay), lerp(rear[1], flat[1], lay)]); rs.push(lerp(spec.r[0], spec.r[1], k) * (spec.rise ? 0.4 + 0.6 * Math.max(k0, lay) : 1));
       }
-    }
+      limbTube(gc, pts, rs, spec.C, spec.belly ? { belly: { c: spec.belly.c, s: spec.belly.s, w: 0.4 } } : {});
+      if (spec.suckers) for (let i = 2; i < n; i += 2) { const p = pts[i]; gc.ell(p[0] + rs[i] * 0.3, p[1] + rs[i] * 0.45, Math.max(1, rs[i] * 0.3), Math.max(1, rs[i] * 0.22), spec.suckers); }
+      if (spec.spikes) for (let i = 1; i < n; i += 2) U.spike(gc, pts[i][0], pts[i][1] - rs[i], -PI / 2 - (th > 0 ? 0.3 : -0.3), 5, 1.8, spec.C);
+      if (spec.foam) { gc.ell(A[0], A[1] + 1, 11, 3, spec.foam); gc.ell(A[0], A[1] + 1, 7, 1.8, '#d0f0ff'); }
+      const p = pts[n], q = pts[n - 1];
+      if (spec.tip === 'serpent') tipSerpent(gc, ctx, p, q, spec, act ? 0.6 + Math.sin(T * 12 + si) * 0.3 : 0.3);
+      else if (spec.tip === 'blade') U.spike(gc, p[0], p[1], Math.atan2(p[1] - q[1], p[0] - q[0]), 11, 3.4, spec.C);
+      else if (spec.tip === 'feathers') { const a = Math.atan2(p[1] - q[1], p[0] - q[0]); for (let i = -1; i <= 1; i++) U.feather(gc, p[0], p[1], a + i * 0.45, 13, 3, { m: QZ.F[(i + 2) % 5], d: QZ.F[(i + 3) % 5], tip: '#ffffff' }); }
+    });
     ctx.restore();
   }
 
   // =============================================================
-  const RIGS = { nightmare: [nmPose, nmBuild, 1.05], fenrir: [fnPose, fnBuild, 1.3], bonedragon: [bdPose, bdBuild, 1.2], leviathan: [lvPose, lvBuild, 1.1], quetzal: [qzPose, qzBuild, 1.1] };   // [pose, build, size]
+  const RIGS = { nightmare: [nmPose, nmBuild, 1.05], fenrir: [fnPose, fnBuild, 1.3], bonedragon: [bdPose, bdBuild, 1.2], leviathan: [lvPose, lvBuild, 1.1], quetzal: [qzPose, qzBuild, 1.1],
+    hydra: [hyPose, hyBuild, 1.1], cerberus: [cbPose, cbBuild, 1.15], voideye: [vePose, veBuild, 1.1], clockmachine: [cmPose, cmBuild, 1.15], kraken: [krPose, krBuild, 1.1] };   // [pose, build, size]
   function faceOf(B, E) {
     const mv = B.mv, st = B.b3 || (B.b3 = {});
     let want;
-    if (mv && /charge|dash3/.test(mv.name) && mv.ph === 'go') want = face4(Math.atan2(B.vy || 0, B.vx || 0) || mv.a0 || 0);
+    if (B.type === 'clockmachine' && mv && mvName(B) === 'clock') want = 'f';   // the clock attack: it shows you its face
+    else if (mv && /charge|dash3|firetrail/.test(mv.name) && mv.ph === 'go') want = face4(Math.atan2(B.vy || 0, B.vx || 0) || mv.a0 || 0);
     else if (mv && (mv.name === 'tail') && B.sweeps.length) want = face4(B.sweeps[0].ang + PI);   // the tail lashes the way the sweep goes: the head faces the other way
     else if (mv) { if (mv.b3f == null) mv.b3f = face4(E.look); want = mv.b3f; }
     else { want = face4(E.look); if (st.f && want !== st.f) { if (st.fs == null) st.fs = E.t; if (E.t - st.fs < 0.35) want = st.f; else st.fs = null; } else st.fs = null; }
@@ -592,7 +943,7 @@ const BEAST3 = (() => {
     E = Object.assign({}, E); E.look = Math.atan2(E.hero.y - B.y, E.hero.x - B.x);
     const f = faceOf(B, E); E.face = f; VIEW = f === 'l' || f === 'r' ? 's' : f;
     const P = R[0](B, E.t, E);
-    OPS = []; ANCH = null; cx.clearRect(0, 0, CW, CH);
+    OPS = []; ANCHS = []; cx.clearRect(0, 0, CW, CH);
     R[1](B, P, E.t, B.phase === 2);
     OPS.sort((a, b) => a[0] - b[0]);
     const sz = R[2] || 1; cx.setTransform(sz, 0, 0, sz, OX * (1 - sz), OY * (1 - sz));   // drawn bigger about the feet: more pixels, not bigger pixels
@@ -608,13 +959,12 @@ const BEAST3 = (() => {
       src = fc;
     }
     const ox = f === 'l' ? CW - OX : OX, X0 = Math.round(x / K - ox) * K, Y0 = Math.round(yFeet / K - OY) * K;
-    let anchorS = null;
-    if (ANCH) { const q = pr(ANCH); let ax = OX + (q[0] - OX) * sz; const ay = OY + (q[1] - OY) * sz; if (f === 'l') ax = CW - ax; anchorS = [X0 + ax * K, Y0 + ay * K]; }
+    const anchors = ANCHS.map(a => { if (!a) return null; const q = pr(a); let ax = OX + (q[0] - OX) * sz; const ay = OY + (q[1] - OY) * sz; if (f === 'l') ax = CW - ax; return [X0 + ax * K, Y0 + ay * K]; });
     E.x = x; if (E.cy == null) E.cy = yFeet;
-    sweepLimbs(ctx, B, E, anchorS, true);
+    sweepLimbs(ctx, B, E, anchors, true);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(src, X0, Y0, CW * K, CH * K);
-    sweepLimbs(ctx, B, E, anchorS, false);
+    sweepLimbs(ctx, B, E, anchors, false);
     return true;
   }
   return { has: t => !!RIGS[t], draw, types: Object.keys(RIGS) };
