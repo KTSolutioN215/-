@@ -857,6 +857,235 @@ const BEAST3 = (() => {
     piece(si, 0.55, (x, y) => { if (VIEW === 'b') return; g.ell(x, y, 3, 2.4, C.d); if (P.squeeze > 0.3) for (let i = 0; i < 3; i++) g.ell(x + (6 + i * 5) * DIRX, y - 2 + i, 3 - i * 0.6, 2.4 - i * 0.5, '#120818'); });
   }
   // =============================================================
+  //  KING SLIME — a crowned blob. It squashes and stretches: crouches before a jump, stretches in the air, splats on landing.
+  //  The face sits on its round front, so from the side it is seen side-on and from behind not at all; the crown turns with it.
+  // =============================================================
+  const KS = { B: { d: '#1f8a3a', m: '#4fd468', h: '#c8f8cc' }, crown: { d: '#a87a1a', m: '#f2c14e', h: '#fff2a0' }, eye: '#1e1830', eye2: '#c01020', mouth: '#1f6a34' };
+  function ksPose(B, T, E) {
+    const n = mvName(B), mv = B.mv, t = mv ? mv.t : 0;
+    const P = { sq: Math.sin(T * 3) * 0.05, lean: 0, mo: 0, angry: 0, puff: 0 };
+    if (n === 'jump' || n === 'split') {
+      const lim = n === 'split' ? 1.0 : 1.1;
+      if (mv.n === 0) { const pre = env(t, 0, 0.12, 0.13, 0.25); P.sq = 0.3 * pre - 0.25 * sstep((t - 0.1) / 0.3) * (t < lim ? 1 : 0); P.mo = 0.5; P.angry = 1; }
+      else if (mv.n === 1) { P.sq = -0.3; P.angry = 1; P.mo = 0.8; }
+      else { const k = t - mv.t1 - 0.3; P.sq = 0.45 * env(k, 0, 0.04, 0.12, 0.5) - 0.1 * env(k, 0.3, 0.45, 0.5, 0.7); P.mo = 0.6 * env(k, 0, 0.05, 0.3, 0.6); }
+    } else if (n === 'stalk') { const h = Math.abs(Math.sin(t * 7)); P.sq = 0.18 * (1 - h) - 0.1 * h; P.lean = 0.25; P.angry = 1; }
+    else if (CAST[n]) { const times = n === 'triple' ? [0.4, 0.72, 1.04] : n === 'aimed3' || n === 'aimed5' || n === 'rocks' ? [0.45, 0.9] : [0.55]; for (const T0 of times) { P.puff = Math.max(P.puff, env(t, T0 - 0.3, T0 - 0.02, T0, T0 + 0.05)); P.sq = Math.max(P.sq, 0.35 * env(t, T0, T0 + 0.04, T0 + 0.1, T0 + 0.3)); } P.sq -= P.puff * 0.15; P.mo = Math.max(P.puff, 0.3); P.angry = 1; }
+    return P;
+  }
+  function ksBuild(B, P, T, p2) {
+    const C = KS.B, sx = 1 + P.sq * 0.7, sy = 1 - P.sq, rx = 38 * sx + P.puff * 4, ry = 30 * sy + P.puff * 4, cy = -ry * 0.92;
+    const lean = P.lean * 10;
+    op(0, () => {   // the jelly: rim, body, inner shine, bubbles
+      const q = pr([0, cy, lean * 0.3]); g.r(Math.round(q[0] - rx + 4), Math.round(OY - 3), Math.round(rx * 2 - 8), 3, C.d);
+      g.ell(q[0], q[1], rx, ry, C.d); g.ell(q[0] - 1, q[1] - 1, rx - 2, ry - 2, C.m);
+      g.ell(q[0] - rx * 0.4, q[1] - ry * 0.5, rx * 0.22, ry * 0.14, C.h); g.p(Math.round(q[0] - rx * 0.1), Math.round(q[1] - ry * 0.72), C.h);
+      for (let i = 0; i < 3; i++) { const a = T * 0.7 + i * 2.1; g.ell(q[0] + Math.cos(a) * rx * 0.5, q[1] + Math.sin(a * 1.3) * ry * 0.4, 2, 2, '#9af0aa'); }
+    });
+    // face points on the ellipsoid's surface (only the half facing us shows)
+    const surf = (x, y) => { const k = 1 - (x / rx) ** 2 - ((y - cy) / ry) ** 2; return [x, y, Math.sqrt(Math.max(0, k)) * rx * 0.9 + lean * 0.3]; };
+    const E = p2 ? KS.eye2 : KS.eye, vis = p => dp(p) > dp([0, cy, 0]) - 2;
+    const face = (p, fn) => { if (vis(p)) piece(p, 1, (x, y) => { const w = clamp((dp(p) - dp([0, cy, 0])) / (rx * 0.9), 0.25, 1); fn(x, y, w); }); };
+    for (const m of [-1, 1]) {
+      const ep = surf(m * 12, cy - 4);
+      face(ep, (x, y, w) => { g.ell(x, y, 5 * w + 0.5, 6, '#ffffff'); g.ell(x + m * w, y + 1, 2.6 * w + 0.4, 3.4, E); g.p(Math.round(x), Math.round(y - 2), '#ffffff');
+        if (P.angry) g.line(x - 6 * w, y - 8 + (m > 0 ? -1.5 : 1.5) * w, x + 6 * w, y - 8 + (m > 0 ? 1.5 : -1.5) * w, 2, C.d); });
+    }
+    const mp = surf(0, cy + 10);
+    face(mp, (x, y, w) => { const o = P.mo; g.ell(x, y + o * 2, 7 * w + 1, 2 + o * 5, KS.mouth); if (o > 0.2) g.ell(x, y + o * 3, 4 * w, 1 + o * 2.5, '#f08090'); });
+    // the crown on top, turning with the body
+    const top = [0, cy - ry + 4, lean * 0.3];
+    for (let i = 0; i < 5; i++) {
+      const a = i / 5 * TAU + 0.3, b = V.add(top, [Math.cos(a) * 11, 0, Math.sin(a) * 9]), tip = V.add(b, [0, -11, 0]);
+      piece(b, 2 + dp(b) * 0.01, (x, y) => { const tq = pr(tip); g.poly([[x - 4, y], [tq[0], tq[1]], [x + 4, y]], KS.crown.m); g.r(Math.round(x - 4), Math.round(y - 3), 8, 4, KS.crown.d); g.ell(x, y - 1, 1.5, 1.5, i % 2 ? '#e04050' : '#3ac0ff'); });
+    }
+  }
+
+  // =============================================================
+  //  GIANT TREANT — an old tree that walks. A face in the bark, branch-arms with leafy hands, a crown of leaves and apples,
+  //  roots that grip the floor and stamp.
+  // =============================================================
+  const TR = { bark: { d: '#3a2410', m: '#6a4420', h: '#9a6a3a' }, leaf: { d: '#1e5a1e', m: '#3a8a2a', h: '#7ac850' }, apple: '#e04040', eye: '#c8ff60', eye2: '#ff5a3a' };
+  function trPose(B, T, E) {
+    const n = mvName(B), mv = B.mv, t = mv ? mv.t : 0;
+    const P = { sway: Math.sin(T * 1.2) * 0.06, arms: 0, slam: 0, shake: 0, stomp: 0, mo: 0, point: 0, walk: 0 };
+    if (n === 'roots') { const up = env(t, 0, 0.25, 0.3, 0.35); P.arms = up; P.slam = env(t, 0.3, 0.38, 2.0, 2.4); P.point = P.slam; P.mo = Math.max(up, P.slam); }
+    else if (n === 'quake') { let up = 0, hit = 0; for (const T0 of [0.45, 1.0, 1.55]) { up = Math.max(up, env(t, T0 - 0.33, T0 - 0.08, T0 - 0.06, T0)); hit = Math.max(hit, env(t, T0 - 0.02, T0, T0 + 0.1, T0 + 0.35)); } P.stomp = up; P.arms = up * 0.7; P.slam = hit * 0.6; P.mo = Math.max(up, hit); }
+    else if (n === 'stalk') { P.walk = T * 5; }
+    else if (CAST[n] || n === 'rain') { const k = env(t, 0, 0.35, 1.2, 1.6); P.arms = k; P.shake = k; P.mo = k; }
+    return P;
+  }
+  function trBuild(B, P, T, p2) {
+    const Bk = TR.bark, L = TR.leaf, sw = P.sway + Math.sin(T * 9) * 0.03 * P.shake;
+    const base = [0, -6, 0], mid = V.add(base, roll([0, -34, 0], sw * 0.5)), top = V.add(base, roll([0, -62, 0], sw));
+    // roots gripping the floor (the front ones lift and stamp in the quake)
+    for (let k = 0; k < 6; k++) {
+      const a = k / 6 * TAU + 0.5, lift = (k === 1 || k === 4) ? P.stomp * 10 : 0, w = Math.sin(P.walk + k) * 4;
+      const r0 = V.add(base, [Math.cos(a) * 10, -4, Math.sin(a) * 9]), r1 = [Math.cos(a) * 26 + w, -2 - lift, Math.sin(a) * 22], r2 = [Math.cos(a) * 38 + w, -lift * 0.6, Math.sin(a) * 32];
+      tube([r0, r1, r2], [6, 4, 2], Bk, -1 + Math.sin(a) * 0.5);
+    }
+    tube([base, mid, top], [15, 13, 12], Bk, 0);
+    // a face carved in the bark: only on the front of the trunk
+    const fz = 12, fc = V.add(mid, [0, -6, fz]), E = p2 ? TR.eye2 : TR.eye;
+    if (dp(fc) > dp(mid) - 1) piece(fc, 0.5, (x, y) => { const w = clamp((dp(fc) - dp(mid)) / fz, 0.25, 1);
+      for (const m of [-1, 1]) { g.ell(x + m * 6 * w, y - 4, 3.5 * w + 0.5, 3.5, '#120804'); g.ell(x + m * 6 * w, y - 4, 1.6 * w + 0.3, 1.6, E); }
+      g.ell(x, y + 8, 6 * w + 1, 3 + P.mo * 4, '#120804'); for (let i = -1; i <= 1; i++) g.r(Math.round(x + i * 3 * w), Math.round(y + 6), 1, 2, Bk.h); });
+    // branch arms with leafy hands
+    for (const s of [-1, 1]) {
+      const sh = V.add(V.mix(mid, top, 0.4), [s * 12, 0, 0]);
+      const up = P.arms, fwd = P.point * (s > 0 ? 1 : 0.6);
+      const el = V.add(sh, [s * (16 - up * 4), -6 - up * 14 + P.slam * 10, 4 + fwd * 8]);
+      const hd = V.add(el, [s * (10 - fwd * 6) + Math.sin(T * 14 + s) * 2 * P.shake, -10 - up * 16 + P.slam * 30, 6 + fwd * 18]);
+      tube([sh, el, hd], [6, 4.5, 3], Bk, 1);
+      for (let i = 0; i < 3; i++) { const lp = V.add(hd, [(i - 1) * 5, -2 - (i % 2) * 3, 0]); sph(lp, 5, L, 1.1 + i * 0.01); }
+    }
+    // the crown of leaves with apples
+    for (let i = 0; i < 9; i++) {
+      const a = i / 9 * TAU, r = i % 2 ? 20 : 14, lp = V.add(top, roll([Math.cos(a) * r, -12 - Math.sin(a * 2) * 4 - (i % 3) * 4, Math.sin(a) * r * 0.8], sw));
+      sph(lp, 12 - (i % 3), L, 0.5);
+      if (i % 3 === 0) piece(lp, 0.6, (x, y) => { g.ell(x + 3, y + 3, 2.4, 2.4, TR.apple); g.p(Math.round(x + 2), Math.round(y + 2), '#ffb0b0'); });
+    }
+    sph(V.add(top, [0, -22, 0]), 13, L, 0.55);
+    if (P.shake) for (let i = 0; i < 4; i++) { const k = (T * 1.5 + i / 4) % 1; piece(V.add(top, [(i - 1.5) * 12, -10 + k * 50, 6]), 3, (x, y) => g.ell(x + Math.sin(k * 9 + i) * 3, y, 2, 1.2, L.h)); }   // falling leaves
+  }
+
+  // =============================================================
+  //  QUEEN SPIDER — a crowned crystal spider. Eight legs on long arching joints walk in alternating sets; it rears its
+  //  front legs to cast, crouches and burns its eyes for the beam, raises its abdomen to throw webs.
+  // =============================================================
+  const SQ = { B: { d: '#141a34', m: '#2e3a66', h: '#6070a8' }, crys: { d: '#4a90c0', m: '#9ad8ff', h: '#ffffff' }, eye: '#ff4060', eye2: '#ffffff', crown: { d: '#8a8aa0', m: '#e0e4f0', h: '#ffffff' } };
+  function sqPose(B, T, E) {
+    const n = mvName(B), mv = B.mv, t = mv ? mv.t : 0;
+    const P = { rear: 0, low: 0, abd: 0, run: 0, ph: T * 2, glow: 0, tap: 1 };
+    if (n === 'charge' || n === 'dash3') { if (mv.ph === 'go') { P.run = 1; P.ph = T * 18; } else P.low = sstep((mv.pt || 0) / 0.3) * 6; }
+    else if (n === 'laser' || n === 'laser3') { const k = env(t, 0, 0.4, 1.3, 1.6); P.low = 7 * k; P.glow = k; }
+    else if (n === 'cross') { const k = env(t, 0, 0.5, 3.6, 4); P.low = 5 * k; P.glow = k; }
+    else if (n === 'webnet') { const k = env(t, 0.05, 0.3, 1.5, 1.9); P.abd = k; P.low = 3 * k; }
+    else if (CAST[n]) { const k = env(t, 0.05, 0.35, 0.8, 1.2); P.rear = k; }
+    return P;
+  }
+  function sqBuild(B, P, T, p2) {
+    const C = SQ.B, h = 22 - P.low, body = [0, -h, 4], abd = V.add([0, -h - 6, -24], [0, -P.abd * 14, P.abd * 4]);
+    sph(abd, 21, C, 0); for (let i = 0; i < 5; i++) { const a = -0.8 + i * 0.4, cp = V.add(abd, [Math.sin(a) * 12, -10 - Math.cos(a) * 6, 10 + Math.cos(a) * 6]); piece(cp, 0.2, (x, y) => U.spike(g, x, y, -PI / 2 + a * 0.6, 9, 3, SQ.crys)); }
+    sph(body, 13, C, 0.1);
+    // eight legs: hip on the body, knee arching high, foot on the floor; alternating sets lift while it runs
+    for (let k = 0; k < 4; k++) for (const s of [-1, 1]) {
+      const z0 = 10 - k * 7, hip = V.add(body, [s * 9, 2, z0 - 4]), front = k === 0 && P.rear;
+      let ft = [s * (30 + k * 3), -2, z0 * 2.2 - 6];
+      const grp = (k + (s > 0 ? 0 : 1)) % 2, lift = P.run ? Math.max(0, Math.sin(P.ph + grp * PI)) * 8 : (k === 0 && Math.sin(T * 6 + s) > 0.8 ? 3 : 0);
+      if (P.run) ft = V.add(ft, [0, -lift, Math.cos(P.ph + grp * PI) * 8]); else ft = V.add(ft, [0, -lift, 0]);
+      if (front) ft = V.mix(ft, V.add(hip, [s * 14, -24, 18]), P.rear);
+      const [kn, an] = ik(hip, ft, 22, 26, [s * 0.4, -1, 0]);
+      tube([hip, kn], [3.6, 3], C, -1 + (s > 0 ? 0.02 : 0)); tube([kn, an], [3, 1.6], C, -1 + (s > 0 ? 0.02 : 0)); sph(kn, 3.4, SQ.crys, -0.9, 0);
+    }
+    // fangs, eyes, crown
+    const head = V.add(body, [0, -2, 12]), E = p2 ? SQ.eye2 : SQ.eye;
+    if (dp(head) > dp(body) - 4) piece(head, 1, (x, y) => {
+      const w = VIEW === 's' ? 0.5 : 1;
+      for (let i = 0; i < 6; i++) { const ex = (i % 3 - 1) * 5 * w, ey = Math.floor(i / 3) * 4 - 4; g.ell(x + ex, y + ey, 2 + P.glow, 2 + P.glow, E); }
+      if (P.glow) g.ell(x, y - 2, 10 + P.glow * 4, 7 + P.glow * 3, `rgba(255,120,160,${0.3 * P.glow})`);
+      for (const m of [-1, 1]) g.poly([[x + m * 3 * w, y + 4], [x + m * 5 * w, y + 12 + P.rear * 2], [x + m * 1 * w, y + 6]], SQ.crys.m);
+    });
+    const cr = V.add(body, [0, -13, 4]);
+    piece(cr, 1.2, (x, y) => { for (let i = -2; i <= 2; i++) g.poly([[x + i * 3 - 2, y], [x + i * 3, y - 6 - (i === 0 ? 3 : 0)], [x + i * 3 + 2, y]], SQ.crown.m); g.r(Math.round(x - 8), Math.round(y - 1), 16, 3, SQ.crown.d); g.p(Math.round(x), Math.round(y - 2), '#e04060'); });
+    if (P.abd > 0.5) piece(V.add(abd, [0, -16, -10]), 0.5, (x, y) => { for (let i = 0; i < 4; i++) g.line(x, y, x + Math.cos(i * 1.6 + T * 3) * 10, y - 6 - Math.sin(i * 1.6 + T * 3) * 6, 1, '#e8f4ff'); });   // web silk spraying
+  }
+
+  // =============================================================
+  //  FIRE DRAGON (えんりゅう) — a red dragon sitting up on its hind legs: wings, horns, a long neck and a tail with a flame tip.
+  // =============================================================
+  const DR = { B: { d: '#8a1e10', m: '#e0482a', h: '#ff9a6a' }, belly: { c: '#ffc070', s: '#c87a30' }, wing: '#8a1414', wing2: '#c02a1e', horn: { d: '#a89870', m: '#f0e8c8', h: '#ffffff' }, eye: '#ffe14a', eye2: '#ffffff', fire: ['#ff5a1a', '#ffd04a', '#ffffff'] };
+  function drPose(B, T, E) {
+    const n = mvName(B), mv = B.mv, t = mv ? mv.t : 0;
+    const P = { fl: 0.3 + Math.sin(T * 1.8) * 0.15, sp: 0.75, cr: Math.sin(T * 2) * 0.6, lean: 0, hp: Math.sin(T * 1.3) * 0.08, hy: 0, mo: 0, roar: 0, run: 0, ph: 0, tailHide: false };
+    if (n === 'breath') {
+      const k = env(t, 0, 0.35, 1.8, 2.1); P.lean = 6 * k; P.hp = 0.45 * k; P.mo = env(t, 0.4, 0.5, 2.05, 2.25); P.sp = 0.75 + 0.2 * k;
+      const a = mv.dir != null && mv.a0 != null ? mv.a0 + clamp((t - 0.5) / 1.6, 0, 1) * 1.8 * mv.dir : E.look, d = gdir(E, a); P.hy = clamp(Math.atan2(d[0], d[1]), -1.1, 1.1) * k;
+    } else if (n === 'tail') { P.tailHide = !!(B.sweeps.length && B.sweeps[0].t >= B.sweeps[0].tele); P.lean = 3; P.sp = 1; P.fl = 0.6; P.mo = 0.5; }
+    else if (n === 'charge' || n === 'dash3') { if (mv.ph === 'go') { P.run = 1; P.ph = T * 18; P.lean = 10; P.sp = 0.3; P.fl = 0.1; P.mo = 0.6; P.hp = 0.3; } else { const k = sstep((mv.pt || 0) / 0.3); P.cr = 5 * k; P.lean = 3 * k; P.fl = 0.3 + 0.5 * k; } }
+    else if (n === 'fireball') { for (const T0 of [0.5, 0.9, 1.3]) { const k = env(t, T0 - 0.2, T0 - 0.02, T0, T0 + 0.2); P.hp = Math.max(P.hp, 0.4 * k) - 0.3 * env(t, T0 - 0.35, T0 - 0.2, T0 - 0.18, T0 - 0.05); P.mo = Math.max(P.mo, k); } }
+    else if (CAST[n]) { const k = env(t, 0.05, 0.4, 1.0, 1.4); P.roar = k; P.mo = k; P.hp = -0.55 * k; P.sp = 0.75 + 0.25 * k; P.fl = 0.3 + 0.55 * k + Math.sin(T * 10) * 0.08 * k; }
+    return P;
+  }
+  function drBuild(B, P, T, p2) {
+    const C = DR.B, belly = { c: DR.belly.c, s: DR.belly.s, w: 0.42 }, lean = P.lean * 0.035, bob = Math.abs(Math.sin(P.ph)) * 2 * P.run;
+    const pelvis = [0, -24 + P.cr - bob, -6], chest = V.add(pelvis, pitch([0, -28, 8], -lean - P.run * 0.5));
+    // tail with a flame at its end (in the tail sweep it is the weapon: see sweepLimbs)
+    if (!P.tailHide) { const tl = [V.add(pelvis, [0, 4, -8])]; for (let i = 1; i < 9; i++) { const k = i / 8; tl.push(V.add(tl[i - 1], [Math.sin(T * 1.6 + k * 3) * 2.5 * k, k < 0.5 ? 2 : -1.2, -6])); } tube(tl, [9, 8, 7, 6, 5, 4, 3, 2.4, 2], C, -2, { belly }); flame(tl[8], 4, T, DR.fire, -1.9, -2 * DIRX); }
+    else ANCHS[0] = V.add(pelvis, [0, 4, -8]);
+    // hind legs (thick haunches), small arms
+    for (const s of [-1, 1]) {
+      const ha = V.add(pelvis, [s * 11, 2, 0]); let ft = [s * 13, -4, 4];
+      if (P.run) { const a = P.ph + (s > 0 ? 0 : PI); ft = V.add(ft, [0, -Math.max(0, Math.sin(a)) * 8, Math.cos(a) * 12]); }
+      const [kn, an] = ik(ha, ft, 13, 14, [s * 0.2, 0, 1]);
+      sph(V.mix(ha, kn, 0.4), 9, C, -1); tube([kn, an], [5, 4], C, -1);
+      piece(an, -0.8, (x, y) => { for (let i = -1; i <= 1; i++) g.line(x, y, x + i * 4 + (VIEW === 's' ? 4 * DIRX : 0), y + 5, 2, '#f0e8c8'); g.ell(x, y, 4, 3, C.m); });
+      const sa = V.add(chest, [s * 10, 6, 4]), [el, hd] = ik(sa, V.add(chest, [s * 8, 18 - P.roar * 6, 14 + P.roar * 4]), 9, 9, [s, 0.3, -0.5]);
+      tube([sa, el, hd], [4, 3.4, 3], C, 1.5);
+    }
+    tube([pelvis, V.mix(pelvis, chest, 0.5), chest], [15, 15, 13], C, 0, { belly });
+    // wings
+    for (const s of [-1, 1]) {
+      const root = V.add(chest, [s * 8, -3, -6]), up = (P.fl - 0.35) * 1.6, spr = P.sp;
+      const W = q => V.add(root, roll(yaw([s * q[0] * (0.55 + 0.45 * spr), q[1], q[2] - (1 - spr) * q[0] * 0.5], -s * (1 - spr) * 0.6), s * up * 0.9));
+      const el = W([22, -12, -6]), wr = W([40, -24, -10]), tips = [W([64, -16, -14]), W([60, 4, -14]), W([48, 20, -12]), W([30, 28, -10])], bs = W([10, 22, -6]);
+      [[root, el, wr, tips[0]], [wr, tips[0], tips[1]], [wr, tips[1], tips[2]], [wr, tips[2], tips[3]], [wr, tips[3], bs, root]].forEach((pp, i) => poly(pp, i % 2 ? DR.wing : DR.wing2, -6));
+      tube([root, el, wr], [3.6, 3, 2.4], C, -5); for (const tp of tips) tube([wr, tp], [1.8, 1], C, -4.5);
+    }
+    // neck + head
+    const nb = V.add(chest, [0, -6, 4]), nk = [];
+    for (let i = 0; i <= 4; i++) { const k = i / 4; nk.push(V.add(nb, yaw(pitch([0, -14 * k - 4 * k * k, 4 * k + 10 * k * k], -P.hp * k * 1.2 + P.roar * 0.4 * k), P.hy * k))); }
+    tube(nk, [9, 8, 7.5, 7, 6.5], C, 1, { belly });
+    const hd = norm(yaw(pitch([0, 0.2, 1], -P.hp - P.roar * 0.5), P.hy));
+    serpentHead(nk[4], hd, P.mo, p2 ? DR.eye2 : DR.eye, C, DR.belly.c, DR.horn, 3);
+    if (P.mo > 0.4 && VIEW !== 'b') flame(V.add(nk[4], V.mul(hd, 20)), 3 + P.mo * 2, T, DR.fire, 3.1);
+  }
+
+  // =============================================================
+  //  THUNDERBIRD — a great storm bird with wide blue wings. It never stops beating them; lightning crackles along the
+  //  feathers. It throws its wings up to call the storm, folds them back to dive.
+  // =============================================================
+  const TB = { B: { d: '#c08a10', m: '#ffd84a', h: '#fff6c0' }, W: { d: '#16307a', m: '#2a5ad0', h: '#6a9aff' }, zig: '#ffe14a', beak: { d: '#c06a10', m: '#ff9a2a', h: '#ffd090' }, eye: '#ff3a3a', eye2: '#ffffff' };
+  function tbPose(B, T, E) {
+    const n = mvName(B), mv = B.mv, t = mv ? mv.t : 0;
+    const P = { beat: Math.sin(T * 6), sp: 0.85, dive: 0, mo: 0, hp: Math.sin(T * 1.4) * 0.1, call: 0, spark: 0.3 };
+    if (n === 'dash3') { if (mv.ph === 'go') { P.dive = 1; P.sp = 0.2; P.beat = -0.6; P.mo = 0.7; } else { const k = sstep((mv.pt || 0) / 0.3); P.beat = Math.sin(T * 6) * (1 - k) + k; P.sp = 1; } }
+    else if (n === 'laser' || n === 'laser3') { const k = env(t, 0, 0.4, 1.3, 1.6); P.mo = k; P.hp = 0.3 * k; P.spark = 0.3 + 0.7 * k; }
+    else if (CAST[n] || n === 'thunderlines' || n === 'rain') { const k = env(t, 0.05, 0.35, 1.2, 1.6); P.call = k; P.beat = lerp(P.beat, 1, k) + Math.sin(T * 20) * 0.1 * k; P.sp = 0.85 + 0.15 * k; P.mo = k; P.hp = -0.5 * k; P.spark = 0.3 + 0.7 * k; }
+    return P;
+  }
+  function tbBuild(B, P, T, p2) {
+    const C = TB.B, body = [0, -54 + P.dive * 10, 0], tail = V.add(body, pitch([0, 14, -20], P.dive * 0.8)), head = V.add(body, pitch([0, -18, 10], -P.dive * 0.9));
+    tube([tail, body, head], [8, 14, 9], C, 0, { belly: { c: TB.B.h, s: TB.B.d, w: 0.35 } });
+    // tail feathers
+    for (let i = -2; i <= 2; i++) { const tp = V.add(tail, [i * 4, 14 + Math.abs(i) * -2, -10]); poly([V.add(tail, [i * 2, 0, 0]), V.add(tp, [-2, 0, 0]), V.add(tp, [0, 4, -2]), V.add(tp, [2, 0, 0])], i % 2 ? TB.W.d : TB.W.m, -1); }
+    // talons
+    for (const s of [-1, 1]) { const lg = V.add(body, [s * 6, 12, 2]), ft = V.add(lg, [0, 10 - P.dive * 6, 2 + P.dive * 6]); tube([lg, ft], [3, 2], TB.beak, 0.5); piece(ft, 0.6, (x, y) => { for (let i = -1; i <= 1; i++) g.line(x, y, x + i * 3, y + 4, 1.4, TB.beak.d); }); }
+    // the wings: an arm and a fan of long feathers with lightning zigzags
+    const up = P.beat * 0.8;
+    for (const s of [-1, 1]) {
+      const root = V.add(body, [s * 8, -6, 2]);
+      const Wp = q => V.add(root, roll([s * q[0] * (0.3 + 0.7 * P.sp), q[1], q[2] - q[0] * 0.25 - (1 - P.sp) * q[0] * 0.7], s * up));
+      const el = Wp([26, -6, -2]), wr = Wp([50, -10, -6]);
+      for (let i = 0; i < 9; i++) {
+        const k = i / 8, b = V.mix(root, V.mix(el, wr, k), Math.min(1, k * 1.6)), tip = V.add(b, roll([s * (10 + k * 18) * (0.4 + 0.6 * P.sp), 12 + (1 - k) * 4, -18 - (1 - k) * 6], s * up * 0.5));   // feathers trail back as well as down: the wing has a chord, so it shows from the side
+        poly([b, V.add(V.mix(b, tip, 0.5), [s * 3, 0, 0]), tip, V.add(V.mix(b, tip, 0.5), [-s * 3, 2, 0])], i % 2 ? TB.W.m : TB.W.d, -3 + k * 0.1);
+        if (i % 3 === 1) line(V.mix(b, tip, 0.25), V.add(V.mix(b, tip, 0.6), [s * 3, 0, 0]), 1.4, TB.zig, -2.9 + k * 0.1);
+      }
+      tube([root, el, wr], [4, 3.2, 2.4], TB.W, -2.5);
+      if (Math.sin(T * 13 + s) > 1 - P.spark) { const a = V.mix(el, wr, 0.5); piece(a, 0, (x, y) => { let px = x, py = y; for (let k = 0; k < 4; k++) { const nx = px + (Math.random() - 0.5) * 10, ny = py + 6; g.line(px, py, nx, ny, 1.2, '#fff6a0'); px = nx; py = ny; } }); }
+    }
+    // head: crest, beak
+    const E = p2 ? TB.eye2 : TB.eye;
+    piece(head, 2, (x, y) => {
+      for (let i = -2; i <= 2; i++) U.spike(g, x + i * 2.5, y - 8, -PI / 2 + i * 0.35 + (VIEW === 's' ? -0.5 * DIRX : 0), 10 - Math.abs(i), 2.4, TB.W);
+      g.ell(x, y, 10, 9, C.m); g.ell(x + 2, y + 1, 7, 7, C.d);
+      if (VIEW === 'b') return;
+      if (VIEW === 's') { const d = DIRX; g.poly([[x + 6 * d, y - 1], [x + 18 * d, y + 2 + P.hp * 4], [x + 6 * d, y + 4]], TB.beak.m); if (P.mo > 0.3) g.poly([[x + 6 * d, y + 3], [x + 15 * d, y + 7 + P.mo * 3], [x + 6 * d, y + 6]], TB.beak.d); g.ell(x + 3 * d, y - 3, 2, 2, E); }
+      else { g.poly([[x - 4, y + 1], [x + 4, y + 1], [x, y + 10]], TB.beak.m); if (P.mo > 0.3) g.poly([[x - 3, y + 5], [x + 3, y + 5], [x, y + 9 + P.mo * 4]], TB.beak.d); for (const m of [-1, 1]) { g.ell(x + m * 5, y - 3, 2, 2, E); g.line(x + m * 2, y - 6, x + m * 8, y - 5, 1.4, C.d); } }
+    });
+  }
+  // =============================================================
   //  WHOLE-BODY SWEEPS (指示: ダメージバーではなく体で攻撃): during a sweep the beast's own arms / necks / tail / hands are
   //  the weapon. They are drawn in screen space from where they grow out to the sweep's full length (= the real hit area),
   //  lagging a little behind the turn; the game only keeps the faint motion blur of the swing.
@@ -876,6 +1105,7 @@ const BEAST3 = (() => {
     bonedragon: () => ({ from: 0, C: BD.B, r: [3.4, 1.4], actOnly: true, tip: 'blade', spikes: true }),
     quetzal: () => ({ from: 0, C: QZ.B, belly: QZ.belly, r: [6, 2.2], actOnly: true, tip: 'feathers' }),
     clockmachine: (B, i) => ({ hand: i === 0 ? 'hour' : 'minute' }),
+    dragon: () => ({ from: 0, C: DR.B, belly: DR.belly, r: [9, 2.4], actOnly: true, tip: 'flame' }),
   };
   function tipSerpent(gc, ctx, p, q, sp, open) {   // a snake / dragon head at the end of a lashing neck or tail
     ctx.save(); ctx.translate(p[0], p[1]); ctx.rotate(Math.atan2(p[1] - q[1], p[0] - q[0]));
@@ -923,6 +1153,7 @@ const BEAST3 = (() => {
       const p = pts[n], q = pts[n - 1];
       if (spec.tip === 'serpent') tipSerpent(gc, ctx, p, q, spec, act ? 0.6 + Math.sin(T * 12 + si) * 0.3 : 0.3);
       else if (spec.tip === 'blade') U.spike(gc, p[0], p[1], Math.atan2(p[1] - q[1], p[0] - q[0]), 11, 3.4, spec.C);
+      else if (spec.tip === 'flame') { for (let i = 0; i < 3; i++) gc.ell(p[0] + Math.sin(T * 20 + i) * 2, p[1] - i * 3, 5 - i, 4 - i, DR.fire[Math.min(2, i)]); }
       else if (spec.tip === 'feathers') { const a = Math.atan2(p[1] - q[1], p[0] - q[0]); for (let i = -1; i <= 1; i++) U.feather(gc, p[0], p[1], a + i * 0.45, 13, 3, { m: QZ.F[(i + 2) % 5], d: QZ.F[(i + 3) % 5], tip: '#ffffff' }); }
     });
     ctx.restore();
@@ -930,7 +1161,8 @@ const BEAST3 = (() => {
 
   // =============================================================
   const RIGS = { nightmare: [nmPose, nmBuild, 1.05], fenrir: [fnPose, fnBuild, 1.3], bonedragon: [bdPose, bdBuild, 1.2], leviathan: [lvPose, lvBuild, 1.1], quetzal: [qzPose, qzBuild, 1.1],
-    hydra: [hyPose, hyBuild, 1.1], cerberus: [cbPose, cbBuild, 1.15], voideye: [vePose, veBuild, 1.1], clockmachine: [cmPose, cmBuild, 1.15], kraken: [krPose, krBuild, 1.1] };   // [pose, build, size]
+    hydra: [hyPose, hyBuild, 1.1], cerberus: [cbPose, cbBuild, 1.15], voideye: [vePose, veBuild, 1.1], clockmachine: [cmPose, cmBuild, 1.15], kraken: [krPose, krBuild, 1.1],
+    kingslime: [ksPose, ksBuild, 1.15], treant: [trPose, trBuild, 1.2], spiderqueen: [sqPose, sqBuild, 1.15], dragon: [drPose, drBuild, 1.2], thunderbird: [tbPose, tbBuild, 1.15] };   // [pose, build, size]
   // spinning attacks (指示: 触手だけでなく体ごと回る): while the arms / necks / tail sweep round, the whole body turns with them
   const wrapPI = a => ((a + PI) % TAU + TAU) % TAU - PI;
   function spinPsi(B, E, st) {
