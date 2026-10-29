@@ -3641,7 +3641,7 @@
     ready: withLB({ ht: -1.0, hr: 30, ca: -1.4, la: 2.0, lr: 28 }, 'ready'),    // held up, about to charge
   };
   const easeIO = k => k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2, easeIn = k => k * k * k;
-  function lerpO(a, b, k) { const o = {}; for (const q in a) o[q] = typeof a[q] === 'number' && typeof b[q] === 'number' ? lerp(a[q], b[q], k) : a[q]; return o; }
+  function lerpO(a, b, k) { const o = {}; for (const q in a) o[q] = typeof a[q] === 'number' && typeof b[q] === 'number' ? lerp(a[q], b[q], k) : Array.isArray(a[q]) && Array.isArray(b[q]) ? a[q].map((v, i) => lerp(v, b[q][i], k)) : a[q]; return o; }
   function keysAt(P, keys, t) {   // keys: [time, pose, 'in' = a strike (accelerates into the hit)]
     if (t <= keys[0][0]) return P(keys[0][1]);
     for (let i = 1; i < keys.length; i++) {
@@ -3810,6 +3810,122 @@
     else { torso(); arm(); weapon(); pd(P_(def.p + '_hand', {}, fl), hand[0], hand[1]); }
     ghosts.unshift([hand[0], hand[1], p.ca, sc]); if (ghosts.length > 2) ghosts.length = 2;
   }
+  // ===== 3-view rigs (指示: 正面・左右・後ろ). A small 3D skeleton in art px — x = the weapon side, y = down, z = forward —
+  // projected for the way the boss faces (front / side / back; left = the side mirrored). The knees bend forward, a stance is a
+  // stride, and a swing travels through depth, so the motion reads properly from every angle instead of squatting bow-legged.
+  const R3 = {
+    deathknight: { p: 'dk3', hipY: -25, hipX: 7, L1: 11, L2: 11, ank: -3, shY: -29, shX: 17, neckY: -35, A1: 12, A2: 12, reach: 47, sword: 'dk_sword', hand: 'dk_hand', upper: 'dk_upper', fore: 'dk_fore', capeY: -31, capeH: 62 },
+  };
+  const P3B = { hd: [3, 19, 5], sw: [0.1, 0.95, 0.3], oh: [-3, 19, 3], drop: 1, sz: 0, pitch: 0.02, yaw: 0, stride: 4, wid: 6, lf: 0, lb: 0, fz: 0, nz: 0 };
+  const p3 = o => Object.assign({}, P3B, o);
+  const P3 = {   // hd: weapon hand from its shoulder, sw: weapon direction, oh: free hand; drop/sz: hips down/forward; pitch: lean in; yaw: shoulders turned (+ = weapon side back); stride: feet apart front-to-back; lf/lb: lift the front/back foot
+    rest: p3({}),
+    ready: p3({ hd: [0, 0, 14], sw: [0, -0.75, 0.66], oh: [-2, 10, 10], drop: 3, sz: 1, pitch: 0.08, yaw: -0.1, stride: 10 }),
+    up: p3({ hd: [-2, -21, -5], sw: [0.1, -0.6, -0.8], oh: [-4, 6, 13], drop: -1, sz: -2, pitch: -0.15, yaw: 0.2, stride: 12, lf: 3 }),
+    slam: p3({ hd: [0, 8, 19], sw: [0, 0.72, 0.7], oh: [-4, 14, -9], drop: 7, sz: 4, pitch: 0.32, yaw: -0.25, stride: 17 }),
+    low: p3({ hd: [6, 18, -9], sw: [0.2, 0.6, -0.78], oh: [-4, 6, 12], drop: 7, sz: 1, pitch: 0.25, yaw: 0.2, stride: 13, wid: 7 }),
+    hi: p3({ hd: [2, -20, 9], sw: [0, -0.95, 0.3], oh: [-4, 10, -8], drop: -3, sz: 2, pitch: -0.1, yaw: -0.1, stride: 9, lb: 4 }),
+    sideB: p3({ hd: [14, -4, -10], sw: [0.45, -0.15, -0.88], oh: [-6, 6, 12], drop: 4, sz: -1, pitch: 0.05, yaw: 0.6, stride: 12, wid: 7 }),
+    sideF: p3({ hd: [-12, 2, 16], sw: [-0.85, 0.05, 0.5], oh: [-14, 10, -6], drop: 5, sz: 3, pitch: 0.18, yaw: -0.6, stride: 15, wid: 7, lb: 3 }),
+    thrust: p3({ hd: [0, -4, 22], sw: [0, 0.02, 1], oh: [-6, 12, -10], drop: 4, sz: 6, pitch: 0.28, yaw: -0.3, stride: 18, lb: 3 }),
+    point: p3({ hd: [2, -10, 19], sw: [0, -0.3, 0.95], oh: [-4, 14, 4], drop: 2, sz: 2, pitch: 0.05, yaw: -0.15, stride: 10 }),
+  };
+  const V3 = { add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], mul: (a, k) => [a[0] * k, a[1] * k, a[2] * k], dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], len: a => Math.hypot(a[0], a[1], a[2]) };
+  const norm3 = a => V3.mul(a, 1 / (V3.len(a) || 1));
+  function rot3(p, yaw, pitch) {   // turn the shoulders (yaw), then lean forward (pitch)
+    const cw = Math.cos(yaw), sw = Math.sin(yaw), x = p[0] * cw + p[2] * sw, z0 = p[2] * cw - p[0] * sw;
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    return [x, p[1] * cp + z0 * sp, z0 * cp - p[1] * sp];
+  }
+  function ik3(S, H, L1, L2, pole) {   // two bones from S toward H; the joint bends toward pole
+    let d = V3.sub(H, S), dl = V3.len(d) || 0.01; const mx = L1 + L2 - 0.3;
+    if (dl > mx) { H = V3.add(S, V3.mul(d, mx / dl)); d = V3.sub(H, S); dl = mx; }
+    const u = V3.mul(d, 1 / dl), a = (L1 * L1 - L2 * L2 + dl * dl) / (2 * dl), h = Math.sqrt(Math.max(0, L1 * L1 - a * a));
+    const v = norm3(V3.sub(pole, V3.mul(u, V3.dot(pole, u))));
+    return [V3.add(V3.add(S, V3.mul(u, a)), V3.mul(v, h)), H];
+  }
+  const face4 = a => { const c = Math.cos(a), s = Math.sin(a); return Math.abs(c) > 0.7 ? (c > 0 ? 'r' : 'l') : s > 0 ? 'b' : 'f'; };   // world angle (y up) -> facing
+  function proj3(f, p) {   // model point -> [screen x, screen y, depth] (art px); a slight top-down slant puts nearer things lower
+    if (f === 'f') return [p[0], p[1] + p[2] * 0.3, p[2]];
+    if (f === 'b') return [-p[0], p[1] - p[2] * 0.3, -p[2]];
+    return [f === 'r' ? p[2] : -p[2], p[1] + p[0] * 0.22, p[0]];
+  }
+  function r3Face(B, p) {
+    const mv = B.mv, look = Math.atan2(hero.y - B.y, hero.x - B.x);
+    let want;
+    if (p.sweep) want = face4(p.sweep.ang);   // a full swing turns the whole body round with the blade
+    else if (mv && /charge|dash3|firetrail/.test(mv.name) && mv.a0 != null && mv.ph) want = face4(mv.a0);
+    else if (mv) { if (mv.f3 == null) mv.f3 = face4(look); want = mv.f3; }
+    else { want = face4(look); if (want !== B.f3 && B.f3) { if (B.f3s == null) B.f3s = globalT; if (globalT - B.f3s < 0.25) want = B.f3; else B.f3s = null; } else B.f3s = null; }
+    return (B.f3 = want);
+  }
+  function r3Pose(B) {
+    const mv = B.mv, p2 = B.phase === 2, b = Math.sin(globalT * 2.2);
+    const rest = p3({ drop: 1 + b * 0.5, sw: [0.1, 0.95, 0.3 + b * 0.05], hd: [3, 19 - b * 0.4, 5] });
+    if (!mv) return settle(B, null, rest);
+    const n = mv.name.split(':')[0], t = mv.t, K = s => keysAt(q => P3[q], s, t);
+    const walk = (spd, st) => { const ph = globalT * spd; return { stride: 0, fz: Math.sin(ph) * st, nz: -Math.sin(ph) * st, lf: Math.max(0, Math.cos(ph)) * 3, lb: Math.max(0, -Math.cos(ph)) * 3 }; };
+    let p;
+    if ((n === 'sweep' || n === 'twin') && B.sweeps.length) { const sw = B.sweeps[0], act = sw.t >= sw.tele; p = Object.assign({}, act ? P3.thrust : P3.sideB, act ? { hd: [6, -2, 21], sw: [0, 0, 1], drop: 6, stride: 16 } : {}, { sweep: sw }); }
+    else if (n === 'quake') p = K(hits([0.45, 1.0, 1.55], 'up', 'slam'));
+    else if (n === 'rocks') p = K(hits([0.45, 0.9, 1.35], 'low', 'hi'));
+    else if (n === 'aimed3' || n === 'aimed5') p = K(hits([0.45, 0.9], 'sideB', 'sideF'));
+    else if (n === 'darkwave') p = K(hits(p2 ? [0.5, 1.1, 1.7] : [0.5, 1.1], 'sideB', 'sideF'));
+    else if (n === 'ring' || n === 'ringaimed') p = K(hits([0.55], 'up', 'slam', 0.3));
+    else if (n === 'triple') p = K(hits([0.4, 0.72, 1.04], 'up', 'slam', 0.18));
+    else if (n === 'charge' || n === 'dash3' || n === 'firetrail') p = mv.ph === 'go' ? Object.assign({}, P3.thrust, walk(22, 9), { pitch: 0.34 }) : keysAt(q => P3[q], mv.ph === 'rest' ? [[0, 'thrust'], [0.5, 'rest']] : [[0, mv.k ? 'thrust' : 'rest'], [0.35, 'ready']], mv.pt || 0);
+    else if (n === 'stalk') p = Object.assign({}, P3.ready, walk(9, 6));
+    else if (n === 'jump') p = mv.n === 0 ? K([[0, 'rest'], [0.3, 'up']]) : mv.n === 1 ? keysAt(q => P3[q], [[0, 'up'], [0.3, 'slam', 'in']], t - mv.t1) : keysAt(q => P3[q], [[0, 'slam'], [0.35, 'slam'], [0.8, 'rest']], t - mv.t1 - 0.3);
+    else if (n === 'laser' || n === 'laser3') p = K(hold(0.45, 1.3));
+    else if (n === 'cross') p = K(hold(0.6, 3.6));
+    else if (n === 'wave') p = K(hold(0.4, 2.2));
+    else p = K([[0, 'rest'], [0.3, 'up'], [0.5, 'slam', 'in'], [0.7, 'slam'], [1.1, 'rest']]);
+    return settle(B, p, rest);
+  }
+  function drawR3(B, def, x, yFeet, fl) {
+    const K = SPR.SCALE, p = r3Pose(B), f = r3Face(B, p), v = f === 'f' ? 'f' : f === 'b' ? 'b' : 's', mir = f === 'l' ? -1 : 1, P2 = B.phase === 2 ? 1 : 0;
+    const S = q => { const r = proj3(f, q); return [x + r[0] * K, yFeet + r[1] * K, r[2]]; }, dp = q => proj3(f, q)[2];
+    const hip = [0, def.hipY + p.drop, p.sz], R = q => rot3(q, p.yaw, p.pitch), T = q => V3.add(hip, R(q));
+    const shS = T([def.shX, def.shY, 0]), shO = T([-def.shX, def.shY, 0]);
+    const [elS, hS] = ik3(shS, V3.add(shS, R(p.hd)), def.A1, def.A2, R([0.7, 0.6, -0.4])), [elO, hO] = ik3(shO, V3.add(shO, R(p.oh)), def.A1, def.A2, R([-0.7, 0.6, -0.4]));
+    const hipS = V3.add(hip, rot3([def.hipX, 0, 0], p.yaw * 0.5, 0)), hipO = V3.add(hip, rot3([-def.hipX, 0, 0], p.yaw * 0.5, 0));
+    const ftO = [-p.wid, def.ank - p.lf, p.stride / 2 + p.fz + p.sz * 0.4], ftS = [p.wid, def.ank - p.lb, -p.stride / 2 + p.nz + p.sz * 0.4];
+    const [knS, aS] = ik3(hipS, ftS, def.L1, def.L2, [0.15, 0, 1]), [knO, aO] = ik3(hipO, ftO, def.L1, def.L2, [-0.15, 0, 1]);
+    const items = [], add = (d, fn) => items.push([d, fn]);
+    const seg = (part, a, b, L, d) => add(d, () => { const A = S(a), Q = S(b); pd(P_(part, {}, fl), A[0], A[1], Math.atan2(Q[1] - A[1], Q[0] - A[0]), Math.max(0.3, Math.hypot(Q[0] - A[0], Q[1] - A[1]) / (L * K)), 1); });
+    const spr = (part, P, at, rot, d, sy2 = 1) => add(d, () => { const A = S(at); pd(P_(part, P, fl), A[0], A[1], rot, mir, sy2); });
+    const mid = (a, b) => V3.mul(V3.add(a, b), 0.5);
+    // the cape hangs from the shoulders to the floor and trails the lunge
+    const capeTop = T([0, def.capeY, -5]), cT = S(capeTop);
+    add(v === 'b' ? 0.5 : -40, () => pd(P_(def.p + '_cape', { v }, fl), cT[0], cT[1], v === 's' ? mir * (p.pitch * 0.5 + p.sz * 0.03) : Math.sin(globalT * 1.6) * 0.02, mir, clamp((yFeet - 2 * K - cT[1]) / (def.capeH * K), 0.7, 1.4)));
+    // legs (behind the torso's tassets): near leg over far leg
+    for (const [hp, kn, an] of [[hipO, knO, aO], [hipS, knS, aS]]) {
+      const d = dp(kn) - 8;
+      seg(def.p + '_thigh', hp, kn, def.L1, d); seg(def.p + '_shin', kn, an, def.L2, d + 0.05);
+      spr(def.p + '_foot', { v }, an, 0, d + 0.1);
+    }
+    spr(def.p + '_torso', { v }, hip, v === 's' ? mir * p.pitch : 0, 0);
+    spr(def.p + '_head', { v, p2: P2 }, T([0, def.neckY, 0]), v === 's' ? mir * p.pitch * 0.6 : 0, 1);
+    const pm = sd => v === 's' ? 1 : (v === 'f' ? sd : -sd) * mir;
+    spr(def.p + '_pauld', { v, m: pm(-1) }, shO, 0, dp(shO) + 0.8); spr(def.p + '_pauld', { v, m: pm(1) }, shS, 0, dp(shS) + 0.8);
+    for (const [sh, el, hd, ex] of [[shO, elO, hO, 0], [shS, elS, hS, 0.2]]) {
+      seg(def.upper, sh, el, def.A1, dp(mid(sh, el)) + 1 + ex); seg(def.fore, el, hd, def.A2, dp(mid(el, hd)) + 1.1 + ex);
+      add(dp(hd) + 1.3 + ex, () => { const A = S(hd); pd(P_(def.hand, {}, fl), A[0], A[1]); });
+    }
+    // the sword: in 3D it foreshortens as it points at you; in a full swing it reaches out along the swing
+    const swd = norm3(R(p.sw)), H = S(hS), Tp = S(V3.add(hS, V3.mul(swd, def.reach)));
+    let ang = Math.atan2(Tp[1] - H[1], Tp[0] - H[0]), sc = Math.max(0.25, Math.hypot(Tp[0] - H[0], Tp[1] - H[1]) / (def.reach * K));
+    if (p.sweep && p.sweep.t >= p.sweep.tele) { ang = -p.sweep.ang; sc = Math.max(1, (p.sweep.len - Math.hypot(H[0] - x, H[1] - (yFeet - 40 * K))) / (def.reach * K)); }
+    const ghosts = B.r3G || (B.r3G = []);
+    add(dp(V3.add(hS, V3.mul(swd, 14))) + 1.25, () => {
+      for (let i = 0; i < ghosts.length; i++) { const g0 = ghosts[i]; if (Math.abs(g0[2] - ang) > 0.2) pd(P_(def.sword, {}, false), g0[0], g0[1], g0[2], g0[3], 1, 0.22 / (i + 1)); }
+      pd(P_(def.sword, {}, fl), H[0], H[1], ang, sc, 1);
+      ghosts.unshift([H[0], H[1], ang, sc]); if (ghosts.length > 2) ghosts.length = 2;
+    });
+    add(dp(hS) + 1.4, () => { pd(P_(def.hand, {}, fl), H[0], H[1]); });   // the fist closes over the grip
+    items.sort((a, b) => a[0] - b[0]);
+    for (const it of items) it[1]();
+  }
   function drawBoss() {
     const B = boss; if (!B) return;
     const x = B.x, by = sy(B.y), r = B.r, z = (B.z || 0) * 70;
@@ -3838,6 +3954,7 @@
     for (const d of B.decoys || []) SPR.draw(ctx, spr, d.x, sy(d.y) + r * 0.7 - hov, 0.92);   // illusions (no shadow)
     if (B.regen) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(120,255,100,${0.18 + 0.12 * Math.sin(globalT * 9)})`; ctx.beginPath(); ctx.arc(x, y, r * 1.5, 0, 7); ctx.fill(); ctx.restore(); }
     if (B.type === 'cyclops') drawCyclops(B, x, by + r * 0.7 - z, y, hurt);
+    else if (R3[B.type]) drawR3(B, R3[B.type], x, by + r * 0.7 - z - hov, hurt);
     else if (WR[B.type]) drawWeaponBoss(B, WR[B.type], x, by + r * 0.7 - z - hov, y, spr, hurt);
     else SPR.draw(ctx, spr, x, by + r * 0.7 - z - hov);
     if (B.type === 'thunderbird' && Math.sin(globalT * 13) > 0.6) { ctx.strokeStyle = '#fff6a0'; ctx.lineWidth = 2; ctx.beginPath(); let px = x + rnd(-r, r), py = y - r * 1.2; ctx.moveTo(px, py); for (let k = 0; k < 4; k++) { px += rnd(-12, 12); py += 12; ctx.lineTo(px, py); } ctx.stroke(); }
