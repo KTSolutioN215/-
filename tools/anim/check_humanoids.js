@@ -11,7 +11,7 @@ Object.assign(w,{H:1080,sy:y=>y,q:Math.round,FONT:'sans-serif',shadow(){},zakoAr
 vm.runInContext(section(src,'  function drawSweeps(','  // ===== bosses drawn from parts')+section(src,'  function drawEnemy(','  // pixel sprite of the hero')+section(src,'  function drawBoss()','  function hexA('),w);
 let routes=0;const actual=w.drawR3;w.drawR3=(...args)=>{routes++;return actual(...args);};
 const rawPart=w.SPR.part;let headParts=0;w.SPR.part=(name,p)=>{if(name==='h3_dullahan_head')headParts++;const s=rawPart(name,p);assert(s,'missing part '+name);return s;};
-const bossTypes=['deathknight','goblinking','lich','icequeen','pharaoh','archmage','colossus','ghostcaptain','cyclops','shadowhero','demongeneral','fallenangel'],enemyTypes=['dwarf','armor','angel','dullahan','shadowarmor'];
+const bossTypes=['gorgon','hakaishin','maou','kingslime','treant','deathknight','goblinking','lich','icequeen','pharaoh','archmage','colossus','ghostcaptain','cyclops','shadowhero','demongeneral','fallenangel'],enemyTypes=['dwarf','armor','angel','dullahan','shadowarmor'];
 const directions=[-Math.PI/2,0,Math.PI,Math.PI/2];let samples=0,moves=0;
 const combat=e=>JSON.stringify(Object.fromEntries(['x','y','vx','vy','r','hp','atk','def','st','t','headOut','face','mod'].map(k=>[k,e[k]])));
 for(const type of enemyTypes)for(const a of directions)for(const [st,t,headOut]of[['idle',1,false],['wind',.45,false],['slash',.1,false],['throw',.15,true]]){

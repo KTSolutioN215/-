@@ -12,7 +12,7 @@ const between = (a, b) => { const i = source.indexOf(a), j = source.indexOf(b, i
 const canvas = createCanvas(1000, 1080), ctx = canvas.getContext('2d');
 const world = { console, document: { createElement: () => createCanvas(1, 1) }, ctx, globalT: 0, hero: { x: 0, y: -150, vx: 0, vy: 0 },
   arena: { cx: 0, cy: 0, R: 260 }, RIG: {}, WR: {}, zones: [], bullets: [], rings: [], shake: 0,
-  A: { sfx() {} }, burst() {}, shoot() { return {}; }, hurtHero() {}, addBeam() {}, minionWave() {}, addCircle() {}, arenaSpot: () => ({ x: 0, y: 0 }), shades: [], flash: 0, flashCol: '',
+  A: { sfx() {} }, burst() {}, shoot() { return {}; }, hurtHero() {}, addBeam() {}, minionWave() {}, addCircle() {}, arenaSpot: () => ({ x: 0, y: 0 }), enemies: [], spawnEnemy: () => {const e={exp:1,gold:1};world.enemies.push(e);return e;}, SHOTCOL:{poison:'#7ad86a'}, shades: [], flash: 0, flashCol: '',
   clamp: (x, a, b) => Math.max(a, Math.min(b, x)), lerp: (a, b, k) => a + (b - a) * k, hyp: Math.hypot, rnd: (a, b) => (a + b) / 2 };
 vm.createContext(world);
 vm.runInContext('Math.random = () => 0.25;', world); // identical sweep direction in every comparison panel
@@ -25,7 +25,7 @@ const headAI = between("        case 'dullahan':", "        case 'shark':");
 vm.runInContext(code + enemyData + '\nthis.renderRig = drawR3; this.renderEnemy = typeof drawR3Enemy === "function" ? drawR3Enemy : null; this.poseRig = r3Pose; this.faceRig = r3Face; this.moveRig = runMove; this.defs = R3; this.enemyDefs=EN;' +
   '\nthis.tickEnemy=(e,dt)=>{e.t+=dt;e.cd-=dt;const h=hero,dx=h.x-e.x,dy=h.y-e.y,d=Math.hypot(dx,dy),ux=dx/(d||1),uy=dy/(d||1);let want=0,wx=0,wy=0;switch(e.ai){'+swingAI+headAI+'}};', world);
 const bossType = process.env.BOSS || 'goblinking', dirs = ['f', 'r', 'l', 'b'], dirName = ['正面', '右向き', '左向き', '後ろ'];
-const names={lich:'リッチ',icequeen:'こおりの女王',pharaoh:'ファラオ',archmage:'だいまどうし',colossus:'くろがねの巨兵',deathknight:'デスナイト',goblinking:'ゴブリンキング',ghostcaptain:'ゆうれいせんちょう',cyclops:'サイクロプス',shadowhero:'かげの勇者',demongeneral:'まぐんしょうぐん',fallenangel:'だてんし',armor:'さまようよろい',shadowarmor:'やみのよろい',dwarf:'ドワーフせんし',angel:'てんしへい',dullahan:'デュラハン'};
+const names={gorgon:'ゴルゴーン',hakaishin:'はかいしん',maou:'まおう',kingslime:'キングスライム',treant:'ジャイアントトレント',lich:'リッチ',icequeen:'こおりの女王',pharaoh:'ファラオ',archmage:'だいまどうし',colossus:'くろがねの巨兵',deathknight:'デスナイト',goblinking:'ゴブリンキング',ghostcaptain:'ゆうれいせんちょう',cyclops:'サイクロプス',shadowhero:'かげの勇者',demongeneral:'まぐんしょうぐん',fallenangel:'だてんし',armor:'さまようよろい',shadowarmor:'やみのよろい',dwarf:'ドワーフせんし',angel:'てんしへい',dullahan:'デュラハン'};
 const bossName = names[bossType] || bossType, isEnemy=!!world.defs[bossType].enemy;
 const angles = [-Math.PI / 2, 0, Math.PI, Math.PI / 2];
 const plan = process.env.PLAN ? JSON.parse(process.env.PLAN) : [['idle', 1.2, '待機'], ['stalk', 1.5, '歩く'], ['quake', 2.7, '地響き'], ['rocks', 2.5, '岩飛ばし'], ['bombs', 3.1, '爆弾投げ'], ['sweep', 3.1, '大振り'], ['charge', 2.8, '突進'], ['dash3', 4.1, '三連突進'], ['mines', 3.1, '爆弾の合図'], ['ringaimed', 1.8, '衝撃波']];
@@ -56,7 +56,7 @@ for (const [move, duration, label] of plan) {
       ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(0, -3, isEnemy?B.r*.8:48, isEnemy?B.r*.25:13, 0, 0, Math.PI * 2); ctx.fill();
       ctx.imageSmoothingEnabled = false;
       const hover=world.defs[bossType].float?10+Math.sin(absolute*2.2)*3:0;
-      if(isEnemy)world.renderEnemy(B,world.defs[bossType],0,-hover,false);else world.renderRig(B, world.defs[bossType], 0, -hover, false);
+      if(isEnemy)world.renderEnemy(B,world.defs[bossType],0,-hover,false);else world.renderRig(B, world.defs[bossType], 0, -hover-(B.z||0)*70, false);
       // Pose/bone math must stay finite for every frame, direction, and move.
       const pose = world.poseRig(isEnemy?B.r3B:B); for (const [key, val] of Object.entries(pose)) if (Array.isArray(val) && val.some(v => !Number.isFinite(v))) throw Error(move + ' non-finite ' + key);
       ctx.restore(); ctx.fillStyle = '#eee7cd'; ctx.font = '24px ReviewJP'; ctx.fillText(dirName[i], x0 + 250, y0 + 442);

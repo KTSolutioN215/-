@@ -3607,7 +3607,7 @@
         continue;
       }
       for (let k = 1; k <= 4; k++) { const a = s.ang - Math.sign(s.vel) * k * 0.09; ctx.strokeStyle = hexA(s.col, 0.18 / k * 2); ctx.lineWidth = s.w * 2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * s.len, y - Math.sin(a) * s.len); ctx.stroke(); }
-      if (s.own || (R3[B.type] && R3[B.type].dual && si<2)) continue;   // the two held blades already draw their own weapons
+      if ((s.own && !(R3[B.type] && R3[B.type].magicSweep)) || (R3[B.type] && R3[B.type].dual && si<2)) continue;   // the two held blades already draw their own weapons
       ctx.strokeStyle = s.col; ctx.lineWidth = s.w * (s.kind === 'club' || s.kind === 'tail' ? 2 : 1.2); ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(x + Math.cos(s.ang) * r * 0.6, y - Math.sin(s.ang) * r * 0.6); ctx.lineTo(ex, ey); ctx.stroke(); ctx.lineCap = 'butt';
       if (s.kind === 'scythe') { ctx.strokeStyle = s.col; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(ex, ey, 22, -s.ang - Math.sign(s.vel) * 0.2, -s.ang + Math.sign(s.vel) * 2.2, s.vel > 0); ctx.stroke(); }
@@ -3842,6 +3842,12 @@
   };
   // Additional humanoids: normalized motion scales with body size, while combat stays in world units.
   const H3R = {
+    gorgon: { motion: 1, hipY: -38, hipX: 8, L1: 12, L2: 12, ank: -4, shY: -27, shX: 16, neckY: -23, A1: 12, A2: 11, reach: 30, legs: false, tail: true, shield: true, archer: true, pose: { base: { drop: 0, stride: 3, wid: 6 }, rest: { hd: [0,12,10], sw: [0,0,1], oh: [-3,13,10] }, point: { hd: [0,-3,22], sw: [0,0,1], oh: [-2,7,10] }, bowDraw: { hd: [0,-3,19], sw: [0,0,1], oh: [-3,3,9], yaw: .12 }, bowRelease: { hd: [0,-2,23], sw: [0,0,1], oh: [-3,6,10], yaw: -.08 }, gazeReady: { hd: [0,8,10], sw: [0,0,1], pitch: -.06, gaze: 0 }, gazeFlash: { hd: [0,5,15], sw: [0,0,1], pitch: .08, gaze: 1 } } },
+    hakaishin: { motion: 1.1, hipY: -45, hipX: 10, L1: 14, L2: 14, ank: -4, shY: -35, shX: 29, neckY: -39, A1: 13.2, A2: 12.1, reach: 1, legs: false, tail: true, float: true, unarmed: true, fourArms: true, halo: true, ritual: true, magicSweep: true, pose: { base: { drop: 0, stride: 4, orb: 1 }, rest: { hd: [7,-8,9], oh: [-7,-8,9] }, up: { hd: [1,-21,8], oh: [-1,-21,8], pitch: -.06 }, point: { hd: [0,-7,23], oh: [0,-7,23], pitch: .08 }, low: { hd: [3,10,15], oh: [-3,10,15] } } },
+    maou: { motion: 1, hipY: -28, hipX: 8, L1: 12.5, L2: 12.5, ank: -4, shY: -31, shX: 18, neckY: -33, A1: 12, A2: 11, reach: 57, capeY: -33, capeH: 64, wings: true, rageWings: true, ritual: true, magicSweep: true, pose: { base: { stride: 7, wid: 7, orb: 1 }, rest: { hd: [0,18,6], sw: [0,-1,.1], oh: [-4,12,12] }, ready: { hd: [0,8,12], sw: [0,-.96,.2], oh: [-3,1,14] }, up: { hd: [0,-15,6], sw: [0,-1,.1], oh: [-3,-18,12], pitch: -.08 }, point: { hd: [0,-3,19], sw: [0,-.8,.6], oh: [-4,-7,22], pitch: .08 }, slam: { hd: [0,16,16], sw: [0,-.7,.7], oh: [-3,13,19], drop: 4, pitch: .14 } } },
+    kingslime: { natural: 'slime', motion: 1, pose: { base: {} } },
+    treant: { natural: 'tree', motion: 1, pose: { base: {} } },
+
     lich: { boneNeck: true, motion: 1, hipY: -46, hipX: 8, L1: 13, L2: 13, ank: -4, shY: -27, shX: 15, neckY: -31, A1: 12, A2: 12, reach: 47, legs: false, skirt: true, caster: true, float: true, pose: { base: { drop: 0, wid: 7, stride: 4 }, rest: { hd: [1,17,5], sw: [0,-1,.1], oh: [-3,12,6] }, ready: { hd: [0,10,9], sw: [0,-.98,.15] }, up: { hd: [0,-12,6], sw: [0,-1,.1], oh: [-5,-13,12], pitch: -.05 }, point: { hd: [0,-3,17], sw: [0,-.8,.6], oh: [-3,-6,21] }, slam: { hd: [1,14,14], sw: [0,-.75,.65], oh: [-4,10,16], pitch: .1, drop: 2 } } },
     icequeen: { motion: 1, hipY: -46, hipX: 8, L1: 13, L2: 13, ank: -4, shY: -27, shX: 15, neckY: -31, A1: 12, A2: 12, reach: 47, legs: false, skirt: true, caster: true, float: true, pose: { base: { drop: 0, wid: 7, stride: 4 }, rest: { hd: [1,17,5], sw: [0,-1,.1], oh: [-3,12,6] }, ready: { hd: [0,10,9], sw: [0,-.98,.15] }, up: { hd: [0,-12,6], sw: [0,-1,.1], oh: [-5,-13,12], pitch: -.05 }, point: { hd: [0,-3,17], sw: [0,-.8,.6], oh: [-3,-6,21] }, slam: { hd: [1,14,14], sw: [0,-.75,.65], oh: [-4,10,16], pitch: .1, drop: 2 } } },
     pharaoh: { motion: 1, hipY: -46, hipX: 8, L1: 13, L2: 13, ank: -4, shY: -27, shX: 15, neckY: -31, A1: 12, A2: 12, reach: 47, legs: false, skirt: true, caster: true,  offWeapon: true, pose: { base: { drop: 0, wid: 7, stride: 4 }, rest: { hd: [1,17,5], sw: [0,-1,.1], oh: [-3,12,6] }, ready: { hd: [0,10,9], sw: [0,-.98,.15] }, up: { hd: [0,-12,6], sw: [0,-1,.1], oh: [-5,-13,12], pitch: -.05 }, point: { hd: [0,-3,17], sw: [0,-.8,.6], oh: [-3,-6,21] }, slam: { hd: [1,14,14], sw: [0,-.75,.65], oh: [-4,10,16], pitch: .1, drop: 2 } } },
@@ -3930,7 +3936,12 @@
     const n = mv.name.split(':')[0], t = mv.t, K = s => keysAt(Q, s, t);
     const walk = (spd, st) => { const ph = globalT * spd; return { stride: 0, fz: Math.sin(ph) * st, nz: -Math.sin(ph) * st, lf: Math.max(0, Math.cos(ph)) * 3, lb: Math.max(0, -Math.cos(ph)) * 3 }; };
     let p;
-    if (n === 'enemyWind') p = K([[0,'rest'],[.42,'up']]);
+    if (def.archer && n === 'petrify') p = K([[0,'gazeReady'],[.55,'gazeReady'],[1.2,'gazeFlash','in'],[1.5,'gazeFlash'],[1.7,'point'],[2.4,'rest']]);
+    else if (def.archer && (n === 'aimed3' || n === 'aimed5')) p = K(hits([.45,.9],'bowDraw','bowRelease',.22));
+    else if (B.type==='hakaishin' && n==='collapse') p = K([[0,'up'],[1.0,'up'],[1.4,'point','in'],[4.6,'point'],[5.8,'rest']]);
+    else if (B.type==='maou' && n==='despair') p = K([[0,'ready'],[.5,'up'],[p2?1.9:2.2,'point','in'],[2.6,'slam','in'],[3.3,'rest']]);
+    else if (def.ritual && n==='twin') p = K(hold(.5,3.3));
+    else if (n === 'enemyWind') p = K([[0,'rest'],[.42,'up']]);
     else if (n === 'enemySlash') p = K([[0,'up'],[.06,'slam','in'],[.2,'low']]);
     else if (n === 'headLift') p = K([[0,'rest'],[.5,'headLift'],[.65,'headLift']]);
     else if (n === 'headThrow') p = K([[0,'headThrow'],[.18,'headThrow'],[.65,'ready']]);
@@ -4026,8 +4037,39 @@
     }
     return result;
   }
+  function drawNaturalBoss(B,def,x,yFeet,fl,p,f) {
+    const K=SPR.SCALE,v=f==='f'?'f':f==='b'?'b':'s',mir=f==='l'?-1:1,mv=B.mv,n=mv?mv.name.split(':')[0]:'idle',t=mv?mv.t:0;
+    const part=(name,at,rot=0,sx=1,sy2=1)=>pd(P_(def.p+'_'+name,{v,p2:B.phase===2?1:0,f:Math.floor(globalT*7)%4},fl),x+at[0]*mir*K,yFeet+at[1]*K,rot*mir,mir*sx,sy2);
+    if(def.natural==='slime') {
+      let squeeze=1+Math.sin(globalT*3.5)*.025;
+      if(n==='jump'||n==='split') {
+        if(mv.n===0)squeeze=t<.25?1+.18*Math.sin(t/.25*Math.PI):.88;
+        else if(mv.n===1)squeeze=.84;
+        else squeeze=1+.28*Math.exp(-Math.max(0,t-mv.t1-.3)*8);
+      } else if(['ring','triple','gapring','aimed3','aimed5'].includes(n)) squeeze+=.10*Math.exp(-(((t-.5)% .75)**2)*70);
+      const sy2=1/squeeze,top=-52*sy2,lean=n==='stalk'?Math.sin(globalT*7)*.035:0;
+      part('body',[0,0],lean,squeeze,sy2);
+      const lag=Math.sin(globalT*5)*.04+(squeeze-1)*.12;
+      part('crown',[0,top+2],lean+lag,1,1);return;
+    }
+    const emit=n==='roots'&&t>=.35&&t<1.35?Math.exp(-((t-.35)% .11)*25):0;
+    const slam=n==='quake'?[.45,1,1.55].reduce((q,a)=>Math.max(q,Math.exp(-(((t-a)*12)**2))),0):emit*.5;
+    const raise=['rain','spiral','spiral3','homing','wave','ring','gapring','roots'].includes(n)?Math.min(1,t/.35)*(t<2.3?1:Math.max(0,1-(t-2.3)*3)):0;
+    const sway=Math.sin(globalT*1.8)*.025+(slam*.035),drop=slam*3;
+    part('roots',[0,0],0,1+slam*.06,1);
+    const branch=(side)=>{
+      const shoulder=[side*(v==='s'?14:19),-38+drop],el=[side*(v==='s'?23:32),-47-raise*14+drop],hand=[side*(v==='s'?31:43),-62-raise*15+drop];
+      for(const [a,b]of[[shoulder,el],[el,hand]]){const dx=b[0]-a[0],dy=b[1]-a[1];part('branch',a,Math.atan2(dy,dx),Math.hypot(dx,dy)/14,1);}
+      part('twig',hand,side*raise*.15);
+    };
+    if(v==='b'){branch(-1);branch(1);}else branch(-1);
+    part('trunk',[0,drop],sway,1,1);
+    if(v!=='b')branch(1);
+    part('canopy',[0,-67+drop],sway*.7+Math.sin(globalT*3)*.015,1+slam*.03,1);
+  }
   function drawR3(B, def, x, yFeet, fl) {
     const K = SPR.SCALE, p = r3Pose(B), f = r3Face(B, p), v = f === 'f' ? 'f' : f === 'b' ? 'b' : 's', mir = f === 'l' ? -1 : 1, P2 = B.phase === 2 ? 1 : 0;
+    if(def.natural) { drawNaturalBoss(B,def,x,yFeet,fl,p,f);return; }
     const S = q => { const r = proj3(f, q); return [x + r[0] * K, yFeet + r[1] * K, r[2]]; }, dp = q => proj3(f, q)[2];
     const hip = [0, def.hipY + p.drop, p.sz], R = q => rot3(q, p.yaw, p.pitch), T = q => V3.add(hip, R(q));
     const shS = T([def.shX, def.shY, 0]), shO = T([-def.shX, def.shY, 0]);
@@ -4057,7 +4099,8 @@
       add(v === 'b' ? 0.5 : -40, () => pd(P_(def.p + '_cape', { v }, fl), cT[0], cT[1], v === 's' ? mir * (p.pitch * 0.5 + p.sz * 0.03) : Math.sin(globalT * 1.6) * 0.02, mir, clamp((yFeet - 2 * K - cT[1]) / (def.capeH * K), 0.7, 1.4)));
     }
     const animF=Math.floor(globalT*6)%4;
-    if(def.wings) spr(def.p+'_wings',{v,p2:P2,f:animF},T([0,def.shY,-4]),v==='s'?mir*p.pitch*.4:0,v==='b'?.4:-30);
+    if(def.halo) spr(def.p+'_halo',{v,p2:P2,f:animF},T([0,def.shY+6,-6]),0,-45);
+    if(def.wings && (!def.rageWings || P2)) spr(def.p+'_wings',{v,p2:P2,f:animF},T([0,def.shY,-4]),v==='s'?mir*p.pitch*.4:0,v==='b'?.4:-30);
     if(def.skirt) spr(def.p+'_skirt',{v},hip,v==='s'?mir*(p.pitch*.35+Math.sin(globalT*2)*.025):Math.sin(globalT*2)*.025,-.5);
     if(def.tail) spr(def.p+'_tail',{v,f:animF},hip,v==='s'?-mir*(p.pitch*.4+p.sz*.025):Math.sin(globalT*2)*.04,-3);
     // legs (behind the torso's tassets): near leg over far leg
@@ -4074,7 +4117,16 @@
     if(def.carriedHead) {
       spr(def.p+'_neck',{v,f:animF},T([0,def.neckY,0]),0,1);
       if(!B.headOut) spr(def.p+'_head',{v,p2:P2},V3.add(hO,[0,8,0]),0,dp(hO)+1.8);
-    } else spr(def.p + '_head', { v, p2: P2 }, T([0, def.neckY, 0]), v === 's' ? mir * p.pitch * 0.6 : 0, 1);
+    } else spr(def.p + '_head', { v, p2: P2, f:animF, gaze:p.gaze>.5?1:0 }, T([0, def.neckY, 0]), v === 's' ? mir * p.pitch * 0.6 : 0, 1);
+    if(def.fourArms) {
+      for(const side of[-1,1]) {
+        const sh=T([side*22,def.shY+17,0]),hd=T([side*11,10,15]);
+        const [el,hand]=ik3(sh,hd,def.A1,def.A2,R([side*.3,.6,1]));
+        seg(def.upper,sh,el,def.A1,dp(el));seg(def.fore,el,hand,def.A2,dp(hand)+.1);spr(def.hand,{},hand,0,dp(hand)+.3);
+      }
+      spr(def.p+'_world',{v,p2:P2,f:animF},T([0,9,17]),0,dp(T([0,9,17]))+.4);
+    }
+    if(p.orb && !def.natural) for(const hand of(def.fourArms?[hS,hO]:[hO])) spr(def.p+'_orb',{p2:P2,f:animF},V3.add(hand,[0,-8,0]),0,dp(hand)+1.7);
     const orbit = def.spinTip && B.sweeps.length && p.sweep && p.sweep.t>=p.sweep.tele ? generalSpinGeometry(B,def,x,yFeet,K) : null;
     if(!orbit) {
     B.r3SpinG=null;
