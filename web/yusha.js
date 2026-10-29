@@ -3842,7 +3842,7 @@
   };
   // Additional humanoids: normalized motion scales with body size, while combat stays in world units.
   const H3R = {
-    lich: { motion: 1, hipY: -46, hipX: 8, L1: 13, L2: 13, ank: -4, shY: -27, shX: 15, neckY: -31, A1: 12, A2: 12, reach: 47, legs: false, skirt: true, caster: true, float: true, pose: { base: { drop: 0, wid: 7, stride: 4 }, rest: { hd: [1,17,5], sw: [0,-1,.1], oh: [-3,12,6] }, ready: { hd: [0,10,9], sw: [0,-.98,.15] }, up: { hd: [0,-12,6], sw: [0,-1,.1], oh: [-5,-13,12], pitch: -.05 }, point: { hd: [0,-3,17], sw: [0,-.8,.6], oh: [-3,-6,21] }, slam: { hd: [1,14,14], sw: [0,-.75,.65], oh: [-4,10,16], pitch: .1, drop: 2 } } },
+    lich: { boneNeck: true, motion: 1, hipY: -46, hipX: 8, L1: 13, L2: 13, ank: -4, shY: -27, shX: 15, neckY: -31, A1: 12, A2: 12, reach: 47, legs: false, skirt: true, caster: true, float: true, pose: { base: { drop: 0, wid: 7, stride: 4 }, rest: { hd: [1,17,5], sw: [0,-1,.1], oh: [-3,12,6] }, ready: { hd: [0,10,9], sw: [0,-.98,.15] }, up: { hd: [0,-12,6], sw: [0,-1,.1], oh: [-5,-13,12], pitch: -.05 }, point: { hd: [0,-3,17], sw: [0,-.8,.6], oh: [-3,-6,21] }, slam: { hd: [1,14,14], sw: [0,-.75,.65], oh: [-4,10,16], pitch: .1, drop: 2 } } },
     icequeen: { motion: 1, hipY: -46, hipX: 8, L1: 13, L2: 13, ank: -4, shY: -27, shX: 15, neckY: -31, A1: 12, A2: 12, reach: 47, legs: false, skirt: true, caster: true, float: true, pose: { base: { drop: 0, wid: 7, stride: 4 }, rest: { hd: [1,17,5], sw: [0,-1,.1], oh: [-3,12,6] }, ready: { hd: [0,10,9], sw: [0,-.98,.15] }, up: { hd: [0,-12,6], sw: [0,-1,.1], oh: [-5,-13,12], pitch: -.05 }, point: { hd: [0,-3,17], sw: [0,-.8,.6], oh: [-3,-6,21] }, slam: { hd: [1,14,14], sw: [0,-.75,.65], oh: [-4,10,16], pitch: .1, drop: 2 } } },
     pharaoh: { motion: 1, hipY: -46, hipX: 8, L1: 13, L2: 13, ank: -4, shY: -27, shX: 15, neckY: -31, A1: 12, A2: 12, reach: 47, legs: false, skirt: true, caster: true,  offWeapon: true, pose: { base: { drop: 0, wid: 7, stride: 4 }, rest: { hd: [1,17,5], sw: [0,-1,.1], oh: [-3,12,6] }, ready: { hd: [0,10,9], sw: [0,-.98,.15] }, up: { hd: [0,-12,6], sw: [0,-1,.1], oh: [-5,-13,12], pitch: -.05 }, point: { hd: [0,-3,17], sw: [0,-.8,.6], oh: [-3,-6,21] }, slam: { hd: [1,14,14], sw: [0,-.75,.65], oh: [-4,10,16], pitch: .1, drop: 2 } } },
     archmage: { motion: 1, hipY: -46, hipX: 8, L1: 13, L2: 13, ank: -4, shY: -27, shX: 15, neckY: -31, A1: 12, A2: 12, reach: 47, legs: false, skirt: true, caster: true, float: true, pose: { base: { drop: 0, wid: 7, stride: 4 }, rest: { hd: [1,17,5], sw: [0,-1,.1], oh: [-3,12,6] }, ready: { hd: [0,10,9], sw: [0,-.98,.15] }, up: { hd: [0,-12,6], sw: [0,-1,.1], oh: [-5,-13,12], pitch: -.05 }, point: { hd: [0,-3,17], sw: [0,-.8,.6], oh: [-3,-6,21] }, slam: { hd: [1,14,14], sw: [0,-.75,.65], oh: [-4,10,16], pitch: .1, drop: 2 } } },
@@ -4021,6 +4021,8 @@
       spr(def.p + '_foot', { v }, an, 0, d + 0.1);
     }
     spr(def.p + '_torso', { v, p2: P2 }, hip, v === 's' ? mir * p.pitch : 0, 0);
+    // The exposed cervical bones connect the robe collar to the underside of the skull.
+    if(def.boneNeck) seg(def.p+'_neck',T([0,def.shY+2,0]),T([0,def.neckY-7,4]),11,.6);
     if(def.carriedHead) {
       spr(def.p+'_neck',{v,f:animF},T([0,def.neckY,0]),0,1);
       if(!B.headOut) spr(def.p+'_head',{v,p2:P2},V3.add(hO,[0,8,0]),0,dp(hO)+1.8);

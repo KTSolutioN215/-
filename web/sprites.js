@@ -3298,6 +3298,10 @@ const SPR = (() => {
       const s=P.v==='s',w=s?13:23,k=P.f%4;g.poly([[-w,0],[w,0],[w+4,20],[5,36],[-8,40],[-w-6,29]],S.d);g.poly([[-w+3,0],[3,0],[-3,31],[-14,35]],S.m);
       for(let i=0;i<5;i++){const x=(s?i*4-10:i*9-20)+Math.sin(i+k)*2;g.ell(x,28+(i%2)*5,4,9,i%2?S.m:S.d);g.p(x,26,S.h);}
     });
+    if(partName==='neck' && type==='lich')return h3mk(type,partName,P,28,18,5,9,(g,C,A,S)=>{
+      tube(g,[[0,0,1.6],[11,0,1.6]],S);
+      for(const x of[1,5,9]){g.ell(x,0,2,3,S.d);g.r(x-1,-2,3,4,S.m);g.r(x-1,-2,2,1,S.h);}
+    });
     if(partName==='neck')return h3mk(type,partName,P,30,30,15,24,(g,C,A)=>{const k=P.f%4;g.ell(0,0,6,2,'#0e0a18');g.poly([[-5,0],[-3+k,-13],[0,-5],[3-k,-16],[5,0]],'#2a6aff');g.poly([[-2,0],[0,-9],[2,0]],'#6ab0ff');g.p(0,-2,'#d8f0ff');});
     if(partName==='wings')return h3mk(type,partName,P,190,100,95,50,(g,C,A)=>{
       const side=P.v==='s',back=P.v==='b',flap=[-.13,0,.13,0][P.f%4];
