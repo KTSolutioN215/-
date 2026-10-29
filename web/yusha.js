@@ -2750,7 +2750,7 @@
         break;
       }
       case 'sweep':   // club / sword swung all the way round
-        if (!mv.n) { mv.n = 1; addSweep(B, { ang: ang + Math.PI * 0.75, vel: (Math.random() < 0.5 ? 1 : -1) * 2.5, len: 170, w: 13, left: Math.PI * 1.7, col: B.wcol || '#c99a5a', kind: 'club', own: B.type === 'cyclops' }); }
+        if (!mv.n) { mv.n = 1; addSweep(B, { ang: ang + Math.PI * 0.75, vel: (Math.random() < 0.5 ? 1 : -1) * 2.5, len: 170, w: 13, left: Math.PI * 1.7, col: B.wcol || '#c99a5a', kind: 'club', own: B.type === 'cyclops' || !!WR[B.type] }); }
         if (mv.t > 2.6) done(1.1);
         break;
       case 'tentacles': {   // kraken: four tentacles swing round together
@@ -2781,7 +2781,7 @@
         if (mv.t > 2.6) done(1.1);
         break;
       case 'twin':
-        if (!mv.n) { mv.n = 1; const v = (Math.random() < 0.5 ? 1 : -1) * 2.2; for (const o of [0, Math.PI]) addSweep(B, { ang: ang + o, vel: v, len: 200, w: 10, left: Math.PI * 2, col: B.wcol || '#ff5aa0', kind: 'blade' }); }
+        if (!mv.n) { mv.n = 1; const v = (Math.random() < 0.5 ? 1 : -1) * 2.2; for (const o of [0, Math.PI]) addSweep(B, { ang: ang + o, vel: v, len: 200, w: 10, left: Math.PI * 2, col: B.wcol || '#ff5aa0', kind: 'blade', own: !o && !!WR[B.type] }); }
         if (mv.t > 3.6) done(1.1);
         break;
       case 'charge': case 'dash3': case 'firetrail': {   // rush to the wall (dash3 = three times in a row; firetrail leaves burning ground)
@@ -3451,6 +3451,42 @@
     SPR.draw(ctx, SPR.enemy('sharkfin', { st: e.st, f: Math.floor(globalT * 8 + e.phase), flip: e.vx < 0 }), x, y + 4);
     if (wind) { ctx.fillStyle = '#ff4040'; ctx.strokeStyle = '#1a1420'; ctx.lineWidth = 3; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'center'; ctx.strokeText('!', x, y - 30); ctx.fillText('!', x, y - 30); }
   }
+  // ---- weapon arms of the humanoid zako (指示: 腕を振って武器を振る). Poses: ha/hr = hand angle/reach from the shoulder, wa = weapon angle ----
+  const ZP = {
+    goblin: { rest: { ha: 1.35, hr: 0.85, wa: -0.8 }, up: { ha: -1.2, hr: 1, wa: -2.0 }, hit: { ha: 0.55, hr: 1, wa: 1.0 }, low: { ha: 1.0, hr: 0.95, wa: 1.45 } },
+    skeleton: { rest: { ha: 1.25, hr: 0.85, wa: 1.2 }, up: { ha: -1.9, hr: 1, wa: -2.05 }, hit: { ha: 0.6, hr: 1, wa: 0.55 }, low: { ha: 1.3, hr: 0.95, wa: 1.6 } },
+    knight: { rest: { ha: 1.35, hr: 0.75, wa: -1.57 }, up: { ha: 2.9, hr: 0.45, wa: -0.05 }, hit: { ha: 0.0, hr: 1, wa: 0.0 }, low: { ha: 1.25, hr: 0.95, wa: 1.3 } },
+    fishman: { rest: { ha: 1.35, hr: 0.8, wa: -1.45 }, up: { ha: -2.3, hr: 0.8, wa: 0.15 }, hit: { ha: 0.2, hr: 1, wa: 0.3 }, low: { ha: 0.9, hr: 0.95, wa: 0.85 } },
+  };
+  const lerpP = (a, b, k) => ({ ha: lerp(a.ha, b.ha, k), hr: lerp(a.hr, b.hr, k), wa: lerp(a.wa, b.wa, k) });
+  const easeOut = k => 1 - (1 - k) ** 3;
+  function zakoArm(e) {
+    const base = VARIANTS[e.type] ? VARIANTS[e.type][0] : e.type, Z = ZP[base]; if (!Z) return null;
+    if (e._ps !== e.st) { e._pp = e._ps; e._ps = e.st; e._p0 = globalT; }
+    const since = globalT - e._p0, prev = e._pp, cl = v => clamp(v, 0, 1);
+    const idle = () => {   // back to rest after an attack, then a little breathing
+      const from = prev === 'slash' ? Z.low : prev === 'dash' ? (e.ai === 'guard' ? Z.hit : Z.low) : prev === 'tired' ? Z.low : null;
+      const r0 = Object.assign({}, Z.rest, { wa: Z.rest.wa + Math.sin(globalT * 2.4 + e.phase * 6) * 0.1 });
+      return from && since < 0.4 ? lerpP(from, r0, easeIO(cl(since / 0.4))) : r0;
+    };
+    if (e.ai === 'swing') {
+      if (e.st === 'wind') { const again = prev === 'slash'; return lerpP(again ? Z.low : Z.rest, Z.up, easeOut(cl(since / (again ? 0.2 : 0.42)))); }
+      if (e.st === 'slash') { const k = cl(e.t / 0.2); return k < 0.55 ? lerpP(Z.up, Z.hit, easeIn(k / 0.55)) : lerpP(Z.hit, Z.low, easeOut((k - 0.55) / 0.45)); }
+      return idle();
+    }
+    if (e.ai === 'lunge') {
+      if (e.st === 'wind') { const again = prev === 'dash'; return lerpP(again ? Z.low : Z.rest, Z.up, easeOut(cl(since / (again ? 0.18 : e.windT * 0.8)))); }
+      if (e.st === 'dash') { const k = cl(e.t / 0.22); return k < 0.6 ? lerpP(Z.up, Z.hit, easeIn(k / 0.6)) : lerpP(Z.hit, Z.low, easeOut((k - 0.6) / 0.4)); }
+      return idle();
+    }
+    if (e.ai === 'guard') {
+      if (e.st === 'wind') return lerpP(prev === 'dash' ? Z.hit : Z.rest, Z.up, easeOut(cl(since / 0.3)));   // draws the sword back
+      if (e.st === 'dash') return lerpP(Z.up, Z.hit, easeIn(cl(e.t / 0.1)));                               // thrust
+      if (e.st === 'tired') return lerpP(Z.hit, Z.low, easeIO(cl(since / 0.35)));                            // the point drops to the floor
+      return idle();
+    }
+    return null;
+  }
   function drawEnemy(e) {
     const x = e.x, y = sy(e.y), r = e.r;
     if (y < -70 || y > H + 70) return;
@@ -3481,7 +3517,7 @@
     const moving = hyp(e.vx, e.vy) > 12;
     const f = Math.floor((globalT + e.phase) * (e.ai === 'flutter' || e.ai === 'imp' ? (e.type === 'jelly' ? 5 : 10) : e.type === 'clown' || e.type === 'stormeagle' ? 8 : 4));
     const step = moving ? (Math.sin((globalT + e.phase) * 11) > 0 ? 1 : -1) : 0;
-    const spr = SPR.enemy(e.type, { st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut });
+    const spr = SPR.enemy(e.type, { st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm: zakoArm(e) });
     SPR.draw(ctx, spr, x, yy + r * 0.75);
     if (e.ai === 'swing' && e.st === 'slash') { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(x, yy, (e.mod.reach || 72) - 8, -e.face - 1.25, -e.face + 1.25); ctx.stroke(); }
     if (e.ai === 'assassin' && e.st === 'slash') { ctx.strokeStyle = e.critNext ? 'rgba(255,220,90,.75)' : 'rgba(255,255,255,.55)'; ctx.lineWidth = e.critNext ? 12 : 9; ctx.beginPath(); ctx.arc(x, yy, 60, -e.face - 1.2, -e.face + 1.2); ctx.stroke(); }
@@ -3642,6 +3678,86 @@
     else { torso(); arm(sL, lhand, -1); arm(sR, hand, 1); club(); fists(); }
     ghosts.unshift([hand[0], hand[1], p.ca, sc]); if (ghosts.length > 2) ghosts.length = 2;
   }
+  // ---- bosses that hold a weapon in one hand: the arm (shoulder → elbow → hand) swings it. Poses as in CYP, hr = reach 0..1 ----
+  const WRP = {
+    up: { ht: -1.55, hr: 0.95, ca: -2.15, lean: -1, cr: -1 },     // wound up overhead, the weapon sticking up behind the head
+    slam: { ht: 0.95, hr: 0.95, ca: 1.25, lean: 2, cr: 3 },       // chopped down in front
+    low: { ht: 1.9, hr: 0.9, ca: 2.6, lean: 2, cr: 2 },           // scooped low
+    hi: { ht: -0.6, hr: 0.95, ca: -1.1, lean: -2, cr: -1 },       // flung up
+    sideB: { ht: -0.3, hr: 0.95, ca: -0.35, lean: 2, cr: 1 },     // cocked out to the right
+    sideF: { ht: 2.15, hr: 0.9, ca: 2.95, lean: -2, cr: 2 },      // cut across to the left
+    ready: { ht: -0.9, hr: 0.85, ca: -1.35, lean: 0, cr: 1 },     // held up, about to rush
+    thrust: { ht: 0.25, hr: 1, ca: 0.3, lean: 2, cr: 1 },         // run through, weapon forward
+    point: { ht: -0.35, hr: 1, ca: -0.5, lean: -1, cr: 0 },       // pointed out: "fire!"
+  };
+  const WR = {   // sh: shoulder (art px from the feet anchor); L1/L2: bones; reach: weapon length; parts prefix
+    goblinking: { sh: [20, -41], L1: 11, L2: 10, reach: 42, p: 'gk', rest: { ht: 1.15, hr: 0.75, ca: -0.7, lean: 0, cr: 0 } },
+    deathknight: { sh: [22, -58], L1: 12, L2: 12, reach: 47, p: 'dk', rest: { ht: 1.4, hr: 0.75, ca: 1.4, lean: 0, cr: 0 } },
+    ghostcaptain: { sh: [18, -66], L1: 10, L2: 10, reach: 30, p: 'gc', rest: { ht: 0.95, hr: 0.9, ca: -0.75, lean: 0, cr: 0 } },
+  };
+  function wrKeys(def, keys, t) {
+    const P = n => n === 'rest' ? def.rest : WRP[n];
+    if (t <= keys[0][0]) return P(keys[0][1]);
+    for (let i = 1; i < keys.length; i++) {
+      const [t1, n1, e] = keys[i]; if (t > t1) continue;
+      const [t0, n0] = keys[i - 1], a = P(n0), b = P(n1), k0 = (t - t0) / Math.max(0.001, t1 - t0), k = e === 'in' ? easeIn(k0) : easeIO(k0);
+      return { ht: lerp(a.ht, b.ht, k), hr: lerp(a.hr, b.hr, k), ca: lerp(a.ca, b.ca, k), lean: lerp(a.lean, b.lean, k), cr: lerp(a.cr, b.cr, k) };
+    }
+    return P(keys[keys.length - 1][1]);
+  }
+  const hits = (times, a, b, pre = 0.25) => { const K = [[0, 'rest']]; times.forEach((T, i) => { const [w, s] = i % 2 && a === 'sideB' ? [b, a] : [a, b]; K.push([T - pre, w], [T, s, 'in'], [T + 0.14, s]); }); K.push([times[times.length - 1] + 0.55, 'rest']); return K; };
+  const hold = (t0, t1) => [[0, 'rest'], [t0 - 0.22, 'up'], [t0, 'point', 'in'], [t1, 'point'], [t1 + 0.4, 'rest']];
+  function wrPose(B, def) {
+    const mv = B.mv, p2 = B.phase === 2;
+    if (!mv) {   // settle back from the last attack, then breathe
+      const b = Math.sin(globalT * 2.2), r0 = Object.assign({}, def.rest, { ht: def.rest.ht + b * 0.04, ca: def.rest.ca + b * 0.06 });
+      if (B.wrLast) { const k = (globalT - B.wrEnd) / 0.4; if (k < 1) { const a = B.wrLast, e = easeIO(k); return { ht: lerp(a.ht, r0.ht, e), hr: lerp(a.hr, r0.hr, e), ca: lerp(a.ca, r0.ca, e), lean: lerp(a.lean, 0, e), cr: lerp(a.cr, 0, e) }; } B.wrLast = null; }
+      return r0;
+    }
+    const n = mv.name.split(':')[0], t = mv.t;
+    let p;
+    if ((n === 'sweep' || n === 'twin') && B.sweeps.length) {   // the weapon IS the sweep: it reaches out along it
+      const sw = B.sweeps[0], sa = -sw.ang, act = sw.t >= sw.tele, back = act ? 0 : Math.sign(sw.vel) * 0.7 * Math.min(1, sw.t / 0.3);
+      p = { ht: sa + back * 0.6, hr: act ? 1 : 0.85, ca: sa + back, lean: Math.cos(sa) * 3, cr: 2, sweep: sw };
+    }
+    else if (n === 'quake') p = wrKeys(def, hits([0.45, 1.0, 1.55], 'up', 'slam'), t);
+    else if (n === 'rocks') p = wrKeys(def, hits([0.45, 0.9, 1.35], 'low', 'hi'), t);
+    else if (n === 'aimed3' || n === 'aimed5') p = wrKeys(def, hits([0.45, 0.9], 'sideB', 'sideF'), t);
+    else if (n === 'darkwave') p = wrKeys(def, hits(p2 ? [0.5, 1.1, 1.7] : [0.5, 1.1], 'sideB', 'sideF'), t);
+    else if (n === 'bombs') p = wrKeys(def, hits(Array.from({ length: p2 ? 5 : 3 }, (_, i) => 0.4 + i * 0.28), 'low', 'hi', 0.14), t);
+    else if (n === 'ring' || n === 'ringaimed') p = wrKeys(def, hits([0.55], 'up', 'slam', 0.3), t);
+    else if (n === 'triple') p = wrKeys(def, hits([0.4, 0.72, 1.04], 'up', 'slam', 0.18), t);
+    else if (n === 'charge' || n === 'dash3' || n === 'firetrail') p = wrKeys(def, mv.ph === 'go' ? [[0, 'ready'], [0.12, 'thrust', 'in']] : mv.ph === 'rest' ? [[0, 'thrust'], [0.5, 'rest']] : [[0, mv.k ? 'thrust' : 'rest'], [0.35, 'ready']], mv.pt || 0);
+    else if (n === 'stalk') { const s = Math.sin(t * 7); p = Object.assign({}, WRP.ready, { ht: WRP.ready.ht + s * 0.15, ca: WRP.ready.ca + s * 0.25 }); }
+    else if (n === 'jump') p = mv.n === 0 ? wrKeys(def, [[0, 'rest'], [0.3, 'up']], t) : mv.n === 1 ? wrKeys(def, [[0, 'up'], [0.3, 'slam', 'in']], t - mv.t1) : wrKeys(def, [[0, 'slam'], [0.35, 'slam'], [0.8, 'rest']], t - mv.t1 - 0.3);
+    else if (n === 'cannons') p = wrKeys(def, p2 ? [[0, 'rest'], [0.15, 'up'], [0.35, 'point', 'in'], [1.3, 'point'], [1.55, 'up'], [1.95, 'point', 'in'], [2.9, 'point'], [3.3, 'rest']] : hold(0.35, 1.3), t);
+    else if (n === 'laser' || n === 'laser3') p = wrKeys(def, hold(0.45, 1.3), t);
+    else if (n === 'cross') p = wrKeys(def, hold(0.6, 3.6), t);
+    else if (n === 'wave') p = wrKeys(def, hold(0.4, 2.2), t);
+    else p = wrKeys(def, [[0, 'rest'], [0.3, 'up'], [0.5, 'slam', 'in'], [0.7, 'slam'], [1.1, 'rest']], t);   // anything else: a commanding swing as it casts
+    B.wrLast = p; B.wrEnd = globalT;
+    return p;
+  }
+  function drawWeaponBoss(B, def, x, yFeet, yMid, spr, fl) {
+    const K = SPR.SCALE, p = wrPose(B, def), L = (def.L1 + def.L2) * K;
+    const ox = x + p.lean * K * 0.6, oy = yFeet + p.cr * K * 0.5;
+    const sh = [ox + def.sh[0] * K, oy + def.sh[1] * K];
+    const hand = [sh[0] + Math.cos(p.ht) * Math.min(p.hr, 0.99) * L, sh[1] + Math.sin(p.ht) * Math.min(p.hr, 0.99) * L];
+    const L1 = def.L1 * K, L2 = def.L2 * K, dx = hand[0] - sh[0], dy = hand[1] - sh[1], d = Math.max(1, Math.hypot(dx, dy)), a = Math.atan2(dy, dx);
+    const off = Math.acos(clamp((L1 * L1 + d * d - L2 * L2) / (2 * L1 * d), -1, 1));
+    const E = [a + off, a - off].map(ea => [sh[0] + Math.cos(ea) * L1, sh[1] + Math.sin(ea) * L1, ea]);
+    const el = (E[0][1] - E[0][0] * 0.3) > (E[1][1] - E[1][0] * 0.3) ? E[0] : E[1];   // the elbow drops down and out
+    let sc = 1; if (p.sweep && p.sweep.t >= p.sweep.tele) sc = Math.max(1, (p.sweep.len - Math.hypot(hand[0] - x, hand[1] - yMid)) / (def.reach * K));
+    const ghosts = B.wrG || (B.wrG = []), W = P_(def.p + '_' + (def.p === 'gk' ? 'club' : 'sword'), {}, fl);
+    const weapon = () => {
+      for (let i = 0; i < ghosts.length; i++) { const g0 = ghosts[i]; if (Math.abs(g0[2] - p.ca) > 0.18) pd(P_(def.p + '_' + (def.p === 'gk' ? 'club' : 'sword'), {}, false), g0[0], g0[1], g0[2], g0[3], 1, 0.22 / (i + 1)); }
+      pd(W, hand[0], hand[1], p.ca, sc, 1);
+    };
+    const arm = () => { pd(P_(def.p + '_upper', {}, fl), sh[0], sh[1], el[2]); pd(P_(def.p + '_fore', {}, fl), el[0], el[1], Math.atan2(hand[1] - el[1], hand[0] - el[0]), Math.max(0.6, Math.hypot(hand[0] - el[0], hand[1] - el[1]) / L2), 1); pd(P_(def.p + '_hand', {}, fl), hand[0], hand[1]); };
+    if (hand[1] < sh[1] - 10 * K) { weapon(); arm(); SPR.draw(ctx, spr, ox, oy); }   // raised overhead: behind the head
+    else { SPR.draw(ctx, spr, ox, oy); arm(); weapon(); pd(P_(def.p + '_hand', {}, fl), hand[0], hand[1]); }
+    ghosts.unshift([hand[0], hand[1], p.ca, sc]); if (ghosts.length > 2) ghosts.length = 2;
+  }
   function drawBoss() {
     const B = boss; if (!B) return;
     const x = B.x, by = sy(B.y), r = B.r, z = (B.z || 0) * 70;
@@ -3666,10 +3782,12 @@
     const FLOAT = { lich: 1, icequeen: 1, thunderbird: 1, voideye: 1, ghostcaptain: 1, archmage: 1, quetzal: 1, fallenangel: 1, hakaishin: 1 };
     const hov = FLOAT[B.type] ? 12 + Math.sin(globalT * 2.2) * 4 : 0;
     const lk = Math.round((((-look) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) / (Math.PI / 4)) % 8;
-    const spr = SPR.boss(B.type, { f: Math.floor(globalT * (B.type === 'thunderbird' ? 8 : 4)), act: B.mv && B.mv.t < 0.7 ? 1 : 0, p2: B.phase === 2, look: lk, air: (B.z || 0) > 0.05, flash: hurt });
+    const spr = SPR.boss(B.type, { f: Math.floor(globalT * (B.type === 'thunderbird' ? 8 : 4)), act: B.mv && B.mv.t < 0.7 ? 1 : 0, p2: B.phase === 2, look: lk, air: (B.z || 0) > 0.05, flash: hurt, noArm: WR[B.type] ? 1 : 0 });
     for (const d of B.decoys || []) SPR.draw(ctx, spr, d.x, sy(d.y) + r * 0.7 - hov, 0.92);   // illusions (no shadow)
     if (B.regen) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(120,255,100,${0.18 + 0.12 * Math.sin(globalT * 9)})`; ctx.beginPath(); ctx.arc(x, y, r * 1.5, 0, 7); ctx.fill(); ctx.restore(); }
-    if (B.type === 'cyclops') drawCyclops(B, x, by + r * 0.7 - z, y, hurt); else SPR.draw(ctx, spr, x, by + r * 0.7 - z - hov);
+    if (B.type === 'cyclops') drawCyclops(B, x, by + r * 0.7 - z, y, hurt);
+    else if (WR[B.type]) drawWeaponBoss(B, WR[B.type], x, by + r * 0.7 - z - hov, y, spr, hurt);
+    else SPR.draw(ctx, spr, x, by + r * 0.7 - z - hov);
     if (B.type === 'thunderbird' && Math.sin(globalT * 13) > 0.6) { ctx.strokeStyle = '#fff6a0'; ctx.lineWidth = 2; ctx.beginPath(); let px = x + rnd(-r, r), py = y - r * 1.2; ctx.moveTo(px, py); for (let k = 0; k < 4; k++) { px += rnd(-12, 12); py += 12; ctx.lineTo(px, py); } ctx.stroke(); }
     ctx.restore();
   }

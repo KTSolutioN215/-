@@ -271,15 +271,21 @@ const SPR = (() => {
   function skeleton(pose) {
     const key = 's' + JSON.stringify(pose);
     if (cache.has(key)) return cache.get(key);
-    const [c, x] = canvas(44, 56), g = api(x), oy = 4 + (pose.bob || 0), ox = 2;
+    const pad = pose.pad || 0, [c, x] = canvas(44 + pad * 2, 56 + pad), g = api(x), oy = 4 + pad + (pose.bob || 0), ox = 2 + pad;
     const R = (a, b, w, h, col) => g.r(a + ox, b + oy, w, h, col), Pp = (a, b, col) => g.p(a + ox, b + oy, col);
     const s = pose.step || 0;
     // sword (behind the arm) — rotated polygon from the hand
     const sa = pose.sword == null ? 0.35 : pose.sword;
     const shX = 27 + ox, shY = 23 + oy;                                     // shoulder
-    const ha = sa * 0.9, hx = shX + Math.sin(ha) * 7, hy = shY + Math.cos(ha) * 7;
+    let hx = shX + Math.sin(sa * 0.9) * 7, hy = shY + Math.cos(sa * 0.9) * 7, sdx = Math.sin(sa), sdy = Math.cos(sa), elbow = null;
+    if (pose.arm) {   // a real two-bone arm: the sword follows the hand
+      const L = 6, reach = Math.min(pose.arm.hr, 0.999) * L * 2, a = pose.arm.ha, off = Math.acos(Math.max(-1, Math.min(1, reach / (2 * L))));
+      hx = shX + Math.cos(a) * reach; hy = shY + Math.sin(a) * reach; sdx = Math.cos(pose.arm.wa); sdy = Math.sin(pose.arm.wa);
+      const e1 = [shX + Math.cos(a + off) * L, shY + Math.sin(a + off) * L], e2 = [shX + Math.cos(a - off) * L, shY + Math.sin(a - off) * L];
+      elbow = (e1[1] - e1[0] * 0.4) > (e2[1] - e2[0] * 0.4) ? e1 : e2;
+    }
     const blade = (len) => {
-      const dx = Math.sin(sa), dy = Math.cos(sa), nx = dy, ny = -dx;
+      const dx = sdx, dy = sdy, nx = dy, ny = -dx;
       const b0x = hx + dx * 3, b0y = hy + dy * 3;
       g.poly([[b0x + nx * 1.6, b0y + ny * 1.6], [b0x + dx * len + nx * 1.4, b0y + dy * len + ny * 1.4], [b0x + dx * (len + 3), b0y + dy * (len + 3)], [b0x + dx * len - nx * 1.4, b0y + dy * len - ny * 1.4], [b0x - nx * 1.6, b0y - ny * 1.6]], SK.blade);
       g.line(b0x + dx * 2 - nx * 0.6, b0y + dy * 2 - ny * 0.6, b0x + dx * (len - 1) - nx * 0.6, b0y + dy * (len - 1) - ny * 0.6, 1, SK.bladeS);
@@ -307,8 +313,9 @@ const SPR = (() => {
       Pp(8, 27, SK.ironH); Pp(9, 29, SK.ironH); R(10, 31, 2, 2, SK.rust); Pp(6, 26, SK.rust); Pp(5, 30, SK.ironH); Pp(12, 26, SK.ironH);
       // sword arm (right)
       blade(13);
-      g.line(shX, shY, hx, hy, 2, SK.bone);
-      g.ell(hx, hy, 1.6, 1.6, SK.boneS);
+      if (elbow) { g.line(shX, shY, elbow[0], elbow[1], 2.2, SK.bone); g.line(elbow[0], elbow[1], hx, hy, 2, SK.bone); g.ell(elbow[0], elbow[1], 1.3, 1.3, SK.boneS); g.ell(shX, shY, 1.8, 1.8, SK.bone); }
+      else g.line(shX, shY, hx, hy, 2, SK.bone);
+      g.ell(hx, hy, 1.7, 1.7, SK.boneS);
       // skull
       R(16, 8, 9, 1, SK.bone); R(15, 9, 11, 1, SK.bone); R(14, 10, 13, 6, SK.bone); R(15, 16, 11, 1, SK.bone);
       R(24, 10, 3, 6, SK.boneS); Pp(16, 10, SK.boneD); Pp(17, 11, SK.boneD);
@@ -428,6 +435,21 @@ const SPR = (() => {
     cache.set(key, s);
     return s;
   }
+  // ---- a monster's weapon arm (指示: 腕を振って武器を振る) ----
+  // A = {ha: hand angle from the shoulder (rad, 0 = forward, PI/2 = down), hr: reach 0..1, wa: weapon angle}
+  // Quantised so a swing is a handful of cached frames. Returns the hand point; the elbow bends down and back.
+  const qa = v => Math.round(v * 5) / 5, qr = v => Math.round(v * 10) / 10;
+  function armQ(A, def) { const a = A || def; return { ha: qa(a.ha), hr: qr(a.hr), wa: qa(a.wa) }; }
+  const armKey = A => A.ha + ',' + A.hr + ',' + A.wa;
+  function limb(g, sx, sy, A, L1, L2, w1, w2, c1, c2) {
+    const reach = Math.min(A.hr, 0.999) * (L1 + L2), hx = sx + Math.cos(A.ha) * reach, hy = sy + Math.sin(A.ha) * reach;
+    const d = Math.max(0.01, reach), a = A.ha, off = Math.acos(Math.max(-1, Math.min(1, (L1 * L1 + d * d - L2 * L2) / (2 * L1 * d))));
+    const e1 = [sx + Math.cos(a + off) * L1, sy + Math.sin(a + off) * L1], e2 = [sx + Math.cos(a - off) * L1, sy + Math.sin(a - off) * L1];
+    const e = (e1[1] - e1[0] * 0.4) > (e2[1] - e2[0] * 0.4) ? e1 : e2;
+    g.line(sx, sy, e[0], e[1], w1, c1); g.line(e[0], e[1], hx, hy, w2, c2 || c1);
+    return [hx, hy, e];
+  }
+
   // mirror a sprite (monsters turn toward the hero)
   function flipped(s) {
     if (!s.flip) s.flip = { c: flipX(s.c), ax: s.c.width - s.ax, ay: s.ay };
@@ -492,10 +514,10 @@ const SPR = (() => {
     archer(P) { return goblinish(P, true); },
     // ----- skeleton swordsman (see skeleton()) -----
     skeleton(P) {
-      const sw = P.st === 'wind' ? 2.5 : P.st === 'slash' ? Math.round((2.5 - Math.min(1, P.k || 0) * 3.1) * 5) / 5 : 0.35;
-      const key = 'skel' + sw + '|' + (P.step || 0) + '|' + (P.st === 'wind' ? 1 : 0) + '|' + (P.f % 2);
+      const A = armQ(P.arm, { ha: 1.25, hr: 0.85, wa: 1.2 });
+      const key = 'skel' + armKey(A) + '|' + (P.step || 0) + '|' + (P.st === 'wind' ? 1 : 0) + '|' + (P.f % 2);
       let s = cache.get(key);
-      if (!s) { s = { c: skeleton({ sword: sw, step: P.step || 0, jaw: P.st === 'wind' ? 1 : 0, bob: P.f % 2, flap: P.f % 2 }), ax: 22, ay: 48 }; cache.set(key, s); }
+      if (!s) { s = { c: skeleton({ arm: A, pad: 12, step: P.step || 0, jaw: P.st === 'wind' ? 1 : 0, bob: P.f % 2, flap: P.f % 2 }), ax: 34, ay: 60 }; cache.set(key, s); }
       return s;
     },
     // ----- ghost: wavy tail -----
@@ -576,7 +598,8 @@ const SPR = (() => {
     // ----- dark knight: tower shield up (guard) / lowered (thrust) -----
     knight(P) {
       const st = P.st === 'wind' || P.st === 'dash' ? 1 : P.st === 'tired' ? 2 : 0, k = P.f % 2;
-      return mk('knight' + st + k, 44, 52, 22, 49, g => {
+      const AR = armQ(P.arm, { ha: 1.35, hr: 0.75, wa: -1.57 });
+      return mk('knight' + st + k + armKey(AR), 66, 52, 22, 49, g => {
         const A = '#5a5f7a', S = '#3a3e52', H = '#8a90a8', C = '#7a1828';
         g.poly([[14, 19], [30, 19], [33, 46], [11, 46]], C);
         g.r(15, 37, 5, 9, S); g.r(24, 37, 5, 9, S); g.r(14, 45, 7, 2, '#22242e'); g.r(23, 45, 7, 2, '#22242e');
@@ -587,9 +610,21 @@ const SPR = (() => {
         g.r(14, 6 + hy, 16, 15, A); g.r(26, 6 + hy, 4, 15, S); g.r(15, 7 + hy, 3, 4, H);
         g.r(15, 12 + hy, 14, 3, '#1b1d2a'); g.r(17, 13 + hy, 3, 1, '#ff3b4a'); g.r(24, 13 + hy, 3, 1, '#ff3b4a');
         g.r(21, 3 + hy, 2, 4, '#c0283a'); g.r(19, 1 + hy, 6, 3, '#c0283a'); g.p(25, 2 + hy, '#e04050');
-        // sword (right)
-        if (st === 1) { g.r(31, 27, 12, 3, '#dfe6f2'); g.r(31, 27, 11, 1, '#ffffff'); g.r(30, 25, 2, 7, '#c9a24a'); g.r(27, 26, 4, 4, A); }
-        else { g.r(34, 8 + k, 3, 18, '#dfe6f2'); g.r(34, 9 + k, 1, 16, '#ffffff'); g.r(32, 26 + k, 7, 2, '#c9a24a'); g.r(34, 28 + k, 3, 3, '#4a3020'); g.r(31, 28 + k, 4, 4, A); }
+        // sword arm (right): the gauntlet holds the sword, the arm swings it
+        {
+          const sx = 29, sy = 23, L = 6, reach = Math.min(AR.hr, 0.999) * L * 2, a = AR.ha, off = Math.acos(Math.max(-1, Math.min(1, reach / (2 * L))));
+          const hx = sx + Math.cos(a) * reach, hy = sy + Math.sin(a) * reach, dx = Math.cos(AR.wa), dy = Math.sin(AR.wa), nx = -dy, ny = dx;
+          const e1 = [sx + Math.cos(a + off) * L, sy + Math.sin(a + off) * L], e2 = [sx + Math.cos(a - off) * L, sy + Math.sin(a - off) * L], el = (e1[1] - e1[0] * 0.4) > (e2[1] - e2[0] * 0.4) ? e1 : e2;
+          const sword = () => {
+            g.poly([[hx + dx * 3 + nx * 1.6, hy + dy * 3 + ny * 1.6], [hx + dx * 18 + nx * 1.5, hy + dy * 18 + ny * 1.5], [hx + dx * 21, hy + dy * 21], [hx + dx * 18 - nx * 1.5, hy + dy * 18 - ny * 1.5], [hx + dx * 3 - nx * 1.6, hy + dy * 3 - ny * 1.6]], '#dfe6f2');
+            g.line(hx + dx * 4 + nx * 0.5, hy + dy * 4 + ny * 0.5, hx + dx * 18 + nx * 0.5, hy + dy * 18 + ny * 0.5, 1, '#ffffff');
+            g.line(hx + dx * 2 + nx * 3.5, hy + dy * 2 + ny * 3.5, hx + dx * 2 - nx * 3.5, hy + dy * 2 - ny * 3.5, 2, '#c9a24a');
+            g.line(hx - dx * 2.5, hy - dy * 2.5, hx + dx * 1, hy + dy * 1, 2.4, '#4a3020');
+          };
+          sword();
+          g.line(sx, sy, el[0], el[1], 4, A); g.line(el[0], el[1], hx, hy, 3.4, S); g.ell(el[0], el[1], 1.8, 1.8, H);
+          g.ell(hx, hy, 2.4, 2.4, A); g.p(Math.round(hx) - 1, Math.round(hy) - 1, H);
+        }
         // shield
         if (st === 0) { g.r(4, 16, 13, 26, '#4a5068'); g.r(5, 17, 11, 24, '#5d6684'); g.r(5, 17, 11, 2, '#8a96b8'); g.r(9, 21, 3, 14, '#c9a24a'); g.r(6, 26, 9, 3, '#c9a24a'); }
         else { g.r(2, 24, 9, 20, '#4a5068'); g.r(3, 25, 7, 18, '#5d6684'); g.r(5, 29, 3, 9, '#c9a24a'); }
@@ -648,9 +683,23 @@ const SPR = (() => {
     },
     // ----- sahagin with trident -----
     fishman(P) {
-      const sw = P.st === 'wind' ? 1 : P.st === 'slash' ? 2 : 0, k = P.f % 2;
-      return mk('fish' + sw + k, 44, 52, 20, 49, g => {
+      const k = P.f % 2, AR = armQ(P.arm, { ha: 1.35, hr: 0.8, wa: -1.45 + k * 0.05 });
+      return mk('fish' + k + armKey(AR), 72, 60, 26, 55, (g, x) => {
+        x.translate(6, 6);
         const B = '#3aa8a0', S = '#22706a', H = '#7ad8c8', W = '#e8f8ff';
+        // trident arm: the trident is held at the hand and points along wa
+        const sx = 27, sy = 26, L = 5.5, reach = Math.min(AR.hr, 0.999) * L * 2, a = AR.ha, off = Math.acos(Math.max(-1, Math.min(1, reach / (2 * L))));
+        const hx = sx + Math.cos(a) * reach, hy = sy + Math.sin(a) * reach, dx = Math.cos(AR.wa), dy = Math.sin(AR.wa);
+        const e1 = [sx + Math.cos(a + off) * L, sy + Math.sin(a + off) * L], e2 = [sx + Math.cos(a - off) * L, sy + Math.sin(a - off) * L], el = (e1[1] - e1[0] * 0.4) > (e2[1] - e2[0] * 0.4) ? e1 : e2;
+        const trident = () => {
+          g.line(hx - dx * 7, hy - dy * 7, hx + dx * 18, hy + dy * 18, 1.6, '#8a6a40');
+          const tx = hx + dx * 18, ty = hy + dy * 18, nx = -dy, ny = dx;
+          g.line(tx - nx * 3, ty - ny * 3, tx + nx * 3, ty + ny * 3, 1.4, '#c8ccd4');
+          for (const o of [-3, 0, 3]) g.line(tx + nx * o, ty + ny * o, tx + nx * o + dx * 5, ty + ny * o + dy * 5, 1.3, '#dfe6f2');
+        };
+        const arm = () => { g.line(sx, sy, el[0], el[1], 3.4, B); g.line(el[0], el[1], hx, hy, 3, B); g.ell(hx, hy, 2.3, 2, H); };
+        const behind = Math.sin(AR.ha) < -0.45;
+        if (behind) { trident(); arm(); }
         g.r(14, 38, 4, 9, S); g.r(22, 38, 4, 9, S); g.poly([[12, 47], [19, 47], [17, 49], [12, 49]], H); g.poly([[21, 47], [28, 47], [28, 49], [23, 49]], H);
         g.ell(20, 32, 9, 9, B); g.ell(20, 34, 5.5, 6, W); for (let yy = 30; yy < 39; yy += 3) g.r(17, yy, 7, 1, '#c8e0e8');
         g.r(10, 27, 3, 10, B); g.ell(11, 37, 2.4, 2, H);
@@ -660,14 +709,8 @@ const SPR = (() => {
         g.ell(13, 14, 3, 3.2, '#ffe14a'); g.ell(27, 14, 3, 3.2, '#ffe14a'); g.r(13, 14, 2, 2, EYE); g.r(26, 14, 2, 2, EYE); g.p(12, 13, '#fff'); g.p(26, 13, '#fff');
         g.r(15, 21, 10, 2, '#0c3a36'); for (const tx of [16, 18, 20, 22, 24]) g.p(tx, 21, '#fff');
         g.r(10, 18, 1, 3, S); g.r(29, 18, 1, 3, S);
-        // trident
-        const a = sw === 1 ? 2.8 : sw === 2 ? 1.3 : 0.15 + k * 0.05;
-        const hx = 31, hy = 30, dx = Math.sin(a), dy = -Math.cos(a);
-        g.line(hx - dx * 6, hy - dy * 6, hx + dx * 18, hy + dy * 18, 1.6, '#8a6a40');
-        const tx = hx + dx * 18, ty = hy + dy * 18, nx = -dy, ny = dx;
-        g.line(tx - nx * 3, ty - ny * 3, tx + nx * 3, ty + ny * 3, 1.4, '#c8ccd4');
-        for (const o of [-3, 0, 3]) g.line(tx + nx * o, ty + ny * o, tx + nx * o + dx * 5, ty + ny * o + dy * 5, 1.3, '#dfe6f2');
-        g.r(28, 27, 4, 5, B); g.ell(31, 30, 2.2, 2, H);
+        g.ell(27, 26, 2.6, 2.4, B);
+        if (!behind) { trident(); arm(); }
       });
     },
     // ----- death scorpion (side view) -----
@@ -1650,14 +1693,26 @@ const SPR = (() => {
   // goblin / goblin archer share the body
   function goblinish(P, archer) {
     const st = P.st === 'wind' || P.st === 'aim' ? 1 : P.st === 'dash' ? 2 : 0, step = P.step || 0, k = P.f % 2;
-    return mk((archer ? 'arch' : 'gob') + st + step + k, 40, 44, 20, 41, g => {
+    const A = archer ? null : armQ(P.arm, { ha: 1.35, hr: 0.85, wa: -0.8 + k * 0.1 });
+    return mk((archer ? 'arch' : 'gob') + st + step + k + (A ? armKey(A) : ''), 58, 50, 28, 45, (g, x) => {
+      x.translate(8, 4);
       const Sk = '#7fb04a', SkS = '#567a2e', SkH = '#a8d070', V = '#6b4a2a', VS = '#4a3018';
+      // the club arm: swung from the shoulder; raised high it goes behind the head
+      const clubArm = () => {
+        const [hx, hy] = limb(g, 27, 25, A, 5, 5, 3.2, 2.8, Sk, Sk), dx = Math.cos(A.wa), dy = Math.sin(A.wa);
+        g.line(hx - dx * 2, hy - dy * 2, hx + dx * 11, hy + dy * 11, 2.6, '#7a5530');
+        g.ell(hx + dx * 12, hy + dy * 12, 3.4, 3.4, '#8a6040'); g.ell(hx + dx * 12 - 1, hy + dy * 12 - 1, 1.4, 1.4, '#a87a50');
+        g.p(Math.round(hx + dx * 12 - dy * 3.5), Math.round(hy + dy * 12 + dx * 3.5), '#d0d0d0'); g.p(Math.round(hx + dx * 12 + dy * 3.5), Math.round(hy + dy * 12 - dx * 3.5), '#d0d0d0'); g.p(Math.round(hx + dx * 16), Math.round(hy + dy * 16), '#d0d0d0');
+        g.ell(hx, hy, 2.2, 2.2, Sk); g.p(Math.round(hx) - 1, Math.round(hy) - 1, SkH);
+      };
+      const behind = A && Math.sin(A.ha) < -0.45;
       g.r(14, 33 - (step > 0 ? 2 : 0), 4, 5, Sk); g.r(22, 33 - (step < 0 ? 2 : 0), 4, 5, SkS);
       g.r(13, 37, 6, 2, VS); g.r(21, 37, 6, 2, VS);
       g.ell(20, 27, 7.5, 6, V); g.r(17, 23, 6, 6, SkH); g.r(23, 23, 3, 8, VS);
       g.r(12, 30, 16, 1, '#3a2410'); g.r(16, 31, 8, 3, '#8a6a3a');
       if (archer) { g.r(23, 15, 3, 12, '#6a4020'); for (const ax of [23, 25]) g.poly([[ax, 15], [ax + 1, 11], [ax + 2, 15]], '#e0e0e0'); }
       g.r(9, 24, 3, 6, Sk); g.r(9, 29, 3, 2, SkS);
+      if (!archer) { g.ell(26, 25, 3, 2.6, Sk); if (behind) clubArm(); }
       // head
       g.poly([[12, 13], [2, 8], [4, 13], [12, 18]], Sk); g.poly([[28, 13], [38, 8], [36, 13], [28, 18]], SkS); g.p(5, 11, '#c87a6a'); g.p(35, 11, '#c87a6a');
       g.ell(20, 15, 9, 7.5, Sk); g.ell(23, 17, 5, 5, SkS);
@@ -1665,13 +1720,8 @@ const SPR = (() => {
       g.r(13, 13, 3, 2, '#ffe14a'); g.p(14, 14, '#a01010'); g.r(24, 13, 3, 2, '#ffe14a'); g.p(25, 14, '#a01010');
       g.line(12, 11, 15, 12, 1, '#2a3a10'); g.line(27, 11, 24, 12, 1, '#2a3a10');
       g.r(18, 16, 3, 2, SkS); g.r(15, 19, 10, 1, '#3a1a10'); g.p(16, 18, '#fff'); g.p(23, 18, '#fff');
-      if (!archer) {
-        // club
-        const a = st === 1 ? 3.0 : st === 2 ? 1.3 : 2.3 + k * 0.1, hx = 29, hy = 26, dx = Math.sin(a), dy = Math.cos(a);
-        g.line(hx, hy, hx + dx * 11, hy + dy * 11, 2.6, '#7a5530');
-        g.ell(hx + dx * 12, hy + dy * 12, 3.2, 3.2, '#8a6040'); g.p(Math.round(hx + dx * 13 + 2), Math.round(hy + dy * 13), '#d0d0d0'); g.p(Math.round(hx + dx * 11 - 2), Math.round(hy + dy * 12), '#d0d0d0');
-        g.r(28, 24, 3, 4, Sk);
-      } else {
+      if (!archer) { if (!behind) clubArm(); }
+      else {
         // bow on the right; drawn when aiming
         if (st === 1) { g.line(33, 14, 33, 36, 1, '#e8e0c8'); g.line(28, 25, 37, 25, 1, '#c8c8c8'); g.p(38, 25, '#e0e0e0'); g.r(28, 24, 3, 3, Sk); }
         else { g.line(31, 14, 31, 36, 1, '#e8e0c8'); g.r(28, 24, 3, 4, Sk); }
@@ -1776,8 +1826,8 @@ const SPR = (() => {
       });
     },
     goblinking(P) {
-      const act = P.act ? 1 : 0, k = P.f % 2;
-      return mk('gking' + act + k, 112, 100, 44, 96, (g, x) => {
+      const act = P.act ? 1 : 0, k = P.f % 2, na = P.noArm ? 1 : 0;
+      return mk('gking' + act + k + na, 112, 100, 44, 96, (g, x) => {
         x.translate(0, 4);
         const Sk = '#86b84a', SkS = '#5a7a2e', SkH = '#b0d878', C = '#9a2a2a', CS = '#6a1818', F = '#f0ece0';
         g.poly([[24, 40], [64, 40], [72, 88], [16, 88]], C); g.poly([[52, 40], [64, 40], [72, 88], [56, 88]], CS);
@@ -1793,6 +1843,7 @@ const SPR = (() => {
         g.r(41, 31, 6, 4, SkS); g.r(33, 37, 22, 3, '#3a1a10'); g.poly([[35, 38], [37, 32], [39, 38]], '#fff'); g.poly([[49, 38], [51, 32], [53, 38]], '#fff');
         // crown
         g.r(32, 9, 24, 6, '#f2c14e'); for (let i = 0; i < 3; i++) g.poly([[32 + i * 8, 9], [36 + i * 8, 1], [40 + i * 8, 9]], '#f2c14e'); g.ell(44, 12, 2, 2, '#e04050'); g.r(32, 14, 24, 1, '#c08a2a');
+        if (na) { g.ell(64, 51, 7, 6, Sk); g.ell(62, 49, 3, 2, SkH); return; }   // the arm + club are separate parts (gk_*)
         // spiked club
         const a = act ? 3.1 : 2.2 + k * 0.08, hx = 68, hy = 56, dx = Math.sin(a), dy = Math.cos(a);
         g.line(hx, hy, hx + dx * 22, hy + dy * 22, 4.4, '#7a5530');
@@ -1897,8 +1948,8 @@ const SPR = (() => {
       });
     },
     deathknight(P) {
-      const act = P.act ? 1 : 0, k = P.f % 2;
-      return mk('dknight' + act + k + (P.p2 ? 1 : 0), 96, 108, 46, 104, g => {
+      const act = P.act ? 1 : 0, k = P.f % 2, na = P.noArm ? 1 : 0;
+      return mk('dknight' + act + k + (P.p2 ? 1 : 0) + na, 96, 108, 46, 104, g => {
         const A = '#2a2a3a', AS = '#1a1a26', AH = '#4a4a62', T = '#c8ccd8', C = '#6a0a14', E = P.p2 ? '#ff2a4a' : '#ff8a3a';
         g.poly([[28, 36], [60, 36], [70, 96], [62, 90], [54, 98], [44, 90], [34, 98], [26, 90], [18, 96]], C);
         g.r(32, 78, 10, 18, AS); g.r(50, 78, 10, 18, AS); g.r(30, 94, 14, 4, A); g.r(48, 94, 14, 4, A); g.r(32, 80, 10, 2, T); g.r(50, 80, 10, 2, T);
@@ -1909,6 +1960,7 @@ const SPR = (() => {
         g.r(32, 12, 28, 26, A); g.r(52, 12, 8, 26, AS); g.r(34, 14, 5, 8, AH);
         g.r(34, 22, 24, 5, '#08080c'); g.r(37, 23, 6, 2, E); g.r(49, 23, 6, 2, E); g.r(44, 28, 4, 8, '#08080c');
         mirror(g, 92, (X, m) => { g.line(X(34), 16, X(24), 8, 4, T); g.line(X(24), 8, X(24), -2 + 6, 3, T); g.line(X(24), 4, X(28), 0, 2, T); });
+        if (na) return;   // the arm + greatsword are separate parts (dk_*)
         // greatsword
         const a = act ? 3.0 : 0.25 + k * 0.03, hx = 70, hy = 62, dx = Math.sin(a), dy = Math.cos(a), nx = dy, ny = -dx;
         g.poly([[hx + dx * 4 + nx * 3.4, hy + dy * 4 + ny * 3.4], [hx + dx * 38 + nx * 3, hy + dy * 38 + ny * 3], [hx + dx * 44, hy + dy * 44], [hx + dx * 38 - nx * 3, hy + dy * 38 - ny * 3], [hx + dx * 4 - nx * 3.4, hy + dy * 4 - ny * 3.4]], '#b8bcc8');
@@ -2137,8 +2189,8 @@ const SPR = (() => {
       }, '#0c2008');
     },
     ghostcaptain(P) {
-      const k = P.f % 4, act = P.act ? 1 : 0, p2 = P.p2 ? 1 : 0;
-      return mk('gcap' + k + act + p2, 108, 116, 54, 112, g => {
+      const k = P.f % 4, act = P.act ? 1 : 0, p2 = P.p2 ? 1 : 0, na = P.noArm ? 1 : 0;
+      return mk('gcap' + k + act + p2 + na, 108, 116, 54, 112, g => {
         const GH = { d: '#4aa89a', m: '#8ae8d8', h: '#e0fff8' }, CO = { d: '#141c34', m: '#26385e', h: '#4a6a9a' }, G = '#f2c14e', GS = '#a8782a', R = '#9a2030', RS = '#5a1018', E = p2 ? '#ff4a6a' : '#7affd8';
         for (let i = 0; i < 6; i++) { const w = Math.sin(k * 1.57 + i * 1.3) * 3; g.ell(36 + i * 7 + w, 100 + (i % 2) * 4, 5, 8, i % 2 ? GH.d : GH.m); g.p(Math.round(35 + i * 7 + w), 96, GH.h); }
         g.poly([[34, 74], [74, 74], [80, 100], [28, 100]], GH.d); g.poly([[36, 74], [60, 74], [56, 98], [32, 98]], GH.m);
@@ -2153,11 +2205,13 @@ const SPR = (() => {
         for (const x of [36, 72]) { g.ell(x, 44, 7, 3.5, G); g.ell(x - 1, 43, 5, 2, '#fff2c0'); for (let i = -5; i <= 5; i += 2) g.r(x + i, 46, 1, 4, GS); }
         tube(g, [[36, 46, 5], [30, 56, 4.5], [26, 64, 4]], CO); g.ell(26, 66, 3.5, 2.5, '#e8e0d0');
         g.line(26, 67, 26, 72, 2, '#c8ccd4'); g.line(26, 72, 22, 70, 2, '#c8ccd4'); g.p(26, 69, '#ffffff');
-        const ay = act ? -18 : 0, cx = 84, cy = 62 + ay, ca = act ? -1.9 : -0.75;
-        tube(g, [[72, 46, 5], [79, 54 + ay * 0.5, 4.5], [cx, cy, 4]], CO);
-        const bx = cx + Math.cos(ca) * 24, by = cy + Math.sin(ca) * 24, nx = -Math.sin(ca), ny = Math.cos(ca);
-        g.poly([[cx, cy], [bx + nx * 3, by + ny * 3], [bx, by], [cx + nx * 4, cy + ny * 4]], '#d8e8f0'); g.line(cx, cy, bx, by, 1, '#ffffff');
-        g.ell(cx, cy, 4, 3.2, G); g.ell(cx - 1, cy - 1, 1.6, 1.2, '#fff2c0');
+        if (!na) {   // otherwise the sword arm is drawn from separate parts (gc_*)
+          const ay = act ? -18 : 0, cx = 84, cy = 62 + ay, ca = act ? -1.9 : -0.75;
+          tube(g, [[72, 46, 5], [79, 54 + ay * 0.5, 4.5], [cx, cy, 4]], CO);
+          const bx = cx + Math.cos(ca) * 24, by = cy + Math.sin(ca) * 24, nx = -Math.sin(ca), ny = Math.cos(ca);
+          g.poly([[cx, cy], [bx + nx * 3, by + ny * 3], [bx, by], [cx + nx * 4, cy + ny * 4]], '#d8e8f0'); g.line(cx, cy, bx, by, 1, '#ffffff');
+          g.ell(cx, cy, 4, 3.2, G); g.ell(cx - 1, cy - 1, 1.6, 1.2, '#fff2c0');
+        }
         blob(g, 54, 32, 12, 12, GH);
         g.poly([[43, 36], [65, 36], [61, 49], [54, 54], [47, 49]], '#d8ece8'); g.poly([[54, 38], [65, 36], [61, 49], [54, 54]], '#a8c8c0');
         for (let i = 0; i < 4; i++) g.line(47 + i * 4, 40, 48 + i * 4, 50 - Math.abs(i - 1.5), 1, '#a8c8c0');
@@ -2654,6 +2708,38 @@ const SPR = (() => {
         for (const a of [0.3, 1.6, 2.9, 4.2, 5.4, -1.2]) { const nx = 45 + Math.cos(a) * 10, ny = 14 + Math.sin(a) * 10; g.r(Math.round(nx) - 1, Math.round(ny) - 1, 3, 3, '#c8ccd4'); g.p(Math.round(nx) - 1, Math.round(ny) - 1, '#ffffff'); }
         g.r(6, 12, 2, 5, '#3a2410'); g.r(10, 12, 2, 5, '#3a2410');   // grip wraps
       }, '#2a1408');
+    },
+    // ===== goblin king / death knight / ghost captain: the weapon arm as parts (upper arm, forearm, hand, weapon; each points +x from its anchor) =====
+    gk_upper() { return mk('gku', 24, 16, 5, 8, g => tube(g, [[5, 8, 5], [16, 8, 4.4]], { d: '#5a7a2e', m: '#86b84a', h: '#b0d878' }), '#1e2a0e'); },
+    gk_fore() { return mk('gkf', 22, 14, 4, 7, g => tube(g, [[4, 7, 4.4], [14, 7, 3.8]], { d: '#5a7a2e', m: '#86b84a', h: '#b0d878' }), '#1e2a0e'); },
+    gk_hand() { return mk('gkh', 14, 14, 7, 7, g => blob(g, 7, 7, 5, 5, { d: '#5a7a2e', m: '#86b84a', h: '#b0d878' }), '#1e2a0e'); },
+    gk_club() {
+      return mk('gkc', 52, 30, 6, 15, g => {
+        tube(g, [[2, 15, 2.4], [24, 15, 2.6]], { d: '#5a3818', m: '#7a5530', h: '#a07848' });
+        for (let i = 0; i < 6; i++) { const b = i / 6 * 6.283 + 0.3; g.poly([[32 + Math.cos(b) * 6, 15 + Math.sin(b) * 6], [32 + Math.cos(b) * 10.5, 15 + Math.sin(b) * 10.5], [32 + Math.cos(b + 0.45) * 6, 15 + Math.sin(b + 0.45) * 6]], '#d0d0d8'); }
+        blob(g, 32, 15, 7.5, 7.5, { d: '#6a4628', m: '#8a6040', h: '#b8905a' });
+        g.r(9, 13, 2, 5, '#3a2410'); g.r(13, 13, 2, 5, '#3a2410');
+      }, '#2a1408');
+    },
+    dk_upper() { return mk('dku', 24, 18, 5, 9, g => { tube(g, [[5, 9, 6], [17, 9, 5]], { d: '#1a1a26', m: '#2a2a3a', h: '#4a4a62' }); g.r(9, 5, 2, 8, '#c8ccd8'); }, '#08080c'); },
+    dk_fore() { return mk('dkf', 24, 16, 4, 8, g => { tube(g, [[4, 8, 5], [16, 8, 4.4]], { d: '#1a1a26', m: '#2a2a3a', h: '#4a4a62' }); g.r(13, 4, 2, 8, '#c8ccd8'); }, '#08080c'); },
+    dk_hand() { return mk('dkh', 14, 14, 7, 7, g => blob(g, 7, 7, 5, 4.6, { d: '#1a1a26', m: '#3a3a52', h: '#6a6a88' }), '#08080c'); },
+    dk_sword() {   // the hand grips just behind the crossguard
+      return mk('dks', 60, 22, 9, 11, g => {
+        g.poly([[13, 7.4], [48, 8], [56, 11], [48, 14], [13, 14.6]], '#b8bcc8'); g.poly([[13, 11], [48, 11], [56, 11], [48, 14], [13, 14.6]], '#8a8e9c');
+        g.line(15, 10, 47, 10, 1, '#ffffff');
+        g.line(12, 2, 12, 20, 3, '#8a1a24'); g.p(12, 2, '#c03040'); g.p(12, 19, '#c03040');
+        g.line(3, 11, 10, 11, 2.6, '#2a1a1a'); g.ell(2.5, 11, 2, 2, '#8a1a24');
+      }, '#08080c');
+    },
+    gc_upper() { return mk('gcu', 22, 14, 5, 7, g => tube(g, [[5, 7, 5], [15, 7, 4.5]], { d: '#141c34', m: '#26385e', h: '#4a6a9a' }), '#081418'); },
+    gc_fore() { return mk('gcf', 22, 14, 4, 7, g => { tube(g, [[4, 7, 4.5], [14, 7, 4]], { d: '#141c34', m: '#26385e', h: '#4a6a9a' }); g.r(12, 3, 3, 8, '#e8e0d0'); }, '#081418'); },
+    gc_hand() { return mk('gch', 12, 12, 6, 6, g => blob(g, 6, 6, 3.6, 3.4, { d: '#4aa89a', m: '#8ae8d8', h: '#e0fff8' }), '#081418'); },
+    gc_sword() {   // cutlass: gold hand guard, a curved blade
+      return mk('gcs', 40, 20, 6, 12, g => {
+        g.poly([[8, 10], [20, 9], [30, 7], [36, 4], [33, 9], [24, 13], [8, 14]], '#d8e8f0'); g.line(9, 11, 30, 8, 1, '#ffffff'); g.line(10, 13.5, 26, 12.5, 1, '#a8b8c8');
+        g.ell(7, 12, 3.4, 4, '#f2c14e'); g.ell(6, 11, 1.4, 1.6, '#fff2c0'); g.line(1, 12, 5, 12, 2.4, '#3a2010');
+      }, '#081418');
     },
     // ===== sandworm (seen along its body: a round maw, armoured rings) =====
     sw_head(P) {
