@@ -3,9 +3,11 @@
 const fs=require('fs'),path=require('path'),{createCanvas,GlobalFonts}=require('@napi-rs/canvas'),{gameHost}=require('./game_host');
 const OUT=path.resolve(process.env.OUT||'out/zako_play');fs.mkdirSync(OUT,{recursive:true});
 if(process.env.FONT)GlobalFonts.registerFromPath(process.env.FONT,'ReviewJP');
-const host=gameHost(),{Y}=host,types=['slime','bat','goblin','archer','skeleton'],dirs={f:[0,-1],r:[1,0],l:[-1,0],b:[0,1]},names={f:'正面',r:'右',l:'左',b:'後ろ'},result=createCanvas(780,1440),ctx=result.getContext('2d');ctx.imageSmoothingEnabled=false;
+const host=gameHost(),{Y}=host,types=process.env.ENEMY?process.env.ENEMY.split(','):['slime','bat','goblin','archer','skeleton'],dirs={f:[0,-1],r:[1,0],l:[-1,0],b:[0,1]},names={f:'正面',r:'右',l:'左',b:'後ろ'},result=createCanvas(780,1440),ctx=result.getContext('2d');ctx.imageSmoothingEnabled=false;
+if(process.env.UP_DIAGONALS){dirs.b_right=[.45,Math.sqrt(1-.45**2)];dirs.b_left=[-.45,Math.sqrt(1-.45**2)];names.b_right='右上';names.b_left='左上';}
 let frame=0,checks=[];
 for(const type of types)for(const[dir,[dx,dy]]of Object.entries(dirs)){
+ if(process.env.UP_ONLY&&!dir.startsWith('b'))continue;
  Y.enter(type==='skeleton'?3:type==='goblin'||type==='archer'?2:0);Y.enemies.splice(0);Y.props.splice(0);Y.bullets.splice(0);const h=Y.hero,y=600,x=Y.tunnelAt(y).cx,dist=type==='archer'?105:type==='bat'?85:58;
  const pin=()=>{h.x=x+dx*dist;h.y=y+dy*dist;h.vx=h.vy=0;h.inv=10;h.hp=h.s.maxHp;h.recoil=0;};
  for(let i=0;i<400;i++){pin();Y.update(1/60);}

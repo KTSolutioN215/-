@@ -325,3 +325,9 @@ sh tools/build_apk.sh      # 初回は Android SDK（platform 35 / build-tools 3
 - `BASE_SPRITES=<変更前sprites.js> BASE_GAME=<変更前yusha.js> node tools/anim/check_zako4.js`。新しい動作の静止比較と戦闘状態の比較を分ける。元の兜・盾・弓・顔・輪郭・体型を変更しない。
 - `FONT=<日本語フォント> NODE_PATH=<canvasの場所> OUT=out/zako_play_final node tools/anim/capture_zako_play.js`。20シーン・1,920フレーム・64秒。自然AI、勇者無敵・位置固定。ゲーム全体をCanvasアダプターで実行し、全画面を合成した検証プレイである。ブラウザや端末の操作録画とは説明しない。
 - ボスのコード・ゲームバランスはこの作業では触らない。日本語README・一覧を更新し、コミットはローカルのみ。通常／半速動画とAPKを渡す。
+
+## 修正：ガイコツ剣士の上向き斬り（2026-10-30）
+- `skeletonUpSlash(e, view)` は skeleton の背面だけ。wind 0.5秒、slash 0.2秒、戻り0.4秒。`e.face` の既存扇形（±1.25rad）の角度をスプライトの `upSlash` に渡す。
+- `skeletonUpArm` は剣の手の肩より下へ出た分を前方へ折り返し、剣のベクトルをワールドの斬撃角に合わせる。胴・頭・盾の後ろに描く順番は従来どおり。正面・横の既存ポーズと装備の長さを変えない。
+- `BASE_SPRITES=<修正前sprites.js> node tools/anim/check_skeleton_up.js` で実際の剣ポリゴン2,121サンプルと、無関係の240画像を確認。基準は `1ae4987`。攻撃AI・判定・範囲を動かして辻褄を合わせない。
+- 動画は `ENEMY=skeleton UP_DIAGONALS=1 UP_ONLY=1 OUT=out/skeleton_up_review node tools/anim/capture_zako_play.js`。上・右上・左上から始める自然AIの検証プレイ9.6秒。通常／半速を用意する。全4方向も見たい場合は UP_ONLY を外す。

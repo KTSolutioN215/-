@@ -3561,6 +3561,13 @@ const SPR = (() => {
   // Four-direction additions for batch 1. Front factories remain the source of truth.
   // Original canvas sizes, anchors, palettes, clothing and equipment are retained.
   const ZAKO4 = new Set(['slime','bat','goblin','archer','skeleton']);
+  // Rear-facing slash: hand stays beyond the shoulder; blade uses the world's attack arc.
+  // Keep original arm/blade lengths. The fan is the existing generous gameplay range.
+  function skeletonUpArm(P,shoulder,hand) {
+    if(!P.upSlash)return null;
+    const a=Math.round(P.upSlash.a*20)/20,w=Math.round(P.upSlash.w*20)/20;
+    return {hand:[hand[0],hand[1]-2*Math.max(0,hand[1]-shoulder[1])*w],dir:[Math.cos(a),Math.sin(a)]};
+  }
   function zakoView(type,P) {
     const v=P.view, side=v==='r'||v==='l', rear=v==='b';
     if(!side&&!rear)return EN[type](P);
@@ -3568,7 +3575,7 @@ const SPR = (() => {
       dims=type==='slime'?[32,28,16,25]:type==='bat'?[40,26,20,22]:type==='skeleton'?[68,68,34,60]:[58,50,28,45];
     // Quantized parameters bound the cache, as in the original front factories.
     const pull=Math.round((P.pull||0)*8)/8, release=Math.round((P.release||0)*8)/8;
-    return mk('z4_'+type+'_'+(side?'s':'b')+'_'+(f%6)+'_'+step+'_'+P.st+'_'+(A?armKey(armQ(A,{})):'')+'_'+pull+'_'+release+'_'+(P.bodyX||0)+'_'+(P.bodyY||0),...dims,g=>{
+    return mk('z4_'+type+'_'+(side?'s':'b')+'_'+(f%6)+'_'+step+'_'+P.st+'_'+(A?armKey(armQ(A,{})):'')+'_'+pull+'_'+release+'_'+(P.bodyX||0)+'_'+(P.bodyY||0)+(P.upSlash?'_up_'+Math.round(P.upSlash.a*20)+','+Math.round(P.upSlash.w*20):''),...dims,g=>{
       if(type==='slime') {
         const k=P.st==='hop'?2:f%2,sq=[1,1.07,.8][k],rx=12.5/sq,ry=9.5*sq,cy=24-ry*.9;
         g.ell(16,cy,rx,ry,'#2f9a4a');g.r(Math.round(16-rx+2),22,Math.round(rx*2-4),2,'#2f9a4a');
@@ -3603,11 +3610,12 @@ const SPR = (() => {
       };
       const swordArm=()=>{
         const a=armQ(A,sk?{ha:1.25,hr:.85,wa:1.2}:{ha:1.35,hr:.85,wa:-.8}),len=sk?12:10,
-          xx=sk?7:7, shoulder=point(xx,shY,0),hand=point(xx+(side?0:Math.cos(a.ha)*len*.3),shY+Math.sin(a.ha)*len*a.hr,2+Math.max(0,Math.cos(a.ha))*len*a.hr),
+          xx=sk?7:7, shoulder=point(xx,shY,0),rawHand=point(xx+(side?0:Math.cos(a.ha)*len*.3),shY+Math.sin(a.ha)*len*a.hr,2+Math.max(0,Math.cos(a.ha))*len*a.hr),
+          up=sk&&rear?skeletonUpArm(P,shoulder,rawHand):null, hand=up?up.hand:rawHand,
           dx=hand[0]-shoulder[0],dy=hand[1]-shoulder[1],dist=Math.max(.1,Math.hypot(dx,dy)),bend=Math.sqrt(Math.max(0,(len/2)**2-Math.min(len*.495,dist/2)**2)),
           elbow=[(hand[0]+shoulder[0])/2-dy/dist*bend,(hand[1]+shoulder[1])/2+dx/dist*bend];
         g.line(...shoulder,...elbow,sk?2.2:3.2,skin);g.line(...elbow,...hand,sk?2:2.8,skin);g.ell(...elbow,sk?1.3:1.5,sk?1.3:1.5,dark);
-        const dxw=(side?Math.cos(a.wa):Math.cos(a.wa)*sign),dyw=Math.sin(a.wa),[hx,hy]=hand;
+        const dxw=up?up.dir[0]:(side?Math.cos(a.wa):Math.cos(a.wa)*sign),dyw=up?up.dir[1]:Math.sin(a.wa),[hx,hy]=hand;
         if(sk){const nx=-dyw,ny=dxw;g.line(hx-2*dxw,hy-2*dyw,hx+2*dxw,hy+2*dyw,1.8,SK.grip);g.line(hx+2*dxw-nx*3.5,hy+2*dyw-ny*3.5,hx+2*dxw+nx*3.5,hy+2*dyw+ny*3.5,1.6,SK.rust);g.poly([[hx+3*dxw+nx*1.6,hy+3*dyw+ny*1.6],[hx+16*dxw+nx*1.4,hy+16*dyw+ny*1.4],[hx+19*dxw,hy+19*dyw],[hx+16*dxw-nx*1.4,hy+16*dyw-ny*1.4],[hx+3*dxw-nx*1.6,hy+3*dyw-ny*1.6]],SK.blade);g.line(hx+5*dxw,hy+5*dyw,hx+16*dxw,hy+16*dyw,1,SK.bladeS);}
         else{g.line(hx-2*dxw,hy-2*dyw,hx+11*dxw,hy+11*dyw,2.6,'#7a5530');g.ell(hx+12*dxw,hy+12*dyw,3.4,3.4,'#8a6040');g.ell(hx+12*dxw-1,hy+12*dyw-1,1.4,1.4,'#a87a50');for(const [d,n]of[[12,-3.5],[12,3.5],[16,0]])g.p(Math.round(hx+d*dxw-n*dyw),Math.round(hy+d*dyw+n*dxw),'#d0d0d0');}
         g.ell(hx,hy,sk?1.7:2.2,sk?1.7:2.2,skin);
