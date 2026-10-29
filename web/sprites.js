@@ -14,9 +14,10 @@
 const SPR = (() => {
   const SCALE = 1.5;
   const cache = new Map();
+  let creatureRecording = null;
   function canvas(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.imageSmoothingEnabled = false; return [c, x]; }
   function api(x) {
-    return {
+    const g = {
       r(a, b, w, h, c) { x.fillStyle = c; x.fillRect(a, b, w, h); },
       p(a, b, c) { x.fillStyle = c; x.fillRect(a, b, 1, 1); },
       poly(pts, c) { x.fillStyle = c; x.beginPath(); x.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) x.lineTo(pts[i][0], pts[i][1]); x.closePath(); x.fill(); },
@@ -24,6 +25,9 @@ const SPR = (() => {
       line(a, b, c2, d, w, c) { x.strokeStyle = c; x.lineWidth = w; x.lineCap = 'round'; x.beginPath(); x.moveTo(a, b); x.lineTo(c2, d); x.stroke(); },
       x,
     };
+    g.tag = (name,ox,oy,meta={}) => { if(creatureRecording)creatureRecording.begin(name,ox,oy,meta); };
+    if(creatureRecording){const rec=creatureRecording;for(const key of ['r','p','poly','ell','line']){const draw=g[key];g[key]=(...args)=>{rec.draw(key,args);return draw(...args);};}}
+    return g;
   }
   const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
   // hard edges + optional palette snap + 1px outline
@@ -360,11 +364,12 @@ const SPR = (() => {
   // pose: {flap: -1..1, breath: 0..1 (chest), open: 0..1 (jaw), rage: bool, hurt: bool, tilt: px}
   function dragon(pose) {
     const key = 'd' + JSON.stringify(pose);
-    if (cache.has(key)) return cache.get(key);
+    if (!creatureRecording && cache.has(key)) return cache.get(key);
     const [c, x] = canvas(104, 92), g = api(x);
     const f = pose.flap || 0, br = pose.breath || 0, op = pose.open || 0, tl = pose.tilt || 0;
     const cx = 52, by = 56;
     if(!pose.hideTail) {
+    g.tag('tail',58,68,{points:[[58,68],[68,76],[79,75],[87,67],[90,58],[89,51]]});
     // tail
     const tail = [[58, 68, 9], [68, 76, 8], [79, 75, 6.5], [87, 67, 5], [90, 58, 4], [89, 51, 3]];
     for (let i = 1; i < tail.length; i++) g.line(tail[i - 1][0], tail[i - 1][1], tail[i][0], tail[i][1], tail[i][2], DG.bodyS);
@@ -375,6 +380,7 @@ const SPR = (() => {
     const wing = (m) => {
       const X = v => cx + m * (v - cx);
       const root = [X(42), 36], elbow = [X(24), 17 + 6 * f], A = [X(5), 12 + 12 * f], B = [X(2), 32 + 10 * f], C = [X(10), 48 + 6 * f], D = [X(26), 55 + 3 * f];
+      g.tag('wing'+m,...root,{side:m});
       g.poly([root, elbow, A, [X(10), 24 + 11 * f], B, [X(13), 41 + 8 * f], C, [X(22), 50 + 5 * f], D, [X(40), 50]], DG.wing);
       g.poly([root, elbow, [X(14), 30 + 9 * f], [X(24), 46 + 4 * f], [X(40), 48]], DG.wingS);
       g.line(root[0], root[1], elbow[0], elbow[1], 3, DG.bone);
@@ -383,7 +389,8 @@ const SPR = (() => {
     };
     wing(1); wing(-1);
     // feet
-    for (const m of [-1, 1]) { g.ell(cx + m * 10, by + 16, 6, 4, DG.bodyS); for (const k of [-2, 0, 2]) g.p(cx + m * 10 + k, by + 19, DG.claw); }
+    for (const m of [-1, 1]) { g.tag('foot'+m,cx+m*10,by+16,{side:m});g.ell(cx + m * 10, by + 16, 6, 4, DG.bodyS); for (const k of [-2, 0, 2]) g.p(cx + m * 10 + k, by + 19, DG.claw); }
+    g.tag('body',cx,by);
     // body + belly
     g.ell(cx, by, 15 + br * 1.5, 18 + br, DG.body);
     g.ell(cx + 6, by + 2, 8, 14, DG.bodyS);
@@ -392,10 +399,11 @@ const SPR = (() => {
     for (let yy = by - 8; yy < by + 15; yy += 3) g.r(cx - 7, yy, 14, 1, DG.bellyS);
     if (pose.rage) { g.line(cx - 12, by - 4, cx - 7, by + 6, 1, DG.lava); g.line(cx + 11, by - 2, cx + 7, by + 8, 1, DG.lava); g.line(cx - 10, by + 9, cx - 5, by + 13, 1, DG.lava); }
     // arms
-    for (const m of [-1, 1]) { g.line(cx + m * 13, by - 6, cx + m * 15, by + 4, 3, DG.bodyS); for (const k of [-1, 1]) g.p(cx + m * 15 + k, by + 6, DG.claw); }
+    for (const m of [-1, 1]) { g.tag('arm'+m,cx+m*13,by-6,{side:m});g.line(cx + m * 13, by - 6, cx + m * 15, by + 4, 3, DG.bodyS); for (const k of [-1, 1]) g.p(cx + m * 15 + k, by + 6, DG.claw); }
     // neck + head
     const hx = cx + tl, hy = 27 - op * 2;
-    g.ell(cx, by - 18, 7, 8, DG.body);
+    g.tag('neck',cx,by-18);g.ell(cx, by - 18, 7, 8, DG.body);
+    g.tag('head',hx,hy);
     for (const m of [-1, 1]) {   // horns + frills
       g.line(hx + m * 7, hy - 6, hx + m * 14, hy - 16, 3, DG.hornS); g.line(hx + m * 14, hy - 16, hx + m * 17, hy - 22, 2, DG.horn); g.line(hx + m * 7, hy - 6, hx + m * 13, hy - 15, 1.5, DG.horn);
       g.poly([[hx + m * 10, hy - 1], [hx + m * 17, hy + 1], [hx + m * 10, hy + 4]], DG.bodyS);
@@ -403,6 +411,7 @@ const SPR = (() => {
     g.ell(hx, hy, 11, 9, DG.body);
     g.ell(hx + 4, hy + 1, 6, 6, DG.bodyS);
     g.ell(hx - 4, hy - 4, 4, 2, DG.bodyH);
+    g.tag('mouth',hx,hy+7);
     // jaw / snout
     if (op > 0.05) {
       g.ell(hx, hy + 9 + op * 3, 7, 3 + op * 4, DG.mouth);
@@ -410,8 +419,9 @@ const SPR = (() => {
       for (const k of [-5, -2, 2, 5]) { g.p(hx + k, hy + 7 + op, DG.tooth); g.p(hx + k, hy + 11 + op * 6, DG.tooth); }
       g.ell(hx, hy + 14 + op * 6, 6, 2.5, DG.bodyS);
     }
-    g.ell(hx, hy + 6, 7, 4, DG.bodyH);
+    g.tag('snout',hx,hy+6);g.ell(hx, hy + 6, 7, 4, DG.bodyH);
     g.p(hx - 3, hy + 7, DG.pupil); g.p(hx + 3, hy + 7, DG.pupil);
+    g.tag('eyes',hx,hy);
     // eyes + brows
     const ec = pose.hurt ? '#ffffff' : pose.rage ? '#fff6c0' : DG.eye;
     for (const m of [-1, 1]) {
@@ -429,7 +439,7 @@ const SPR = (() => {
   // ---------------------------------------------------------------
   function mk(key, w, h, ax, ay, draw, ol, pal) {
     let s = cache.get(key);
-    if (s) return s;
+    if (s && !creatureRecording) return s;
     const [c, x] = canvas(w, h), g = api(x);
     draw(g, x);
     pixelize(c, ol === undefined ? OL : ol, pal);
@@ -1863,17 +1873,20 @@ const SPR = (() => {
         for (let i = 0; i < 4; i++) mirror(g, 112, (X, m) => {
           const sh = ((i + (m > 0 ? k : 1 - k)) % 2 ? 2 : -2) - (act && i === 0 ? 14 : 0);
           const kx = 30 - i * 3, ky = 30 + i * 6 + sh;
-          g.line(X(46), 48 + i * 3, X(kx), ky - 10, 3.6, L); g.line(X(kx), ky - 10, X(6 + i * 4), 70 + i * 4 + sh, 3, L); g.ell(X(kx), ky - 10, 2.4, 2.4, LH);
+          const id=i*2+(m>0?1:0),a=[X(46),48+i*3],b=[X(kx),ky-10],c=[X(6+i*4),70+i*4+sh],meta={id,side:m,i,a,b,c};
+          g.tag('legUpper'+id,...a,meta);g.line(...a,...b,3.6,L);g.tag('legLower'+id,...b,meta);g.line(...b,...c,3,L);g.tag('joint'+id,...b,meta);g.ell(...b,2.4,2.4,LH);
         });
+        g.tag('body',56,64);
         // crystal abdomen
         g.ell(56, 64, 24, 18, '#3a4060'); g.ell(50, 58, 12, 7, LH);
         for (const [x, y, h, c] of [[42, 58, 16, '#7ad8ff'], [52, 54, 22, '#c8f4ff'], [62, 56, 18, '#7ad8ff'], [70, 62, 12, '#9fe8ff'], [48, 66, 10, '#c8f4ff']]) { g.poly([[x - 4, y], [x, y - h], [x + 4, y]], c); g.line(x - 1, y - 2, x - 1, y - h + 4, 1, '#ffffff'); }
+        g.tag('head',56,38);
         // head + tiara
         g.ell(56, 38, 15, 13, L); g.ell(52, 34, 6, 4, LH);
         const ec = P.p2 ? '#ffffff' : '#ff4060';
         for (const [ex, ey, r] of [[50, 36, 2.6], [62, 36, 2.6], [46, 41, 1.8], [66, 41, 1.8], [53, 42, 1.4], [59, 42, 1.4]]) g.ell(ex, ey, r, r, ec);
-        g.poly([[50, 48], [52, 56], [54, 49]], '#e8e8f0'); g.poly([[62, 48], [60, 56], [58, 49]], '#e8e8f0');
-        g.r(44, 24, 24, 3, '#c8d8f0'); for (const [x, h] of [[46, 6], [52, 9], [56, 13], [60, 9], [66, 6]]) g.poly([[x - 2, 24], [x, 24 - h], [x + 2, 24]], '#c8d8f0'); g.ell(56, 18, 2, 2, '#e04080');
+        g.tag('fangs',56,48);g.poly([[50, 48], [52, 56], [54, 49]], '#e8e8f0'); g.poly([[62, 48], [60, 56], [58, 49]], '#e8e8f0');
+        g.tag('crown',56,24);g.r(44, 24, 24, 3, '#c8d8f0'); for (const [x, h] of [[46, 6], [52, 9], [56, 13], [60, 9], [66, 6]]) g.poly([[x - 2, 24], [x, 24 - h], [x + 2, 24]], '#c8d8f0'); g.ell(56, 18, 2, 2, '#e04080');
       });
     },
     lich(P) {
@@ -1899,7 +1912,7 @@ const SPR = (() => {
     },
     dragon(P) {
       const key = 'drg' + [P.f % 4, P.act ? 1 : 0, P.p2 ? 1 : 0].join('')+(P.hideTail?'_tailOff':'');
-      let s = cache.get(key);
+      let s = creatureRecording ? null : cache.get(key);
       if (!s) { s = { c: dragon({ flap: [-1, -0.25, 1, 0.25][P.f % 4], open: P.act ? 1 : 0, firing: !!P.act, rage: !!P.p2, breath: P.act ? 0 : 0.5, hideTail: !!P.hideTail }), ax: 52, ay: 76 }; cache.set(key, s); }
       return s;
     },
@@ -1934,19 +1947,22 @@ const SPR = (() => {
         const W = '#3a5ad8', WS = '#24389a', Y = '#ffe14a', YS = '#d8a020', O = '#ff9a2a';
         const o = [-14, -4, 10, -4][k];
         mirror(g, 120, (X, m) => {
-          g.poly([[X(50), 40], [X(28), 22 + o], [X(4), 18 + o * 1.4], [X(10), 30 + o], [X(2), 34 + o * 1.2], [X(12), 42 + o * 0.8], [X(6), 50 + o * 0.6], [X(20), 52 + o * 0.4], [X(34), 56], [X(48), 56]], m > 0 ? W : WS);
+          g.tag('wing'+m,X(50),40,{side:m});g.poly([[X(50), 40], [X(28), 22 + o], [X(4), 18 + o * 1.4], [X(10), 30 + o], [X(2), 34 + o * 1.2], [X(12), 42 + o * 0.8], [X(6), 50 + o * 0.6], [X(20), 52 + o * 0.4], [X(34), 56], [X(48), 56]], m > 0 ? W : WS);
           g.line(X(46), 42, X(30), 34 + o * 0.6, 1.4, Y); g.line(X(30), 34 + o * 0.6, X(26), 42 + o * 0.5, 1.4, Y); g.line(X(26), 42 + o * 0.5, X(12), 38 + o * 0.9, 1.4, Y);
         });
+        g.tag('tail',60,64);
         // tail feathers
         g.poly([[52, 64], [46, 84], [54, 80], [60, 88], [66, 80], [74, 84], [68, 64]], WS);
+        g.tag('body',60,54);
         // body + talons
         g.ell(60, 54, 15, 18, Y); g.ell(64, 56, 8, 14, YS); for (let yy = 48; yy < 68; yy += 4) g.r(54, yy, 10, 1, YS);
-        for (const m of [-1, 1]) { g.r(60 + m * 6 - 1, 70, 3, 6, O); g.poly([[60 + m * 6 - 3, 76], [60 + m * 6 + 4, 76], [60 + m * 6 + 2, 80]], '#fff6d0'); }
+        for (const m of [-1, 1]) { g.tag('foot'+m,60+m*6,70,{side:m});g.r(60 + m * 6 - 1, 70, 3, 6, O); g.poly([[60 + m * 6 - 3, 76], [60 + m * 6 + 4, 76], [60 + m * 6 + 2, 80]], '#fff6d0'); }
+        g.tag('head',60,32);
         // head
         g.ell(60, 32, 11, 10, Y); g.ell(64, 34, 6, 7, YS);
         g.poly([[52, 24], [50, 10], [56, 20], [60, 6], [63, 20], [70, 10], [68, 24]], W);
-        g.poly([[56, 36], [64, 36], [60, 46]], O); g.poly([[60, 41], [64, 36], [60, 46]], '#c86a10');
-        const ec = P.p2 ? '#ff3a3a' : '#1a1420';
+        g.tag('beak',60,36);g.poly([[56, 36], [64, 36], [60, 46]], O); g.poly([[60, 41], [64, 36], [60, 46]], '#c86a10');
+        g.tag('eyes',60,32);const ec = P.p2 ? '#ff3a3a' : '#1a1420';
         g.r(53, 30, 4, 3, '#ffffff'); g.r(63, 30, 4, 3, '#ffffff'); g.r(54, 31, 2, 2, ec); g.r(64, 31, 2, 2, ec);
         g.line(51, 27, 57, 29, 1.6, WS); g.line(69, 27, 63, 29, 1.6, WS);
       });
@@ -1983,15 +1999,16 @@ const SPR = (() => {
           if((P.limbMask||0)&(1<<i))continue;
           const a0 = (i / 7) * Math.PI, side = Math.cos(a0), wv = Math.sin(k * 1.57 + i * 1.3) * 5 - (act && i % 2 ? 14 : 0);
           const pts = [[56 + side * 10, 66], [56 + side * 28, 74 + wv * 0.5], [56 + side * 40, 82 + wv], [56 + side * 46, 70 + wv * 1.5], [56 + side * 44, 60 + wv * 2]];
+          g.tag('tentacle'+i,...pts[0],{i,points:pts});
           for (let j = 1; j < pts.length; j++) g.line(pts[j - 1][0], pts[j - 1][1], pts[j][0], pts[j][1], 8 - j * 1.4, i % 2 ? S : B);
           for (let j = 1; j < 4; j++) g.p(Math.round(pts[j][0]), Math.round(pts[j][1] + 2), Su);
         }
-        g.ell(56, 40, 26, 32, B); g.ell(64, 44, 14, 26, S); g.ell(48, 26, 10, 12, H);
+        g.tag('body',56,40);g.ell(56, 40, 26, 32, B); g.ell(64, 44, 14, 26, S); g.ell(48, 26, 10, 12, H);
         for (const [x, y, r] of [[44, 18, 2.4], [64, 22, 2], [52, 48, 1.8], [40, 40, 1.6]]) g.ell(x, y, r, r, S);
-        const ec = P.p2 ? '#ff4a4a' : '#ffe14a';
+        g.tag('eyes',56,58);const ec = P.p2 ? '#ff4a4a' : '#ffe14a';
         for (const ex of [46, 66]) { g.ell(ex, 58, 6, 5, ec); g.r(ex - 1, 55, 2, 7, '#200'); g.p(ex - 2, 56, '#fff'); }
         g.line(38, 51, 50, 54, 2, S); g.line(74, 51, 62, 54, 2, S);
-        g.ell(56, 70, 5, 3, '#3a0a4a');
+        g.tag('mouth',56,70);g.ell(56, 70, 5, 3, '#3a0a4a');
       });
     },
     pharaoh(P) {
@@ -2022,16 +2039,17 @@ const SPR = (() => {
       const k = P.f % 4, act = P.act ? 1 : 0;
       return mk('clock' + k + act + (P.p2 ? 1 : 0), 104, 108, 52, 104, g => {
         const Br = '#c9a24a', BrS = '#8a6a30', BrH = '#f0d080', Cu = '#b06a3a', Fc = '#f3ecda', Dk = '#3a2a1a';
-        const gear = (cx, cy, r, ph) => { for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283 + ph; g.r(Math.round(cx + Math.cos(a) * r - 2), Math.round(cy + Math.sin(a) * r - 2), 4, 4, BrS); } g.ell(cx, cy, r, r, Cu); g.ell(cx, cy, r * 0.4, r * 0.4, BrS); };
-        g.r(36, 84, 12, 16, BrS); g.r(56, 84, 12, 16, BrS); g.r(33, 98, 18, 4, Dk); g.r(53, 98, 18, 4, Dk);
+        const gear = (cx, cy, r, ph) => { g.tag('gear'+cx,cx,cy,{side:cx<52?-1:1}); for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283 + ph; g.r(Math.round(cx + Math.cos(a) * r - 2), Math.round(cy + Math.sin(a) * r - 2), 4, 4, BrS); } g.ell(cx, cy, r, r, Cu); g.ell(cx, cy, r * 0.4, r * 0.4, BrS); };
+        for(const [x,bx]of[[36,33],[56,53]]){g.tag('foot'+x,x+6,84,{side:x<52?-1:1});g.r(x,84,12,16,BrS);g.r(bx,98,18,4,Dk);}
         gear(22, 34, 10, k * 0.39); gear(82, 34, 10, -k * 0.39);
         const ay = act ? -12 : 0;
-        for (const m of [-1, 1]) { const x0 = m < 0 ? 10 : 84; g.r(x0, 44 + ay, 10, 22, BrS); g.r(x0 + 2, 46 + ay, 2, 18, BrH); g.poly([[x0 - 2, 66 + ay], [x0 + 5, 72 + ay], [x0 + 12, 66 + ay], [x0 + 9, 76 + ay], [x0 + 1, 76 + ay]], Cu); }
-        g.ell(52, 58, 32, 30, Br); g.ell(52, 58, 28, 26, BrS); g.ell(52, 58, 25, 23, Fc);
+        for (const m of [-1, 1]) { const x0 = m < 0 ? 10 : 84;g.tag('arm'+m,x0+5,44+ay,{side:m});g.r(x0, 44 + ay, 10, 22, BrS); g.r(x0 + 2, 46 + ay, 2, 18, BrH); g.poly([[x0 - 2, 66 + ay], [x0 + 5, 72 + ay], [x0 + 12, 66 + ay], [x0 + 9, 76 + ay], [x0 + 1, 76 + ay]], Cu); }
+        g.tag('body',52,58);g.ell(52, 58, 32, 30, Br); g.ell(52, 58, 28, 26, BrS); g.ell(52, 58, 25, 23, Fc);
         for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283; g.r(Math.round(52 + Math.cos(a) * 20 - 1), Math.round(58 + Math.sin(a) * 18 - 1), i % 3 ? 2 : 3, i % 3 ? 2 : 3, Dk); }
         const hm = k * 0.5 - 1.57, mm = k * 1.57 - 1.57;
-        g.line(52, 58, 52 + Math.cos(hm) * 11, 58 + Math.sin(hm) * 10, 2.6, Dk); g.line(52, 58, 52 + Math.cos(mm) * 17, 58 + Math.sin(mm) * 16, 1.6, Dk);
-        g.ell(52, 58, 3, 3, P.p2 ? '#ff3b4a' : Br);
+        g.tag('dialHour',52,58);g.line(52, 58, 52 + Math.cos(hm) * 11, 58 + Math.sin(hm) * 10, 2.6, Dk); g.tag('dialMinute',52,58);g.line(52, 58, 52 + Math.cos(mm) * 17, 58 + Math.sin(mm) * 16, 1.6, Dk);
+        g.tag('hub',52,58);g.ell(52, 58, 3, 3, P.p2 ? '#ff3b4a' : Br);
+        g.tag('head',52,24);
         // head dome + lamp eye
         g.ell(52, 24, 14, 12, Br); g.r(38, 24, 28, 8, Br); g.ell(47, 18, 4, 3, BrH);
         g.r(40, 24, 24, 6, Dk); g.ell(52, 27, 4, 3, P.p2 || act ? '#ff3b4a' : '#ffb03a'); g.p(51, 26, '#ffffff');
@@ -3142,70 +3160,86 @@ const SPR = (() => {
         const L='#2a3048',LH='#4a5478',cx=back?56:45,hx=back?56:77;
         const legs=near=>{for(let i=0;i<4;i++){
           const sh=((i+(near?k%2:1-k%2))%2?2:-2)-(act&&i===0?14:0);
-          if(back){const side=near?1:-1,kx=30-i*3;g.line(56+side*10,48+i*3,56+side*(56-kx),20+i*6+sh,3.6,L);g.line(56+side*(56-kx),20+i*6+sh,56+side*(50-i*4),70+i*4+sh,3,L);g.ell(56+side*(56-kx),20+i*6+sh,2.4,2.4,LH);}
-          else{const knee=[20,38,70,91][i]+(near?0:-4),foot=[12,33,71,98][i]+(near?0:-5),root=near?61:50;g.line(root,48+i*3,knee,24+i*5+sh,3.6,L);g.line(knee,24+i*5+sh,foot,77+i%2*5+sh,3,L);g.ell(knee,24+i*5+sh,2.4,2.4,LH);}
+          const id=i*2+(near?1:0);let a,b,c;
+          if(back){const side=near?1:-1,kx=30-i*3;a=[56+side*10,48+i*3];b=[56+side*(56-kx),20+i*6+sh];c=[56+side*(50-i*4),70+i*4+sh];}
+          else{const knee=[20,38,70,91][i]+(near?0:-4),foot=[12,33,71,98][i]+(near?0:-5),root=near?61:50;a=[root,48+i*3];b=[knee,24+i*5+sh];c=[foot,77+i%2*5+sh];}
+          const meta={id,side:near?1:-1,i,a,b,c};g.tag('legUpper'+id,...a,meta);g.line(...a,...b,3.6,L);g.tag('legLower'+id,...b,meta);g.line(...b,...c,3,L);g.tag('joint'+id,...b,meta);g.ell(...b,2.4,2.4,LH);
         }};
         legs(false);legs(true);
+        g.tag('body',cx,64);
         // Same low, rounded crystal abdomen and five crystals as the source sprite.
         g.ell(cx,64,back?24:26,18,'#3a4060');g.ell(cx-6,58,12,7,LH);
         for(const[x,y,h,c]of[[42,58,16,'#7ad8ff'],[52,54,22,'#c8f4ff'],[62,56,18,'#7ad8ff'],[70,62,12,'#9fe8ff'],[48,66,10,'#c8f4ff']]){const X=cx+(x-56)*(back?1:.8);g.poly([[X-4,y],[X,y-h],[X+4,y]],c);g.line(X-1,y-2,X-1,y-h+4,1,'#ffffff');}
         if(!back)g.ell(65,51,10,9,L);
-        g.ell(hx,38,back?15:13,13,L);g.ell(hx-4,34,6,4,LH);
+        g.tag('head',hx,38);g.ell(hx,38,back?15:13,13,L);g.ell(hx-4,34,6,4,LH);
         if(!back){const ec=p2?'#ffffff':'#ff4060';for(const[ex,ey,r]of[[85,36,2.6],[86,41,1.8],[81,42,1.4]])g.ell(ex,ey,r,r,ec);g.poly([[83,48],[85,56],[87,49]],'#e8e8f0');}
-        g.r(hx-12,24,24,3,'#c8d8f0');for(const[x,h]of[[-10,6],[-4,9],[0,13],[4,9],[10,6]]){const X=hx+x*(back?1:.7);g.poly([[X-2,24],[X,24-h],[X+2,24]],'#c8d8f0');}if(!back)g.ell(hx+3,18,2,2,'#e04080');
+        g.tag('crown',hx,24);g.r(hx-12,24,24,3,'#c8d8f0');for(const[x,h]of[[-10,6],[-4,9],[0,13],[4,9],[10,6]]){const X=hx+x*(back?1:.7);g.poly([[X-2,24],[X,24-h],[X+2,24]],'#c8d8f0');}if(!back)g.ell(hx+3,18,2,2,'#e04080');
         return;
       }
       if(type==='dragon') {
         const f=[-1,-.25,1,.25][k],br=act?0:.5,op=act?1:0,cx=52,by=56,hx=back?52:65,hy=27-op*2;
-        if(!P.hideTail){const tail=[[58,68,9],[68,76,8],[79,75,6.5],[87,67,5],[90,58,4],[89,51,3]],X=x=>back?x:104-x;for(let i=1;i<tail.length;i++)g.line(X(tail[i-1][0]),tail[i-1][1],X(tail[i][0]),tail[i][1],tail[i][2],DG.bodyS);for(let i=1;i<tail.length-1;i++)g.p(X(tail[i][0]),tail[i][1]-tail[i][2]/2,DG.horn);g.poly([[X(86),52],[X(93),41],[X(92),53]],DG.horn);}
-        const wing=(m,offset=0)=>{const X=v=>back?cx+m*(v-cx):v+offset,root=[X(42),36],elbow=[X(24),17+6*f],A=[X(5),12+12*f],B=[X(2),32+10*f],C=[X(10),48+6*f],D=[X(26),55+3*f];g.poly([root,elbow,A,[X(10),24+11*f],B,[X(13),41+8*f],C,[X(22),50+5*f],D,[X(40),50]],DG.wing);g.poly([root,elbow,[X(14),30+9*f],[X(24),46+4*f],[X(40),48]],DG.wingS);g.line(...root,...elbow,3,DG.bone);for(const T of[A,B,C,D])g.line(...elbow,...T,1.4,DG.bone);g.ell(elbow[0],elbow[1]-1,1.6,1.6,DG.claw);};
+        if(!P.hideTail){g.tag('tail',back?58:46,68);const tail=[[58,68,9],[68,76,8],[79,75,6.5],[87,67,5],[90,58,4],[89,51,3]],X=x=>back?x:104-x;for(let i=1;i<tail.length;i++)g.line(X(tail[i-1][0]),tail[i-1][1],X(tail[i][0]),tail[i][1],tail[i][2],DG.bodyS);for(let i=1;i<tail.length-1;i++)g.p(X(tail[i][0]),tail[i][1]-tail[i][2]/2,DG.horn);g.poly([[X(86),52],[X(93),41],[X(92),53]],DG.horn);}
+        const wing=(m,offset=0)=>{const X=v=>back?cx+m*(v-cx):v+offset,root=[X(42),36],elbow=[X(24),17+6*f],A=[X(5),12+12*f],B=[X(2),32+10*f],C=[X(10),48+6*f],D=[X(26),55+3*f];g.tag('wing'+m+'_'+offset,...root,{side:back?m:offset? -1:1});g.poly([root,elbow,A,[X(10),24+11*f],B,[X(13),41+8*f],C,[X(22),50+5*f],D,[X(40),50]],DG.wing);g.poly([root,elbow,[X(14),30+9*f],[X(24),46+4*f],[X(40),48]],DG.wingS);g.line(...root,...elbow,3,DG.bone);for(const T of[A,B,C,D])g.line(...elbow,...T,1.4,DG.bone);g.ell(elbow[0],elbow[1]-1,1.6,1.6,DG.claw);};
         if(back){wing(1);wing(-1);}else wing(1,7);
-        for(const m of[-1,1]){g.ell(cx+m*(back?10:7),by+16,6,4,DG.bodyS);for(const j of[-2,0,2])g.p(cx+m*(back?10:7)+j,by+19,DG.claw);}
-        g.ell(cx,by,(back?15:13)+br*1.5,18+br,DG.body);g.ell(cx+6,by+2,8,14,DG.bodyS);g.ell(cx-6,by-6,4,6,DG.bodyH);
+        for(const m of[-1,1]){g.tag('foot'+m,cx+m*(back?10:7),by+16,{side:m});g.ell(cx+m*(back?10:7),by+16,6,4,DG.bodyS);for(const j of[-2,0,2])g.p(cx+m*(back?10:7)+j,by+19,DG.claw);}
+        g.tag('body',cx,by);g.ell(cx,by,(back?15:13)+br*1.5,18+br,DG.body);g.ell(cx+6,by+2,8,14,DG.bodyS);g.ell(cx-6,by-6,4,6,DG.bodyH);
         if(!back){g.ell(cx+9,by+3,4+br,13,DG.belly);for(let y=by-8;y<by+15;y+=3)g.r(cx+6,y,7,1,DG.bellyS);}else for(let y=44;y<69;y+=7)g.poly([[50,y],[52,y-4],[54,y+1]],DG.horn);
         if(p2){g.line(cx-12,by-4,cx-7,by+6,1,DG.lava);g.line(cx+11,by-2,cx+7,by+8,1,DG.lava);g.line(cx-10,by+9,cx-5,by+13,1,DG.lava);}
         if(!back)wing(1,0);
-        if(!back){g.line(65,50,68,60,3,DG.bodyS);for(const j of[-1,1])g.p(68+j,62,DG.claw);}
-        g.ell(back?52:58,by-18,7,8,DG.body);
-        for(const m of(back?[-1,1]:[-1])){g.line(hx+m*7,hy-6,hx+m*14,hy-16,3,DG.hornS);g.line(hx+m*14,hy-16,hx+m*17,hy-22,2,DG.horn);g.line(hx+m*7,hy-6,hx+m*13,hy-15,1.5,DG.horn);g.poly([[hx+m*10,hy-1],[hx+m*17,hy+1],[hx+m*10,hy+4]],DG.bodyS);}
+        if(!back){g.tag('arm1',65,50,{side:1});g.line(65,50,68,60,3,DG.bodyS);for(const j of[-1,1])g.p(68+j,62,DG.claw);}
+        g.tag('neck',back?52:58,by-18);g.ell(back?52:58,by-18,7,8,DG.body);
+        g.tag('head',hx,hy);for(const m of(back?[-1,1]:[-1])){g.line(hx+m*7,hy-6,hx+m*14,hy-16,3,DG.hornS);g.line(hx+m*14,hy-16,hx+m*17,hy-22,2,DG.horn);g.line(hx+m*7,hy-6,hx+m*13,hy-15,1.5,DG.horn);g.poly([[hx+m*10,hy-1],[hx+m*17,hy+1],[hx+m*10,hy+4]],DG.bodyS);}
         g.ell(hx,hy,11,9,DG.body);g.ell(hx+4,hy+1,6,6,DG.bodyS);g.ell(hx-4,hy-4,4,2,DG.bodyH);
-        if(!back){if(op){g.ell(hx+9,hy+10,7,5,DG.mouth);g.ell(hx+10,hy+10,4,3,DG.lava);for(const x of[hx+5,hx+10,hx+15]){g.p(x,hy+7,DG.tooth);g.p(x,hy+14,DG.tooth);}g.ell(hx+8,hy+16,6,2.5,DG.bodyS);}g.ell(hx+10,hy+6,9,4,DG.bodyH);g.p(hx+15,hy+7,DG.pupil);g.r(hx+5,hy-2,3,2,p2?'#fff6c0':DG.eye);g.p(hx+7,hy-2,DG.pupil);g.p(hx+7,hy-1,DG.pupil);g.line(hx+3,hy-3,hx+9,hy-5,1.2,DG.bodyS);}
+        if(!back){g.tag('mouth',hx+4,hy+7);if(op){g.ell(hx+9,hy+10,7,5,DG.mouth);g.ell(hx+10,hy+10,4,3,DG.lava);for(const x of[hx+5,hx+10,hx+15]){g.p(x,hy+7,DG.tooth);g.p(x,hy+14,DG.tooth);}g.ell(hx+8,hy+16,6,2.5,DG.bodyS);}g.tag('snout',hx+10,hy+6);g.ell(hx+10,hy+6,9,4,DG.bodyH);g.p(hx+15,hy+7,DG.pupil);g.tag('eyes',hx,hy);g.r(hx+5,hy-2,3,2,p2?'#fff6c0':DG.eye);g.p(hx+7,hy-2,DG.pupil);g.p(hx+7,hy-1,DG.pupil);g.line(hx+3,hy-3,hx+9,hy-5,1.2,DG.bodyS);}
         return;
       }
       if(type==='thunderbird') {
         const W='#3a5ad8',WS='#24389a',Y='#ffe14a',YS='#d8a020',O='#ff9a2a',o=[-14,-4,10,-4][k];
-        const wing=(m,offset=0)=>{const X=v=>back?(m>0?v:120-v):v+offset;g.poly([[X(50),40],[X(28),22+o],[X(4),18+o*1.4],[X(10),30+o],[X(2),34+o*1.2],[X(12),42+o*.8],[X(6),50+o*.6],[X(20),52+o*.4],[X(34),56],[X(48),56]],m>0?W:WS);g.line(X(46),42,X(30),34+o*.6,1.4,Y);g.line(X(30),34+o*.6,X(26),42+o*.5,1.4,Y);g.line(X(26),42+o*.5,X(12),38+o*.9,1.4,Y);};
+        const wing=(m,offset=0)=>{const X=v=>back?(m>0?v:120-v):v+offset;g.tag('wing'+m+'_'+offset,X(50),40,{side:m});g.poly([[X(50),40],[X(28),22+o],[X(4),18+o*1.4],[X(10),30+o],[X(2),34+o*1.2],[X(12),42+o*.8],[X(6),50+o*.6],[X(20),52+o*.4],[X(34),56],[X(48),56]],m>0?W:WS);g.line(X(46),42,X(30),34+o*.6,1.4,Y);g.line(X(30),34+o*.6,X(26),42+o*.5,1.4,Y);g.line(X(26),42+o*.5,X(12),38+o*.9,1.4,Y);};
         if(back){wing(1);wing(-1);}else wing(-1,8);
-        g.poly(back?[[52,64],[46,84],[54,80],[60,88],[66,80],[74,84],[68,64]]:[[50,64],[34,84],[43,80],[46,88],[53,80],[61,84],[60,64]],WS);
-        g.ell(60,54,back?15:14,18,Y);g.ell(64,56,8,14,YS);for(let y=48;y<68;y+=4)g.r(back?54:60,y,back?10:8,1,YS);
-        for(const m of[-1,1]){g.r(60+m*6-1,70,3,6,O);g.poly([[60+m*6-3,76],[60+m*6+4,76],[60+m*6+2,80]],'#fff6d0');}
+        g.tag('tail',back?60:50,64);g.poly(back?[[52,64],[46,84],[54,80],[60,88],[66,80],[74,84],[68,64]]:[[50,64],[34,84],[43,80],[46,88],[53,80],[61,84],[60,64]],WS);
+        g.tag('body',60,54);g.ell(60,54,back?15:14,18,Y);g.ell(64,56,8,14,YS);for(let y=48;y<68;y+=4)g.r(back?54:60,y,back?10:8,1,YS);
+        for(const m of[-1,1]){g.tag('foot'+m,60+m*6,70,{side:m});g.r(60+m*6-1,70,3,6,O);g.poly([[60+m*6-3,76],[60+m*6+4,76],[60+m*6+2,80]],'#fff6d0');}
         if(!back)wing(1,0);
-        const hx=back?60:68;g.ell(hx,32,11,10,Y);g.ell(hx+4,34,6,7,YS);g.poly([[hx-8,24],[hx-10,10],[hx-4,20],[hx,6],[hx+3,20],[hx+10,10],[hx+8,24]],W);
-        if(!back){g.poly([[hx+5,36],[hx+19,40],[hx+5,46]],O);g.poly([[hx+12,41],[hx+19,40],[hx+5,46]],'#c86a10');g.r(hx+2,30,4,3,'#ffffff');g.r(hx+3,31,2,2,p2?'#ff3a3a':'#1a1420');g.line(hx-1,27,hx+7,29,1.6,WS);}return;
+        const hx=back?60:68;g.tag('head',hx,32);g.ell(hx,32,11,10,Y);g.ell(hx+4,34,6,7,YS);g.poly([[hx-8,24],[hx-10,10],[hx-4,20],[hx,6],[hx+3,20],[hx+10,10],[hx+8,24]],W);
+        if(!back){g.tag('beak',hx+5,36);g.poly([[hx+5,36],[hx+19,40],[hx+5,46]],O);g.poly([[hx+12,41],[hx+19,40],[hx+5,46]],'#c86a10');g.tag('eyes',hx,32);g.r(hx+2,30,4,3,'#ffffff');g.r(hx+3,31,2,2,p2?'#ff3a3a':'#1a1420');g.line(hx-1,27,hx+7,29,1.6,WS);}return;
       }
       if(type==='kraken') {
         const B='#a85ad8',S='#6a2a9a',H='#d8a0f8',Su='#f0d0ff',cx=back?56:50;
-        for(let i=0;i<8;i++){if((P.limbMask||0)&(1<<i))continue;const a=i/7*Math.PI,side=Math.cos(a),wv=Math.sin(k*1.57+i*1.3)*5-(act&&i%2?14:0),X=x=>cx+(x-56)*(back?1:.82),pts=[[X(56+side*10),66],[X(56+side*28),74+wv*.5],[X(56+side*40),82+wv],[X(56+side*46),70+wv*1.5],[X(56+side*44),60+wv*2]];for(let j=1;j<pts.length;j++)g.line(...pts[j-1],...pts[j],8-j*1.4,i%2?S:B);for(let j=1;j<4;j++)g.p(Math.round(pts[j][0]),Math.round(pts[j][1]+2),Su);}
-        g.ell(cx,40,back?26:22,32,B);g.ell(cx+8,44,back?14:11,26,S);g.ell(cx-8,26,10,12,H);for(const[x,y,r]of[[44,18,2.4],[64,22,2],[52,48,1.8],[40,40,1.6]])g.ell(cx+(x-56)*(back?1:.8),y,r,r,S);
-        if(!back){g.ell(62,58,5,5,p2?'#ff4a4a':'#ffe14a');g.r(61,55,2,7,'#200');g.p(60,56,'#fff');g.line(56,51,66,54,2,S);g.ell(57,70,3,3,'#3a0a4a');}return;
+        for(let i=0;i<8;i++){if((P.limbMask||0)&(1<<i))continue;const a=i/7*Math.PI,side=Math.cos(a),wv=Math.sin(k*1.57+i*1.3)*5-(act&&i%2?14:0),X=x=>cx+(x-56)*(back?1:.82),pts=[[X(56+side*10),66],[X(56+side*28),74+wv*.5],[X(56+side*40),82+wv],[X(56+side*46),70+wv*1.5],[X(56+side*44),60+wv*2]];g.tag('tentacle'+i,...pts[0],{i,points:pts});for(let j=1;j<pts.length;j++)g.line(...pts[j-1],...pts[j],8-j*1.4,i%2?S:B);for(let j=1;j<4;j++)g.p(Math.round(pts[j][0]),Math.round(pts[j][1]+2),Su);}
+        g.tag('body',cx,40);g.ell(cx,40,back?26:22,32,B);g.ell(cx+8,44,back?14:11,26,S);g.ell(cx-8,26,10,12,H);for(const[x,y,r]of[[44,18,2.4],[64,22,2],[52,48,1.8],[40,40,1.6]])g.ell(cx+(x-56)*(back?1:.8),y,r,r,S);
+        if(!back){g.tag('eyes',cx,58);g.ell(62,58,5,5,p2?'#ff4a4a':'#ffe14a');g.r(61,55,2,7,'#200');g.p(60,56,'#fff');g.line(56,51,66,54,2,S);g.tag('mouth',57,70);g.ell(57,70,3,3,'#3a0a4a');}return;
       }
       if(type==='clockmachine') {
         const Br='#c9a24a',BrS='#8a6a30',BrH='#f0d080',Cu='#b06a3a',Fc='#f3ecda',Dk='#3a2a1a';
-        const gear=(cx,cy,r,ph)=>{for(let i=0;i<8;i++){const a=i/8*6.283+ph;g.r(Math.round(cx+Math.cos(a)*r-2),Math.round(cy+Math.sin(a)*r-2),4,4,BrS);}g.ell(cx,cy,r,r,Cu);g.ell(cx,cy,r*.4,r*.4,BrS);};
+        const gear=(cx,cy,r,ph)=>{g.tag('gear'+cx,cx,cy,{side:cx<52?-1:1});for(let i=0;i<8;i++){const a=i/8*6.283+ph;g.r(Math.round(cx+Math.cos(a)*r-2),Math.round(cy+Math.sin(a)*r-2),4,4,BrS);}g.ell(cx,cy,r,r,Cu);g.ell(cx,cy,r*.4,r*.4,BrS);};
         const ay=act?-12:0;
-        for(const x of(back?[36,56]:[42,54])){g.r(x,84,back?12:10,16,BrS);g.r(x-3,98,back?18:15,4,Dk);}
-        const arm=x=>{g.r(x,44+ay,10,22,BrS);g.r(x+2,46+ay,2,18,BrH);g.poly([[x-2,66+ay],[x+5,72+ay],[x+12,66+ay],[x+9,76+ay],[x+1,76+ay]],Cu);};
+        for(const x of(back?[36,56]:[42,54])){g.tag('foot'+x,x+6,84,{side:x<52?-1:1});g.r(x,84,back?12:10,16,BrS);g.r(x-3,98,back?18:15,4,Dk);}
+        const arm=x=>{g.tag('arm'+x,x+5,44+ay,{side:x<52?-1:1});g.r(x,44+ay,10,22,BrS);g.r(x+2,46+ay,2,18,BrH);g.poly([[x-2,66+ay],[x+5,72+ay],[x+12,66+ay],[x+9,76+ay],[x+1,76+ay]],Cu);};
         if(back){gear(22,34,10,k*.39);gear(82,34,10,-k*.39);arm(10);arm(84);}else{gear(44,34,10,k*.39);arm(39);}
-        g.ell(52,58,back?32:15,30,Br);g.ell(52,58,back?28:12,26,BrS);
+        g.tag('body',52,58);g.ell(52,58,back?32:15,30,Br);g.ell(52,58,back?28:12,26,BrS);
         if(back){g.ell(52,58,25,23,Cu);for(let y=43;y<=73;y+=6)g.r(36,y,32,2,Dk);for(const x of[35,69])for(const y of[42,74])g.ell(x,y,1.5,1.5,BrH);}
-        else{g.ell(64,58,4.5,23,Fc);for(let i=0;i<12;i++){const a=i/12*6.283;g.r(Math.round(64+Math.cos(a)*3-1),Math.round(58+Math.sin(a)*18-1),1,i%3?2:3,Dk);}for(const[a,len,thick]of[[k*.5-1.57,11,2.6],[k*1.57-1.57,17,1.6]])g.line(64,58,64+Math.cos(a)*len*.16,58+Math.sin(a)*len,thick,Dk);g.ell(64,58,1.5,3,p2?'#ff3b4a':Br);gear(48,34,10,-k*.39);arm(48);}
-        g.ell(52,24,back?14:12,12,Br);g.r(back?38:40,24,back?28:24,8,Br);g.ell(47,18,4,3,BrH);
+        else{g.ell(64,58,4.5,23,Fc);for(let i=0;i<12;i++){const a=i/12*6.283;g.r(Math.round(64+Math.cos(a)*3-1),Math.round(58+Math.sin(a)*18-1),1,i%3?2:3,Dk);}for(const[a,len,thick]of[[k*.5-1.57,11,2.6],[k*1.57-1.57,17,1.6]]){g.tag(len===11?'dialHour':'dialMinute',64,58);g.line(64,58,64+Math.cos(a)*len*.16,58+Math.sin(a)*len,thick,Dk);}g.tag('hub',64,58);g.ell(64,58,1.5,3,p2?'#ff3b4a':Br);gear(48,34,10,-k*.39);arm(48);}
+        g.tag('head',52,24);g.ell(52,24,back?14:12,12,Br);g.r(back?38:40,24,back?28:24,8,Br);g.ell(47,18,4,3,BrH);
         if(!back){g.r(58,24,7,6,Dk);g.ell(62,27,2.5,3,p2||act?'#ff3b4a':'#ffb03a');g.p(61,26,'#ffffff');}else g.r(43,24,18,2,BrS);
         g.r(50,6,4,6,BrS);g.ell(52,6,3,2,Cu);if(back){g.r(26,22,6,4,BrS);g.r(72,22,6,4,BrS);}else g.r(37,22,6,4,BrS);if(k%2){g.ell(back?24:40,14,4,3,'#e8e8f0');if(back)g.ell(80,12,3,3,'#e8e8f0');}return;
       }
     },type==='dragon'?'#2a0c06':undefined);
   }
   for(const type of ['spiderqueen','dragon','thunderbird','kraken','clockmachine'])PARTS['view_'+type]=P=>originalCreatureView(type,P);
+
+  const creaturePartCache=new Map();
+  function creatureParts(type,P={}) {
+    if(P.flash)return creatureParts(type,{...P,flash:false}).map(p=>({...p,s:white(p.s)}));
+    const key=type+':'+(P.v||'f')+':'+(P.p2||0)+':'+(P.act||0),old=creaturePartCache.get(key);if(old)return old;
+    const groups=[];let current;
+    const rec={begin(name,x,y,meta){current={name,origin:[x,y],meta,commands:[]};groups.push(current);},draw(method,args){if(!current)this.begin('base',0,0,{});current.commands.push([method,args]);}};
+    let full;creatureRecording=rec;try{full=originalCreatureView(type,{v:P.v||'f',f:1,p2:P.p2||0,act:P.act||0});}finally{creatureRecording=null;}
+    const result=groups.filter(p=>p.commands.length).map(p=>{
+      const[c,x]=canvas(full.c.width,full.c.height),g=api(x);for(const[method,args]of p.commands)g[method](...args);pixelize(c,['eyes','snout','mouth','neck','fangs','beak','hub','dialHour','dialMinute'].includes(p.name)?null:type==='dragon'?'#2a0c06':OL);
+      return {name:p.name,origin:p.origin,meta:p.meta,s:{c,ax:p.origin[0],ay:p.origin[1]},anchor:[full.ax,full.ay]};
+    });creaturePartCache.set(key,result);return result;
+  }
 
   const H3 = {
 
@@ -4060,5 +4094,5 @@ const SPR = (() => {
   };
   function x0ring(g) { g.x.strokeStyle = '#e8f0ff'; g.x.lineWidth = 1; g.x.beginPath(); g.x.arc(8, 8, 4, 0, 7); g.x.stroke(); }
 
-  return { SCALE, shadeOf, stoneOf, part, relic, itemIcon, gearIcon, hero: heroS, enemy, boss, draw, skeletonParts, ENV, floorTile, wallTile, dither, tileCanvas, shade: sh, seeded, cacheSize: () => cache.size, types: () => ({ enemies: Object.keys(EN), bosses: Object.keys(BOSS) }) };
+  return { SCALE, creatureParts, shadeOf, stoneOf, part, relic, itemIcon, gearIcon, hero: heroS, enemy, boss, draw, skeletonParts, ENV, floorTile, wallTile, dither, tileCanvas, shade: sh, seeded, cacheSize: () => cache.size, types: () => ({ enemies: Object.keys(EN), bosses: Object.keys(BOSS) }) };
 })();

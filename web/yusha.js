@@ -3914,7 +3914,8 @@
   function r3Face(B, p) {
     const mv = B.mv, look = Math.atan2(hero.y - B.y, hero.x - B.x);
     let want;
-    if(B.type==='dragon' && mv && mv.name==='breath' && mv.t>=.5 && mv.t<2.1) want=face4(mv.a0+(mv.t-.5)/1.6*1.8*(mv.dir||1));
+    if(B.type==='dragon' && B.sweeps.some(s=>s.kind==='tail'&&s.t>=s.tele))want=face4(B.sweeps.find(s=>s.kind==='tail').ang+Math.PI);
+    else if(B.type==='dragon' && mv && mv.name==='breath' && mv.t>=.5 && mv.t<2.1) want=face4(mv.a0+(mv.t-.5)/1.6*1.8*(mv.dir||1));
     else if (p.sweep) want = face4(p.sweep.ang + (R3[B.type].spinTip && !R3[B.type].twoHand && p.sweep.t>=p.sweep.tele ? Math.PI/2 : 0));   // a full swing turns the whole body round with the blade
     else if (mv && /charge|dash3|firetrail/.test(mv.name) && mv.a0 != null && mv.ph) want = face4(mv.a0);
     else if (mv) { if (mv.f3 == null) mv.f3 = face4(look); want = mv.f3; }
@@ -4071,24 +4072,94 @@
     const clockTime=B.clockHold?globalT-B.clockHold.offset-Math.min(t,1.4):globalT-(B.clockOffset||0);
     return {n,t,p2,moving,open,flare,lift,clockTime};
   }
+  function creatureMotion(B) {
+    const cue=creaturePose(B),mv=B.mv,n=cue.n,t=cue.t,T=globalT,cl=x=>Math.max(0,Math.min(1,x)),smooth=x=>{x=cl(x);return x*x*(3-2*x);};
+    const prepare=(at,w=.32)=>t<at?smooth((t-at+w)/w):Math.exp(-(t-at)*14);
+    let times=['aimed3','aimed5'].includes(n)?[.45,.9]:n==='webnet'?(cue.p2?[.4,.7,1,1.3,1.6]:[.4,.7,1,1.6]):n==='fireball'?(cue.p2?[.5,.9,1.3]:[.5,.9]):n==='thunderlines'?(cue.p2?[.3,1.2,2.1]:[.3,1.2]):n==='triple'?[.4,.72,1.04]:n==='gapring'?[.5,1.25]:[.5];
+    let wind=mv?Math.max(...times.map(a=>prepare(a))):0,release=cue.flare;
+    if(['wave','spiral','spiral3','cross'].includes(n))wind=smooth(t/.35)*(t<2.2?1:Math.exp(-(t-2.2)*6));
+    const sweep=B.sweeps.find(s=>s.kind==='tail'||s.kind==='tentacle'),spinning=!!sweep&&sweep.t>=sweep.tele;
+    if(sweep)wind=sweep.t<sweep.tele?smooth(sweep.t/sweep.tele):.15;
+    const jaw=B.type==='dragon'?(n==='breath'?(t<.5?smooth(t/.5)*.65:t<2.1?1:0):n==='fireball'?Math.min(1,release*1.35):release*.5):B.type==='kraken'?(n==='ink'?(t<.25?smooth(t/.25):Math.exp(-(t-.25)*4)):release*.6):release*.4;
+    const go=cue.moving,clock=B.type==='clockmachine',animTime=clock?cue.clockTime:T;
+    const target={wind,release,jaw,drop:wind*(B.type==='spiderqueen'?3.5:2)-release*1.3,shift:release*(B.type==='dragon'?-1.8:-.7),pitch:clock?-.075*wind+.06*release:B.type==='dragon'?-.08*wind+.07*release:.035*Math.sin(animTime*2)-wind*.035,
+      headLift:-wind*1.5-jaw*.8,headPitch:-wind*.09+release*.07,flap:Math.sin(animTime*(B.type==='thunderbird'?8:5)),fold:go&&B.type==='thunderbird'?1:0,step:go?1:0,clockTime:cue.clockTime};
+    if(spinning&&B.type==='dragon'){target.pitch=Math.sin(sweep.ang)*.09;target.drop=1.2;target.headPitch=-target.pitch*.6;target.step=.65;}
+    if(B.type==='thunderbird'){target.drop=-Math.sin(animTime*8-.5)*1.3-wind*2;target.pitch=go?.18:target.pitch;}
+    const state=B.creatureAnim||(B.creatureAnim={time:T,pose:{...target},limbs:{}}),dt=Math.min(.1,Math.max(0,T-state.time));state.time=T;
+    if(clock&&n==='timestop'&&t<1.4){if(!state.frozen)state.frozen={...state.pose,clockTime:cue.clockTime};state.pose={...state.frozen};}
+    else{state.frozen=null;const k=1-Math.exp(-dt*18);for(const key in target)state.pose[key]=key==='clockTime'?target[key]:state.pose[key]+(target[key]-state.pose[key])*k;}
+    return {...state.pose,cue,spinning,sweep,time:animTime,state,dt};
+  }
   function drawCreatureBoss(B,def,x,yFeet,fl,f) {
-    const K=SPR.SCALE,q=creaturePose(B),v=f==='f'?'f':f==='b'?'b':'s',mir=f==='l'?-1:1;
-    const frame=Math.floor((B.type==='clockmachine'?q.clockTime:globalT)*(B.type==='thunderbird'?8:4));
-    const moving=[];
-    if(B.type==='dragon'&&B.sweeps[0]&&B.sweeps[0].kind==='tail'&&B.sweeps[0].t>=B.sweeps[0].tele)moving.push({i:0,sw:B.sweeps[0]});
-    if(B.type==='kraken')for(let j=0;j<B.sweeps.length;j++){const sw=B.sweeps[j];if(sw.kind==='tentacle'&&sw.t>=sw.tele)moving.push({i:(B.sweeps.length===2?[1,6]:[0,2,5,7])[j],sw});}
-    // Reuse the original full sprite. Only a moving appendage is masked, so it
-    // can follow the unchanged attack while keeping the original body intact.
-    for(const {i,sw}of moving){
-      const dragon=B.type==='dragon',rx=dragon?(v==='s'?-6:6):(Math.cos(i/7*Math.PI)*10)*(v==='s'?.82:1)+(v==='s'?-6:0),ry=dragon?-8:-32;
-      const A=[x+rx*mir*K,yFeet+ry*K],end=[x+Math.cos(sw.ang)*sw.len,yFeet-B.r*.7-Math.sin(sw.ang)*sw.len],dx=end[0]-A[0],dy=end[1]-A[1],len=Math.hypot(dx,dy)||1,bend=Math.sin(globalT*4)*(dragon?25:12),pts=Array.from({length:21},(_,j)=>{const k=j/20;return[A[0]+dx*k-dy/len*Math.sin(k*Math.PI)*bend,A[1]+dy*k+dx/len*Math.sin(k*Math.PI)*bend];});
-      const edge=[[],[]],radius=j=>(dragon?4:3.3)*K*(1-j/20*.88);
-      for(let j=0;j<pts.length;j++){const a=pts[Math.max(0,j-1)],b=pts[Math.min(20,j+1)],vx=b[0]-a[0],vy=b[1]-a[1],ll=Math.hypot(vx,vy)||1,r=radius(j);for(let k=0;k<2;k++){const m=k?1:-1;edge[k].push([Math.round(pts[j][0]-vy/ll*r*m),Math.round(pts[j][1]+vx/ll*r*m)]);}}
-      const poly=edge[0].concat(edge[1].reverse());ctx.save();ctx.beginPath();poly.forEach((p,j)=>j?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.fillStyle=fl?'#fff':dragon?'#b03a1a':i%2?'#6a2a9a':'#a85ad8';ctx.strokeStyle=fl?'#fff':dragon?'#2a0c06':'#1a1420';ctx.lineWidth=1.5;ctx.fill();ctx.stroke();
-      ctx.fillStyle=fl?'#fff':dragon?'#f0e0c0':'#f0d0ff';for(let j=3;j<18;j+=4){const p=pts[j];ctx.fillRect(Math.round(p[0]),Math.round(p[1]+(dragon?-radius(j):radius(j)*.5)),K,K);}ctx.restore();
+    const frontLimbs=[];
+    const K=SPR.SCALE,m=creatureMotion(B),v=f==='f'?'f':f==='b'?'b':'s',mir=f==='l'?-1:1,parts=SPR.creatureParts(B.type,{v,p2:B.phase===2?1:0,flash:fl}),anchor=parts[0].anchor;
+    const head=parts.find(p=>p.name==='head'),body=parts.find(p=>p.name==='body'),pivot=[anchor[0],(body?body.origin[1]:anchor[1])+10];
+    const rot=(v==='s'?1:.45)*m.pitch,cs=Math.cos(rot),sn=Math.sin(rot),movePoint=p=>{const dx=p[0]-pivot[0],dy=p[1]-pivot[1];return[pivot[0]+dx*cs-dy*sn+(v==='s'?m.shift:0),pivot[1]+dx*sn+dy*cs+m.drop];};
+    const screen=p=>[x+(p[0]-anchor[0])*K*mir,yFeet+(p[1]-anchor[1])*K];
+    const headPoint=p=>{if(!head)return movePoint(p);const a=m.headPitch*(v==='s'?1:.4),dx=p[0]-head.origin[0],dy=p[1]-head.origin[1];return movePoint([head.origin[0]+dx*Math.cos(a)-dy*Math.sin(a)+(v==='s'?-m.wind*.8:0),head.origin[1]+dx*Math.sin(a)+dy*Math.cos(a)+m.headLift]);};
+    // Each recorded primitive retains the source art. Animate its original pivots.
+    const drawPart=(p,pos,angle=0,sx=1,sy2=1,isHead=false)=>{
+      const at=screen(isHead?headPoint(pos||p.origin):movePoint(pos||p.origin));
+      pd(p.s,at[0],at[1],(rot+angle)*mir,mir*sx,sy2);
+    };
+    const smooth=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x);};
+    const tube=(pts,r,dragon,index)=>{
+      const edge=[[],[]],radii=pts.map((_,i)=>r*(1-i/(pts.length-1)*.86));
+      for(let i=0;i<pts.length;i++){const a=pts[Math.max(0,i-1)],b=pts[Math.min(pts.length-1,i+1)],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy)||1;for(let side=0;side<2;side++){const sign=side?1:-1;edge[side].push([pts[i][0]-dy/len*radii[i]*sign,pts[i][1]+dx/len*radii[i]*sign]);}}
+      const poly=edge[0].concat(edge[1].slice().reverse());ctx.save();ctx.beginPath();poly.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.fillStyle=fl?'#fff':dragon?'#b03a1a':index%2?'#6a2a9a':'#a85ad8';ctx.strokeStyle=fl?'#fff':dragon?'#2a0c06':'#1a1420';ctx.lineWidth=K;ctx.lineJoin='round';ctx.fill();ctx.stroke();
+      // A narrow highlight follows the curve; the underside retains the source shadow palette.
+      const stripe=pts.map((p,i)=>[(p[0]+edge[0][i][0])*.5,(p[1]+edge[0][i][1])*.5]);ctx.beginPath();stripe.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.strokeStyle=fl?'#fff':dragon?'#e8562a':'#d8a0f8';ctx.lineWidth=Math.max(K,r*.37);ctx.stroke();
+      for(let i=3;i<pts.length-2;i+=4){const p=pts[i];ctx.fillStyle=fl?'#fff':dragon?'#f0e0c0':'#f0d0ff';if(dragon){ctx.beginPath();ctx.moveTo(p[0]-K,p[1]-radii[i]*.6);ctx.lineTo(p[0],p[1]-radii[i]-2*K);ctx.lineTo(p[0]+K,p[1]-radii[i]*.6);ctx.fill();}else{ctx.beginPath();ctx.ellipse(p[0],p[1]+radii[i]*.35,K*1.15,K*.65,0,0,Math.PI*2);ctx.fill();}}ctx.restore();
+    };
+    const cubic=(a,b,c,d)=>Array.from({length:25},(_,i)=>{const t=i/24,u=1-t;return[a[0]*u*u*u+3*b[0]*u*u*t+3*c[0]*u*t*t+d[0]*t*t*t,a[1]*u*u*u+3*b[1]*u*u*t+3*c[1]*u*t*t+d[1]*t*t*t];});
+    const limb=(p,sw,dragon=false)=>{
+      const id=p.name,now=globalT,root=screen(movePoint(p.origin)),saved=m.state.limbs[id],points=p.meta.points||[],baseEnd=points.length?screen(movePoint(points[points.length-1])):screen(movePoint([v==='s'?15:89,51]));
+      let end=baseEnd,amount=0;
+      if(sw){const reach=sw.t<sw.tele?smooth((sw.t-sw.tele+.28)/.28):1,tip=[x+Math.cos(sw.ang)*sw.len,yFeet-B.r*.7-Math.sin(sw.ang)*sw.len];end=[baseEnd[0]+(tip[0]-baseEnd[0])*reach,baseEnd[1]+(tip[1]-baseEnd[1])*reach];amount=reach;m.state.limbs[id]={end,time:now};}
+      else if(saved&&now-saved.time<.42){const t=smooth((now-saved.time)/.42);end=[saved.end[0]+(baseEnd[0]-saved.end[0])*t,saved.end[1]+(baseEnd[1]-saved.end[1])*t];amount=1-t;}
+      const wave=Math.sin(m.time*3+(p.meta.i||0)*1.2),curl=m.wind*(dragon?8:14)*K;
+      let controls;
+      if(amount>.01){const dx=end[0]-root[0],dy=end[1]-root[1],len=Math.hypot(dx,dy)||1,bend=(dragon?12:18)*K*Math.sin(now*2+(p.meta.i||0));controls=[root,[root[0]+dx*.25-dy/len*bend,root[1]+dy*.25+dx/len*bend],[root[0]+dx*.7-dy/len*bend,root[1]+dy*.7+dx/len*bend],end];}
+      else if(points.length){const b=screen(movePoint(points[1])),c=screen(movePoint(points[2]));end=[baseEnd[0]+wave*1.5*K,baseEnd[1]-curl+wave*2*K];controls=[root,[b[0],b[1]-curl*.35],[c[0],c[1]-curl*.75+wave*K],end];}
+      else{const sign=v==='s'?-1:1;controls=[root,[root[0]+sign*13*K,root[1]+9*K],[root[0]+sign*37*K,root[1]+10*K],[baseEnd[0]+wave*2*K,baseEnd[1]-curl*.4]];}
+      const pts=cubic(...controls),radius=(dragon?4.4:3.7)*K;tube(pts,radius,dragon,p.meta.i||0);
+      if(pts[pts.length-1][1]>root[1]+3*K)frontLimbs.push(()=>tube(pts.slice(3),radius*(1-3/24*.86),dragon,p.meta.i||0));
+      m.state.geometry||(m.state.geometry={});m.state.geometry[id]={root:pts[0],tip:pts[pts.length-1],active:!!sw&&sw.t>=sw.tele};
+    };
+    // Draw flexible appendages behind the source torso, so their roots are embedded.
+    for(const p of parts){if(B.type==='dragon'&&p.name==='tail')limb(p,B.sweeps.find(s=>s.kind==='tail'),true);if(B.type==='kraken'&&p.name.startsWith('tentacle')){const map=B.sweeps.length===2?[1,6]:[0,2,5,7],j=map.indexOf(p.meta.i);limb(p,j>=0?B.sweeps[j]:null);}}
+    const legs={};
+    if(B.type==='spiderqueen')for(const p of parts.filter(p=>p.name.startsWith('legUpper'))){
+      const {id,a,b,c,side,i}=p.meta,hip=movePoint(a),phase=m.time*11+i*Math.PI+side*.7,walking=m.step,foot=[c[0]+Math.sin(phase)*3*walking,c[1]-Math.max(0,Math.cos(phase))*4*walking-(i===0?m.wind*6:0)],L1=Math.hypot(b[0]-a[0],b[1]-a[1]),L2=Math.hypot(c[0]-b[0],c[1]-b[1]),dx=foot[0]-hip[0],dy=foot[1]-hip[1],dist=Math.min(L1+L2-.01,Math.hypot(dx,dy)),theta=Math.atan2(dy,dx),bend=Math.acos(Math.max(-1,Math.min(1,(L1*L1+dist*dist-L2*L2)/(2*L1*dist)))),oldCross=(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]),ang=theta+(oldCross>0?-bend:bend),knee=[hip[0]+Math.cos(ang)*L1,hip[1]+Math.sin(ang)*L1];legs[id]={hip,knee,foot,a,b,c,L1,L2};
     }
-    const limbMask=moving.reduce((mask,p)=>mask|(1<<p.i),0),act=q.open||q.flare>.3?1:0;
-    pd(P_('view_'+B.type,{v,f:frame,p2:q.p2?1:0,act,hideTail:B.type==='dragon'&&moving.length>0,limbMask},fl),x,yFeet,0,mir,1);
+    let mouthDrawn=false;
+    for(const p of parts){const name=p.name;
+      if(name==='tail'&&B.type==='dragon'||name.startsWith('tentacle'))continue;
+      if(name.startsWith('legUpper')||name.startsWith('legLower')||name.startsWith('joint')){
+        const leg=legs[p.meta.id],upper=name.startsWith('legUpper'),a=upper?leg.hip:leg.knee,b=upper?leg.knee:leg.foot,originalA=upper?leg.a:leg.b,originalB=upper?leg.b:leg.c,at=screen(a);
+        if(name.startsWith('joint'))pd(p.s,at[0],at[1],0,mir,1);else{const angle=Math.atan2(b[1]-a[1],b[0]-a[0])-Math.atan2(originalB[1]-originalA[1],originalB[0]-originalA[0]);pd(p.s,at[0],at[1],angle*mir,mir,1);}continue;
+      }
+      if(B.type==='dragon'&&name==='snout'&&m.jaw>.015&&!mouthDrawn){
+        const openParts=SPR.creatureParts(B.type,{v,p2:B.phase===2?1:0,act:1,flash:fl}),mouth=openParts.find(p=>p.name==='mouth'),openHead=openParts.find(p=>p.name==='head');
+        if(mouth){const pos=[mouth.origin[0]+head.origin[0]-openHead.origin[0],mouth.origin[1]+head.origin[1]-openHead.origin[1]];drawPart(mouth,pos,(v==='s'?.25:0)*m.jaw,1,Math.max(.06,m.jaw),true);}mouthDrawn=true;
+      }
+      if(name.startsWith('wing')){const side=v==='s'?1:p.meta.side||1,fold=m.fold,phase=Math.sin(m.time*(B.type==='thunderbird'?8:5)+(p.meta.side<0?-.2:0)),angle=side*(phase*.22-m.wind*.17+fold*.65);drawPart(p,null,angle,1-fold*.48,1+phase*.08);continue;}
+      if(name.startsWith('foot')){
+        const walk=m.step*Math.sin(m.time*13+(p.meta.side>0?Math.PI:0)),at=screen([p.origin[0]+walk*1.6,p.origin[1]-Math.max(0,walk)*3+(B.type==='thunderbird'?m.fold*4:0)]);pd(p.s,at[0],at[1],0,mir,1);continue;
+      }
+      if(name.startsWith('gear')){drawPart(p,null,(m.clockTime*2.4-.39)*(p.meta.side||1));continue;}
+      if(name.startsWith('dial')){
+        const i=name==='dialHour'?0:1,sw=B.sweeps[i],target=sw?-sw.ang:-Math.PI/2+m.clockTime*(i?2.5:.35);m.state.hands||(m.state.hands=[]);let angle=m.state.hands[i]==null?target:m.state.hands[i];if(!m.state.frozen){if(sw&&sw.t>=sw.tele)angle=target;else angle+=Math.atan2(Math.sin(target-angle),Math.cos(target-angle))*(1-Math.exp(-m.dt*12));}m.state.hands[i]=angle;const len=i?17:11,a=p.origin,b=[a[0]+Math.cos(angle)*len*(v==='s'?.16:1),a[1]+Math.sin(angle)*len*(i?16/17:10/11)],A=screen(movePoint(a)),Z=screen(movePoint(b));ctx.strokeStyle=fl?'#fff':'#3a2a1a';ctx.lineWidth=(i?1.6:2.6)*K;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(...A);ctx.lineTo(...Z);ctx.stroke();ctx.lineCap='butt';continue;
+      }
+      if(name.startsWith('arm')){drawPart(p,null,(p.meta.side||1)*(-m.wind*.35+m.release*.2));continue;}
+      if(name==='head'||name==='eyes'||name==='snout'||name==='crown'||name==='fangs'||name==='beak'||name==='mouth'){
+        const face=p.origin.slice();if(name==='fangs'||name==='mouth')face[1]+=m.jaw*2;if(name==='beak')drawPart(p,face,(v==='s'?.12:0)*m.jaw,1,1,true);else drawPart(p,face,m.headPitch*(v==='s'?1:.4),1,1+(name==='mouth'?m.jaw*.8:0),true);continue;
+      }
+      if(name==='neck'){drawPart(p,[p.origin[0],p.origin[1]+m.headLift*.3],m.headPitch*.4,1,1-m.headLift/16);continue;}
+      drawPart(p,null,0,1+m.wind*(B.type==='kraken'?.025:.012),1-m.wind*.025);
+      if(name==='body')for(const draw of frontLimbs)draw();
+    }
   }
   function drawNaturalBoss(B,def,x,yFeet,fl,p,f) {
     const K=SPR.SCALE,v=f==='f'?'f':f==='b'?'b':'s',mir=f==='l'?-1:1,mv=B.mv,n=mv?mv.name.split(':')[0]:'idle',t=mv?mv.t:0;

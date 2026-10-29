@@ -1,7 +1,7 @@
 // Preserve the original art, added view geometry, live attack endpoints, and stopped clock continuity.
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert');
 const boot=fs.readFileSync(path.join(__dirname,'capture_canvas.js'),'utf8').split('const bossType =')[0],w=new Function('require','__dirname',boot+'\nreturn world;')(require,__dirname);
-vm.runInContext('this.creaturePose=creaturePose;',w);
+vm.runInContext('this.creaturePose=creaturePose;this.creatureMotion=creatureMotion;',w);
 function render(type,phase,angle,mv=null,sweeps=[]){
  const B={type,phase,x:0,y:0,r:40,sweeps,mv},parts=[],draws=[],paths=[],raw=w.SPR.part,pd=w.pd,begin=w.ctx.beginPath.bind(w.ctx),line=w.ctx.lineTo.bind(w.ctx),move=w.ctx.moveTo.bind(w.ctx),close=w.ctx.closePath.bind(w.ctx);let current=[];
  w.SPR.part=(name,P)=>{const s=raw(name,P);parts.push({name,P,s});return s;};w.pd=(s,x,y,a=0,sx=1,sy=1,...rest)=>{draws.push({s,x,y,a,sx,sy});return pd(s,x,y,a,sx,sy,...rest);};
@@ -22,21 +22,23 @@ for(const[key,expected]of Object.entries(reference.frames)){
 for(const angle of[-Math.PI/2,0,Math.PI,Math.PI/2])for(const phase of[1,2]){
  let r;
  for(const type of['spiderqueen','dragon','thunderbird','kraken','clockmachine']){
-  r=render(type,phase,angle);assert.equal(r.parts.length,1,'reuse the complete original body');assert.equal(r.parts[0].name,'view_'+type);assert.equal(r.draws.length,1);assert.equal(r.draws[0].sy,1,'original height must not stretch');assert.equal(Math.abs(r.draws[0].sx),1,'original width must not stretch');
+  r=render(type,phase,angle);const view=angle===-Math.PI/2?'f':angle===Math.PI/2?'b':'s',layers=w.SPR.creatureParts(type,{v:view,p2:phase===2?1:0});assert(layers.some(p=>p.name==='body'));assert(layers.some(p=>p.name==='head')||type==='kraken');assert(r.draws.length>=(type==='kraken'&&view==='b'?1:3),'body must animate as original parts');for(const d of r.draws)assert([d.x,d.y,d.a,d.sx,d.sy].every(Number.isFinite));
+
  }
  for(const type of['dragon','kraken'])for(let i=0;i<24;i++){
   const a=i*Math.PI/12,kind=type==='dragon'?'tail':'tentacle',sw={kind,ang:a,len:175,t:1,tele:.9},sweeps=type==='dragon'?[sw]:Array.from({length:4},(_,k)=>({...sw,ang:a+k*Math.PI/2}));
   r=render(type,phase,angle,{name:type==='dragon'?'tail':'tentacles',t:1,n:1,a0:angle},sweeps);
-  const body=r.parts.find(p=>p.name==='view_'+type);assert(body);if(type==='dragon')assert(body.P.hideTail,'old tail must be masked');else assert.equal(body.P.limbMask.toString(2).replace(/0/g,'').length,sweeps.length,'moving tentacles must replace the old ones');
   for(let k=0;k<sweeps.length;k++){
-   let tip;{const tips=r.paths.filter(p=>p.length===42).map(p=>[(p[20][0]+p[21][0])/2,(p[20][1]+p[21][1])/2]);assert.equal(tips.length,type==='dragon'?1:4);const s=sweeps[k],ex=300+Math.cos(s.ang)*s.len,ey=500-40*.7-Math.sin(s.ang)*s.len;tip=tips.reduce((a,b)=>Math.hypot(a[0]-ex,a[1]-ey)<Math.hypot(b[0]-ex,b[1]-ey)?a:b);}
+   const active=Object.values(r.B.creatureAnim.geometry).filter(p=>p.active);assert.equal(active.length,sweeps.length);const s0=sweeps[k],ex=300+Math.cos(s0.ang)*s0.len,ey=500-40*.7-Math.sin(s0.ang)*s0.len,tip=active.map(p=>p.tip).reduce((a,b)=>Math.hypot(a[0]-ex,a[1]-ey)<Math.hypot(b[0]-ex,b[1]-ey)?a:b);
+   const drawn=r.paths.filter(p=>p.length===50).map(p=>[(p[24][0]+p[25][0])/2,(p[24][1]+p[25][1])/2]);assert(drawn.some(p=>Math.hypot(p[0]-tip[0],p[1]-tip[1])<.001),'rendered tube endpoint differs from attack geometry');
    const s=sweeps[k],wanted=[300+Math.cos(s.ang)*s.len,500-40*.7-Math.sin(s.ang)*s.len];assert(Math.hypot(tip[0]-wanted[0],tip[1]-wanted[1])<.8,JSON.stringify({type,phase,angle,i,k,tip,wanted}));tipSamples++;
   }
  }
  topologySets++;
 }
-let B={type:'clockmachine',phase:1,mv:{name:'timestop',t:0}};w.globalT=10;const start=w.creaturePose(B).clockTime;
-for(const t of[.3,.8,1.3,1.4]){B.mv.t=t;w.globalT=10+t;assert(Math.abs(w.creaturePose(B).clockTime-start)<1e-8,'clock drift during stop');}
-B.mv.t=1.6;w.globalT=11.6;assert(Math.abs(w.creaturePose(B).clockTime-start-.2)<1e-8,'clock did not resume');B.mv=null;assert(Math.abs(w.creaturePose(B).clockTime-start-.2)<1e-8,'clock jumped after stop');
+let B={type:'clockmachine',phase:1,sweeps:[],mv:{name:'timestop',t:0}};w.globalT=10;const frozen=w.creatureMotion(B);const keys=['drop','pitch','headLift','headPitch','flap','clockTime'];
+for(const t of[.3,.8,1.3]){B.mv.t=t;w.globalT=10+t;const pose=w.creatureMotion(B);for(const key of keys)assert(Math.abs(pose[key]-frozen[key])<1e-8,'part moves during time stop '+key);}
+B.mv.t=1.6;w.globalT=11.6;const resumed=w.creatureMotion(B);assert(Math.abs(resumed.clockTime-frozen.clockTime-.2)<1e-8,'clock did not resume');B.mv=null;assert(Math.abs(w.creatureMotion(B).clockTime-resumed.clockTime)<1e-8,'clock jumped after stop');
+B={type:'dragon',phase:1,sweeps:[],mv:{name:'breath',t:0}};let jawValues=new Set(),bodyValues=new Set();for(let i=0;i<90;i++){B.mv.t=i/60;w.globalT=20+i/60;const p=w.creatureMotion(B);jawValues.add(p.jaw.toFixed(3));bodyValues.add(p.drop.toFixed(3));}assert(jawValues.size>20,'jaw must interpolate continuously');assert(bodyValues.size>20,'body must join the breath');
 for(const type of['spiderqueen','dragon','thunderbird','kraken','clockmachine']){B={type,phase:1,mv:{name:'aimed3',t:.45}};assert(w.creaturePose(B).flare>.9,'release cue absent '+type);}
-console.log(JSON.stringify({originalFrontFramesPixelIdentical:originalFrames,topologySets,circularLimbTipSamples:tipSamples,clock:'stop / resume / continuity passed',allChecks:'passed'}));
+console.log(JSON.stringify({originalFrontFramesPixelIdentical:originalFrames,topologySets,circularLimbTipSamples:tipSamples,jawStates:jawValues.size,bodyStates:bodyValues.size,clock:'whole-body stop / resume / continuity passed',allChecks:'passed'}));
