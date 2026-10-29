@@ -13,6 +13,10 @@ const BEAST3 = (() => {
   const U = SPR.util, K = SPR.SCALE;
   const CW = 330, CH = 270, OX = 165, OY = 244;        // the art canvas; (OX, OY) = the floor under the body
   const [cv, cx] = U.canvas(CW, CH), g = U.api(cx);
+  // every colour drawn is recorded, so the finished frame can be snapped back onto exactly those colours (crisp pixel art:
+  // no in-between shades from the anti-aliased edges of overlapping shapes)
+  const USED = new Set();
+  for (const k of ['r', 'p', 'poly', 'ell', 'line']) { const f = g[k]; g[k] = function (...a) { const c = a[a.length - 1]; if (typeof c === 'string' && c[0] === '#') USED.add(c); return f.apply(this, a); }; }
   const [fc, fx] = U.canvas(CW, CH);                   // mirrored / whitened copy
   const PI = Math.PI, TAU = PI * 2;
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v, lerp = (a, b, k) => a + (b - a) * k;
@@ -49,11 +53,40 @@ const BEAST3 = (() => {
   // ---- draw list: everything is queued with a depth, sorted, then drawn far-to-near ----
   let OPS = [];
   const op = (d, fn) => OPS.push([d, fn]);
-  const sph = (p, r, C, d0 = 0, hl = 1) => op(dp(p) + d0, () => { const q = pr(p); U.blob(g, q[0], q[1], r, r, C, hl); });
+  // matte shading (指示: 光沢を減らし、関節の丸は自然に一体化): the dark tone only on the shadow side, a small highlight;
+  // the outline comes from the whole silhouette, so overlapping parts melt into one shape instead of showing seams
+  // inner outlines: every part gets a 1px line in a darker shade of its own colour, so arms read in front of bodies and
+  // overlapping parts separate the way hand-made pixel art does
+  const LN = new Map();
+  function lineCol(C) { let c = LN.get(C.d); if (!c) { const v = [1, 3, 5].map(i => Math.round(parseInt(C.d.slice(i, i + 2), 16) * 0.55)); c = '#' + v.map(x => x.toString(16).padStart(2, '0')).join(''); LN.set(C.d, c); } return c; }
+  function mblob(x, y, r, C, hl) {
+    g.ell(x, y, r + 1, r + 1, lineCol(C));
+    g.ell(x + r * 0.12, y + r * 0.16, r * 0.94, r * 0.92, C.d);
+    g.ell(x - r * 0.06, y - r * 0.07, r * 0.86, r * 0.84, C.m);
+    if (hl && r > 6) g.ell(x - r * 0.38, y - r * 0.4, Math.max(1, r * 0.18), Math.max(1, r * 0.12), C.h);
+  }
+  const sph = (p, r, C, d0 = 0, hl = 1) => op(dp(p) + d0, () => { const q = pr(p); mblob(q[0], q[1], r, C, hl); });
+  function mtube(gg, P2, C, opt = {}, cutA = 0, cutB = 0) {   // P2: [[x, y, r]...] in canvas px; cutA / cutB: skip the shadow near a joint end
+    const S = [];
+    for (let i = 1; i < P2.length; i++) { const [x0, y0, r0] = P2[i - 1], [x1, y1, r1] = P2[i], n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0))); for (let j = 0; j < n; j++) { const t = j / n; S.push([x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, r0 + (r1 - r0) * t]); } }
+    S.push(P2[P2.length - 1]);
+    const N = S.length;
+    if (!opt.noLine) { const lc = lineCol(C); S.forEach(([x, y, r], i) => { if ((cutA && i < N * cutA) || (cutB && i > N * (1 - cutB))) return; gg.ell(x, y, r + 1, r + 1, lc); }); }
+    S.forEach(([x, y, r], i) => { if ((cutA && i < N * cutA) || (cutB && i > N * (1 - cutB))) return; gg.ell(x + r * 0.12, y + r * 0.16, r * 0.94, r * 0.92, C.d); });
+    for (const [x, y, r] of S) gg.ell(x - r * 0.06, y - r * 0.07, r * 0.86, r * 0.84, C.m);
+    if (opt.belly) {
+      const bw = opt.belly.w || 0.4;
+      for (const [x, y, r] of S) gg.ell(x + r * 0.12, y + r * 0.26, r * bw, r * 0.4, opt.belly.c);
+      S.forEach(([x, y, r], i) => { if (i % 4 === 0) gg.r(Math.round(x + r * 0.12 - r * bw * 0.85), Math.round(y + r * 0.26), Math.max(1, Math.round(r * bw * 1.7)), 1, opt.belly.s); });
+    }
+    if (opt.scale) S.forEach(([x, y, r], i) => { if (i % 5 === 2 && r > 3) { gg.p(Math.round(x + r * 0.45), Math.round(y - r * 0.3), C.d); gg.p(Math.round(x - r * 0.2), Math.round(y - r * 0.55), C.d); } });
+    S.forEach(([x, y, r], i) => { if (i % 6 === 3 && r > 3.5) gg.r(Math.round(x - r * 0.45), Math.round(y - r * 0.45), 1, 1, C.h); });
+  }
   function tube(pts, rs, C, d0 = 0, opt) {   // a tapering shaded tube through 3D points; one op per segment so long bodies sort properly
+    const n = pts.length - 1;
     for (let i = 1; i < pts.length; i++) {
       const a = pts[i - 1], b = pts[i];
-      op((dp(a) + dp(b)) / 2 + d0, () => { const A = pr(a), Bq = pr(b); U.tube(g, [[A[0], A[1], rs[i - 1]], [Bq[0], Bq[1], rs[i]]], C, opt || {}); });
+      op((dp(a) + dp(b)) / 2 + d0, () => { const A = pr(a), Bq = pr(b); mtube(g, [[A[0], A[1], rs[i - 1]], [Bq[0], Bq[1], rs[i]]], C, opt || {}, i > 1 ? 0.25 : 0, i < n ? 0.25 : 0); });
     }
   }
   const poly = (pts, col, d0 = 0) => op(pts.reduce((s, p) => s + dp(p), 0) / pts.length + d0, () => g.poly(pts.map(p => { const q = pr(p); return [q[0], q[1]]; }), col));
@@ -1142,7 +1175,8 @@ const BEAST3 = (() => {
   // so the rings keep their screen width), with a rounded hem
   function cone(top, bot, rt, rb, C, d0, folds) {
     op(d0, () => {
-      const a = pr(top), b = pr(bot), lx = (k, y) => [lerp(a[0] - rt, b[0] - rb, k), y], E = rb * SL;
+      const a = pr(top), b = pr(bot), E = rb * SL, lc = lineCol(C);
+      g.ell(b[0], b[1], rb + 1, E + 1, lc); g.poly([[a[0] - rt - 1, a[1] - 1], [a[0] + rt + 1, a[1] - 1], [b[0] + rb + 1, b[1]], [b[0] - rb - 1, b[1]]], lc);
       g.ell(b[0], b[1], rb, E, C.d);
       g.poly([[a[0] - rt, a[1]], [a[0] + rt, a[1]], [b[0] + rb, b[1]], [b[0] - rb, b[1]]], C.m);
       g.ell(b[0], b[1] - 1, rb - 1.5, E * 0.7, C.m);
@@ -1298,8 +1332,11 @@ const BEAST3 = (() => {
     const chest = up([0, -40, 0]);
     cone(chest, up([0, -6, 0]), 26, 17, S, -0.4); sph(V.add(chest, [0, 2, 0]), 24, S, -0.45);
     for (const [x, y] of [[-14, -30], [14, -30], [-14, -14], [14, -14], [0, -36]]) { const p = up([x, y, 18]); if (dp(p) > dp(up([0, y, 0]))) piece(p, -0.3, (px, py) => { g.r(Math.round(px), Math.round(py), 2, 2, S.h); }); }   // rivets
-    const fur = up([0, -24, 22]), FC = p2 ? '#ff3a2a' : '#ff8a2a';
-    if (dp(fur) > dp(up([0, -24, 0]))) piece(fur, -0.2, (x, y) => { g.r(Math.round(x - 9), Math.round(y - 8), 18, 15, '#1a0c06'); g.r(Math.round(x - 7), Math.round(y - 6), 14, 11, FC); g.r(Math.round(x - 4), Math.round(y - 3), 8, 6, '#ffe08a'); for (let i = -2; i <= 2; i++) g.r(Math.round(x + i * 3.5), Math.round(y - 8), 1, 15, '#22262e'); });
+    const fur = up([0, -24, 18]), fc0 = up([0, -24, 0]), FC = p2 ? '#ff3a2a' : '#ff8a2a';
+    if (dp(fur) > dp(fc0) + 2) piece(fur, -0.2, (x, y) => {   // a grate set into the chest: narrows as it turns away
+      const w = clamp((dp(fur) - dp(fc0)) / 18, 0, 1), hw = Math.max(2, Math.round(9 * w)), sh = Math.round((pr(fc0)[0] - x) * 0.25);
+      g.r(Math.round(x - hw + sh), Math.round(y - 8), hw * 2, 15, '#1a0c06'); g.r(Math.round(x - hw + 2 + sh), Math.round(y - 6), Math.max(1, hw * 2 - 4), 11, FC); if (hw > 5) g.r(Math.round(x - hw * 0.45 + sh), Math.round(y - 3), Math.round(hw * 0.9), 6, '#ffe08a');
+      for (let i = -2; i <= 2; i++) g.r(Math.round(x + i * 3.5 * w + sh), Math.round(y - 8), 1, 15, '#22262e'); });
     // arms; the fists fly in the rocket punch (stumps left with exhaust flames)
     for (const [s, hv] of [[1, P.hR], [-1, P.hL]]) {
       const sh = up([s * 27, -38, 0]), [el, h] = ik(sh, V.add(sh, hv), 17, 17, [s * 0.5, 0.5, -0.6]);
@@ -1447,7 +1484,7 @@ const BEAST3 = (() => {
     staffHead(st, sd, P, p2, T) { piece(st, 0.8, (x, y) => { g.ell(x, y, 5, 3, '#f2c14e'); for (const m of [-1, 1]) g.line(x + m * 4, y, x + m * 5, y - 6, 1.6, '#f2c14e'); g.ell(x, y - 6, 4.4, 4.4, p2 ? '#ff3a3a' : '#c04cff'); const h = 6 + Math.sin(T * 14) * 2; g.poly([[x - 3, y - 7], [x, y - 7 - h], [x + 3, y - 7]], p2 ? '#ffb040' : '#e090ff'); }); },
     extra(B, P, T, p2, up, chest) {
       const top = up([0, -16, -7]), bot = V.add([P.sway * 1.4, -2, -14 - P.lean * 10], [0, 0, 0]);
-      op(dp(V.mix(top, bot, 0.5)) - 0.2, () => {   // the cape: dark outside, red lining showing at its edges
+      op(VIEW === 'b' ? 0.55 : -20, () => {   // the cape (behind the robe, or over it seen from behind): dark outside, red lining showing at its edges
         const a = pr(top), b = pr(bot), back = VIEW === 'b';
         g.poly([[a[0] - 16, a[1]], [a[0] + 16, a[1]], [b[0] + 31, b[1]], [b[0] - 31, b[1]]], back ? '#1a1024' : '#8a0a1e');
         if (back) { g.poly([[a[0] - 15, a[1]], [a[0] + 15, a[1]], [b[0] + 29, b[1] - 1], [b[0] - 29, b[1] - 1]], '#241632'); for (const f of [-0.4, 0, 0.4]) g.line(a[0] + 15 * f, a[1] + 2, b[0] + 29 * f, b[1], 1, '#120a1a'); }
@@ -1481,7 +1518,7 @@ const BEAST3 = (() => {
   let ANCHS = [], MOUTHS = [];   // MOUTHS: model points where breath / shots come out (one per head)   // model points the swinging limbs grow from (set by the builds)
   function limbTube(gc, pts, rs, C, opt) {   // pts in art px
     U.tube(gc, pts.map((p, i) => [p[0], p[1], rs[i] + 1]), { d: OUTL, m: OUTL, h: OUTL });
-    U.tube(gc, pts.map((p, i) => [p[0], p[1], rs[i]]), C, opt || {});
+    mtube(gc, pts.map((p, i) => [p[0], p[1], rs[i]]), C, opt || {});
   }
   // what swings in each sweep: from = anchor index (else the sweep centre), rise = how high it rears in the telegraph
   const LIMB = {
@@ -1597,6 +1634,26 @@ const BEAST3 = (() => {
     PSI = st.psi; const f = face4(PSI); VIEW = f === 'l' || f === 'r' ? 's' : f; DIRX = Math.cos(PSI) >= 0 ? 1 : -1;
     return f;
   }
+  const PAL = {};
+  const hexRGB = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  function snapColours(type) {
+    const st = PAL[type] || (PAL[type] = { cols: new Set(), list: [], map: new Map() });
+    for (const c of USED) if (c.length === 7 && !st.cols.has(c)) { st.cols.add(c); st.list.push(hexRGB(c)); st.map.clear(); }
+    USED.clear();
+    const img = cx.getImageData(0, 0, CW, CH), a = img.data, L = st.list, M = st.map;
+    for (let i = 0; i < a.length; i += 4) {
+      if (!a[i + 3]) continue;
+      const key = (a[i] << 16) | (a[i + 1] << 8) | a[i + 2];
+      let v = M.get(key);
+      if (v === undefined) {
+        let best = -1, bd = 2200;   // only near misses are snapped: glows and blends far from every colour stay as they are
+        for (let k = 0; k < L.length; k++) { const q = L[k], d = (a[i] - q[0]) ** 2 + (a[i + 1] - q[1]) ** 2 + (a[i + 2] - q[2]) ** 2; if (d < bd) { bd = d; best = k; } }
+        v = best < 0 ? key : (L[best][0] << 16) | (L[best][1] << 8) | L[best][2]; M.set(key, v);
+      }
+      a[i] = v >> 16; a[i + 1] = (v >> 8) & 255; a[i + 2] = v & 255;
+    }
+    cx.putImageData(img, 0, 0);
+  }
   function draw(ctx, B, x, yFeet, hurt, E) {
     const R = RIGS[B.type]; if (!R) return false;
     E = Object.assign({}, E); E.look = Math.atan2(E.hero.y - B.y, E.hero.x - B.x);
@@ -1609,6 +1666,7 @@ const BEAST3 = (() => {
     for (const o of OPS) o[1]();
     cx.setTransform(1, 0, 0, 1, 0, 0);
     U.pixelize(cv, '#120a14');
+    snapColours(B.type);
     let src = cv;
     if (hurt) {
       fx.clearRect(0, 0, CW, CH); fx.drawImage(cv, 0, 0);
