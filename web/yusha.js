@@ -2750,7 +2750,7 @@
         break;
       }
       case 'sweep':   // club / sword swung all the way round
-        if (!mv.n) { mv.n = 1; addSweep(B, { ang: ang + Math.PI * 0.75, vel: (Math.random() < 0.5 ? 1 : -1) * 2.5, len: 170, w: 13, left: Math.PI * 1.7, col: B.wcol || '#c99a5a', kind: 'club' }); }
+        if (!mv.n) { mv.n = 1; addSweep(B, { ang: ang + Math.PI * 0.75, vel: (Math.random() < 0.5 ? 1 : -1) * 2.5, len: 170, w: 13, left: Math.PI * 1.7, col: B.wcol || '#c99a5a', kind: 'club', own: B.type === 'cyclops' }); }
         if (mv.t > 2.6) done(1.1);
         break;
       case 'tentacles': {   // kraken: four tentacles swing round together
@@ -3569,11 +3569,78 @@
         continue;
       }
       for (let k = 1; k <= 4; k++) { const a = s.ang - Math.sign(s.vel) * k * 0.09; ctx.strokeStyle = hexA(s.col, 0.18 / k * 2); ctx.lineWidth = s.w * 2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * s.len, y - Math.sin(a) * s.len); ctx.stroke(); }
+      if (s.own) continue;   // the boss swings its own club (drawn with the body); only the blur trail above
       ctx.strokeStyle = s.col; ctx.lineWidth = s.w * (s.kind === 'club' || s.kind === 'tail' ? 2 : 1.2); ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(x + Math.cos(s.ang) * r * 0.6, y - Math.sin(s.ang) * r * 0.6); ctx.lineTo(ex, ey); ctx.stroke(); ctx.lineCap = 'butt';
       if (s.kind === 'scythe') { ctx.strokeStyle = s.col; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(ex, ey, 22, -s.ang - Math.sign(s.vel) * 0.2, -s.ang + Math.sign(s.vel) * 2.2, s.vel > 0); ctx.stroke(); }
       if (s.kind === 'club') { ctx.fillStyle = '#8a5a2a'; ctx.beginPath(); ctx.arc(ex, ey, 16, 0, 7); ctx.fill(); }
     }
+  }
+  // ---- cyclops: drawn from parts, both arms really swing the club. Poses are keyframes timed to each attack ----
+  const CYP = {   // ht/hr: right hand (angle, distance from the shoulder); ca: club angle; la/lr: left hand; lean/cr: body shift/crouch
+    rest: { ht: 1.2, hr: 28, ca: -1.75, la: 1.75, lr: 28, lean: 0, cr: 0 },       // club resting up against the shoulder
+    up: { ht: -1.6, hr: 32, ca: -2.6, la: -2.3, lr: 30, lean: -2, cr: -2 },       // wound up high, club back over the head
+    slam: { ht: 1.0, hr: 32, ca: 1.25, la: 2.5, lr: 30, lean: 3, cr: 6 },         // smashed into the ground in front
+    low: { ht: 1.9, hr: 30, ca: 2.6, la: -2.6, lr: 30, lean: 4, cr: 4 },          // scooped low and back
+    hi: { ht: -0.6, hr: 32, ca: -1.1, la: 2.3, lr: 30, lean: -4, cr: -1 },        // flung up and forward
+    sideB: { ht: -0.4, hr: 32, ca: -0.2, la: 2.9, lr: 30, lean: 4, cr: 1 },       // cocked out to the right
+    sideF: { ht: 2.0, hr: 30, ca: 3.0, la: 1.3, lr: 28, lean: -4, cr: 2 },        // swung across to the left
+    ready: { ht: -1.0, hr: 30, ca: -1.4, la: 2.0, lr: 28, lean: 0, cr: 2 },       // held up, about to charge
+  };
+  const easeIO = k => k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2, easeIn = k => k * k * k;
+  function cyKeys(keys, t) {   // keys: [time, pose, 'in' = a strike (accelerates into the hit)]
+    if (t <= keys[0][0]) return CYP[keys[0][1]];
+    for (let i = 1; i < keys.length; i++) {
+      const [t1, n1, e] = keys[i]; if (t > t1) continue;
+      const [t0, n0] = keys[i - 1], a = CYP[n0], b = CYP[n1], k0 = (t - t0) / Math.max(0.001, t1 - t0), k = e === 'in' ? easeIn(k0) : easeIO(k0);
+      return { ht: lerp(a.ht, b.ht, k), hr: lerp(a.hr, b.hr, k), ca: lerp(a.ca, b.ca, k), la: lerp(a.la, b.la, k), lr: lerp(a.lr, b.lr, k), lean: lerp(a.lean, b.lean, k), cr: lerp(a.cr, b.cr, k) };
+    }
+    return CYP[keys[keys.length - 1][1]];
+  }
+  function cyPose(B) {
+    const mv = B.mv, n = mv ? mv.name : '', t = mv ? mv.t : 0, p2 = B.phase === 2;
+    if (n === 'sweep' && B.sweeps.length) { const sw = B.sweeps[0], sa = -sw.ang; return { ht: sa, hr: 32, ca: sa, la: sa + Math.PI, lr: 28, lean: Math.cos(sa) * 4, cr: 3, sweep: sw }; }
+    if (n === 'quake') return cyKeys([[0, 'rest'], [0.33, 'up'], [0.45, 'slam', 'in'], [0.6, 'slam'], [0.88, 'up'], [1.0, 'slam', 'in'], [1.15, 'slam'], [1.43, 'up'], [1.55, 'slam', 'in'], [1.85, 'slam'], [2.3, 'rest']], t);
+    if (n === 'rocks') return cyKeys([[0, 'rest'], [0.3, 'low'], [0.45, 'hi', 'in'], [0.75, 'low'], [0.9, 'hi', 'in'], [1.2, 'low'], [1.35, 'hi', 'in'], [1.75, 'rest']], t);
+    if (n === 'boulders') { const K2 = [[0, 'rest']], c = p2 ? 3 : 2; for (let i = 0; i < c; i++) { const T = 0.6 + i * 0.5; K2.push([T - 0.22, 'sideB'], [T, 'sideF', 'in']); } K2.push([0.6 + c * 0.5 + 0.3, 'rest']); return cyKeys(K2, t); }
+    if (n === 'charge' || n === 'dash3') return cyKeys([[0, 'rest'], [0.35, 'ready']], t);
+    if (n === 'jump') {
+      if (mv.n === 0) return cyKeys([[0, 'rest'], [0.3, 'up']], t);
+      if (mv.n === 1) return cyKeys([[0, 'up'], [0.3, 'slam', 'in']], t - mv.t1);
+      return cyKeys([[0, 'slam'], [0.35, 'slam'], [0.8, 'rest']], t - mv.t1 - 0.3);
+    }
+    const b = Math.sin(globalT * 2.2);   // idle: the club rocks a little on the shoulder
+    return Object.assign({}, CYP.rest, { ht: CYP.rest.ht + b * 0.05, ca: CYP.rest.ca + b * 0.07, la: CYP.rest.la - b * 0.06 });
+  }
+  function drawCyclops(B, x, yFeet, yMid, fl) {
+    const K = SPR.SCALE, p = cyPose(B), p2 = B.phase === 2 ? 1 : 0, mn = B.mv ? B.mv.name : '';
+    const act = /laser/.test(mn) && B.mv.t < 1.4 ? 1 : 0, bob = !B.mv && Math.sin(globalT * 2.2) > 0.4 ? 1 : 0;
+    const ox = x + p.lean * K, oy = yFeet + p.cr * K * 0.6;
+    const sR = [ox + 24 * K, oy - (63 - bob) * K], sL = [ox - 26 * K, oy - (63 - bob) * K];
+    const hand = [sR[0] + Math.cos(p.ht) * p.hr * K, sR[1] + Math.sin(p.ht) * p.hr * K];
+    const lhand = [sL[0] + Math.cos(p.la) * p.lr * K, sL[1] + Math.sin(p.la) * p.lr * K];   // the free hand swings the other way for balance
+    const L1 = 18 * K, L2 = 16 * K;
+    const arm = (sh, hd, outSide) => {   // two-bone arm; the elbow bends away from the body
+      const dx = hd[0] - sh[0], dy = hd[1] - sh[1], d = Math.min(Math.hypot(dx, dy) || 1, L1 + L2 - 0.5), a = Math.atan2(dy, dx);
+      const off = Math.acos(clamp((L1 * L1 + d * d - L2 * L2) / (2 * L1 * d), -1, 1));
+      const ea1 = a + off, ea2 = a - off, e1x = sh[0] + Math.cos(ea1) * L1, e2x = sh[0] + Math.cos(ea2) * L1;
+      const ea = (outSide > 0 ? e1x > e2x : e1x < e2x) ? ea1 : ea2, ex = sh[0] + Math.cos(ea) * L1, ey = sh[1] + Math.sin(ea) * L1;
+      pd(P_('cy_upper', {}, fl), sh[0], sh[1], ea);
+      pd(P_('cy_fore', {}, fl), ex, ey, Math.atan2(hd[1] - ey, hd[0] - ex), Math.max(0.6, Math.hypot(hd[0] - ex, hd[1] - ey) / L2), 1);
+    };
+    // the club: in a sweep it reaches all the way out (the swing's hit area); fast swings leave two ghost clubs behind
+    let sc = 1; if (p.sweep && p.sweep.t >= p.sweep.tele) sc = Math.max(1, (p.sweep.len - Math.hypot(hand[0] - x, hand[1] - yMid)) / (48 * K));
+    const ghosts = B.cyG || (B.cyG = []);
+    const club = () => {
+      for (let i = 0; i < ghosts.length; i++) { const g0 = ghosts[i]; if (Math.abs(g0[2] - p.ca) > 0.18) pd(P_('cy_club', {}, false), g0[0], g0[1], g0[2], g0[3], 1, 0.22 / (i + 1)); }
+      pd(P_('cy_club', {}, fl), hand[0], hand[1], p.ca, sc, sc > 1 ? 1.2 : 1);
+    };
+    const fists = () => { pd(P_('cy_fist', {}, fl), hand[0], hand[1]); pd(P_('cy_fist', {}, fl), lhand[0], lhand[1]); };
+    pd(P_('cy_legs', { w: p.cr > 3 ? 1 : 0 }, fl), x, yFeet);
+    const torso = () => pd(P_('cy_torso', { k: bob, act, p2 }, fl), ox, oy);
+    if (hand[1] < sR[1] - 12 * K) { club(); arm(sR, hand, 1); pd(P_('cy_fist', {}, fl), hand[0], hand[1]); torso(); arm(sL, lhand, -1); pd(P_('cy_fist', {}, fl), lhand[0], lhand[1]); }   // club up behind the head
+    else { torso(); arm(sL, lhand, -1); arm(sR, hand, 1); club(); fists(); }
+    ghosts.unshift([hand[0], hand[1], p.ca, sc]); if (ghosts.length > 2) ghosts.length = 2;
   }
   function drawBoss() {
     const B = boss; if (!B) return;
@@ -3602,7 +3669,7 @@
     const spr = SPR.boss(B.type, { f: Math.floor(globalT * (B.type === 'thunderbird' ? 8 : 4)), act: B.mv && B.mv.t < 0.7 ? 1 : 0, p2: B.phase === 2, look: lk, air: (B.z || 0) > 0.05, flash: hurt });
     for (const d of B.decoys || []) SPR.draw(ctx, spr, d.x, sy(d.y) + r * 0.7 - hov, 0.92);   // illusions (no shadow)
     if (B.regen) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(120,255,100,${0.18 + 0.12 * Math.sin(globalT * 9)})`; ctx.beginPath(); ctx.arc(x, y, r * 1.5, 0, 7); ctx.fill(); ctx.restore(); }
-    SPR.draw(ctx, spr, x, by + r * 0.7 - z - hov);
+    if (B.type === 'cyclops') drawCyclops(B, x, by + r * 0.7 - z, y, hurt); else SPR.draw(ctx, spr, x, by + r * 0.7 - z - hov);
     if (B.type === 'thunderbird' && Math.sin(globalT * 13) > 0.6) { ctx.strokeStyle = '#fff6a0'; ctx.lineWidth = 2; ctx.beginPath(); let px = x + rnd(-r, r), py = y - r * 1.2; ctx.moveTo(px, py); for (let k = 0; k < 4; k++) { px += rnd(-12, 12); py += 12; ctx.lineTo(px, py); } ctx.stroke(); }
     ctx.restore();
   }

@@ -2610,6 +2610,51 @@ const SPR = (() => {
   //  so the motion is smooth while each part stays plain pixel art.
   // ---------------------------------------------------------------
   const PARTS = {
+    // ===== cyclops, in parts so the arms can really swing the club (指示: 腕を振って武器を振る) =====
+    cy_legs(P) {
+      const w = P.w || 0, p2 = P.p2 ? 1 : 0;
+      return mk('cyl' + w + p2, 120, 124, 60, 120, g => {
+        const S = { d: '#8a5a32', m: '#c8945e', h: '#f0c890' }, F = { d: '#3a2410', m: '#6a4a2a', h: '#9a7448' };
+        const sp = w ? 6 : 0, kn = w ? 4 : 0;
+        tube(g, [[46, 86, 9], [44 - sp * 0.6, 100 + kn * 0.5, 8], [44 - sp, 112, 7.5]], S); tube(g, [[72, 86, 9], [74 + sp * 0.6, 100 + kn * 0.5, 8], [74 + sp, 112, 7.5]], S);
+        for (const x of [44 - sp, 74 + sp]) { g.ell(x, 116, 11, 5, F.d); g.ell(x - 1, 115, 9, 3.5, F.m); for (let i = -8; i <= 8; i += 3) g.p(x + i, 119, F.d); }
+      }, '#2a1408');
+    },
+    cy_torso(P) {
+      const k = P.k || 0, act = P.act ? 1 : 0, p2 = P.p2 ? 1 : 0;
+      return mk('cyt' + k + act + p2, 120, 124, 60, 120, g => {
+        const S = { d: '#8a5a32', m: '#c8945e', h: '#f0c890' }, F = { d: '#3a2410', m: '#6a4a2a', h: '#9a7448' };
+        const E = p2 ? '#ff3a2a' : '#ffe14a', b = k;
+        blob(g, 60, 68 + b, 30, 26, S);
+        blob(g, 50, 58 + b, 11, 8, S); blob(g, 70, 58 + b, 11, 8, S);
+        g.ell(61, 80 + b, 15, 10, S.m); for (const [x, y] of [[55, 75], [64, 75], [55, 82], [64, 82]]) { g.r(x, y + b, 4, 1, S.d); g.r(x, y - 1 + b, 4, 1, S.h); }
+        g.r(59, 62 + b, 1, 22, S.d);
+        g.poly([[32, 86], [88, 86], [92, 98], [84, 95], [80, 104], [72, 97], [66, 106], [58, 98], [52, 106], [46, 97], [38, 104], [34, 95], [28, 98]], F.m);
+        for (let x = 34; x < 88; x += 4) g.line(x, 89, x + 1, 96 + (x % 8 ? 2 : 0), 1, F.d);
+        g.r(32, 85, 56, 3, F.d); g.r(34, 85, 52, 1, F.h);
+        for (const x of [34, 84]) blob(g, x, 57 + b, 10, 9, S);   // shoulders (the arms hang from here)
+        blob(g, 60, 34 + b, 19, 17, S);
+        for (const m of [-1, 1]) blob(g, 60 + m * 18, 36 + b, 3.5, 4.5, S, 0);
+        g.poly([[42, 24 + b], [48, 12 + b], [54, 18 + b], [60, 10 + b], [66, 18 + b], [72, 12 + b], [78, 24 + b], [60, 20 + b]], F.m); g.poly([[48, 14 + b], [54, 18 + b], [60, 12 + b], [60, 20 + b]], F.h);
+        spike(g, 60, 16 + b, -Math.PI / 2, 10, 3, { d: '#a89a70', m: '#e8dcc0', h: '#ffffff' });
+        g.ell(60, 31 + b, 10, 8.5, S.d); g.ell(60, 31 + b, 9, 7.5, '#ffffff'); g.ell(60, 31 + b, 5.5, 5.5, E); g.ell(60, 31 + b, 2.2, 3.5, '#1a0a04'); g.p(57, 28 + b, '#ffffff'); g.p(58, 28 + b, '#ffffff');
+        if (act) { g.ell(60, 31 + b, 7, 7, E); g.ell(60, 31 + b, 3, 3, '#ffffff'); }
+        for (const [x1, y1, x2, y2] of [[52, 29, 55, 31], [67, 33, 64, 32], [54, 35, 56, 34]]) g.line(x1, y1 + b, x2, y2 + b, 1, '#e88080');
+        g.line(48, 22 + b, 72, 22 + b, 2.4, S.d); g.line(49, 21 + b, 71, 21 + b, 1, S.h);
+        g.ell(60, 45 + b, 10, 5, '#5a1a10'); for (const x of [55, 59, 63]) g.poly([[x - 1.5, 44 + b], [x, 41 + b], [x + 1.5, 44 + b]], '#fff6e0'); g.poly([[50, 47 + b], [52, 42 + b], [54, 47 + b]], '#fff6e0'); g.poly([[66, 47 + b], [68, 42 + b], [70, 47 + b]], '#fff6e0');
+      }, '#2a1408');
+    },
+    cy_upper() { return mk('cyu', 32, 22, 5, 11, g => tube(g, [[5, 11, 8.5], [23, 11, 7.5]], { d: '#8a5a32', m: '#c8945e', h: '#f0c890' }), '#2a1408'); },
+    cy_fore() { return mk('cyf', 30, 20, 5, 10, g => tube(g, [[5, 10, 7.5], [21, 10, 6.5]], { d: '#8a5a32', m: '#c8945e', h: '#f0c890' }), '#2a1408'); },
+    cy_fist() { return mk('cyh', 18, 16, 9, 8, g => blob(g, 9, 8, 7, 6.5, { d: '#8a5a32', m: '#c8945e', h: '#f0c890' }), '#2a1408'); },
+    cy_club() {   // grip at the anchor, pointing +x
+      return mk('cyc_club', 56, 28, 7, 14, g => {
+        const W = { d: '#5a3818', m: '#8a5a2a', h: '#b88a50' };
+        tube(g, [[3, 14, 3.5], [26, 14, 5.5], [44, 14, 10]], W);
+        for (const a of [0.3, 1.6, 2.9, 4.2, 5.4, -1.2]) { const nx = 45 + Math.cos(a) * 10, ny = 14 + Math.sin(a) * 10; g.r(Math.round(nx) - 1, Math.round(ny) - 1, 3, 3, '#c8ccd4'); g.p(Math.round(nx) - 1, Math.round(ny) - 1, '#ffffff'); }
+        g.r(6, 12, 2, 5, '#3a2410'); g.r(10, 12, 2, 5, '#3a2410');   // grip wraps
+      }, '#2a1408');
+    },
     // ===== sandworm (seen along its body: a round maw, armoured rings) =====
     sw_head(P) {
       const o = P.open || 0, p2 = P.p2 ? 1 : 0;
