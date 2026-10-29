@@ -2922,6 +2922,38 @@ const SPR = (() => {
       }
     }, '#140c1c');
   }
+  // item icons (18 x 18) for the item shop, the じゅんび slots and the bag tray
+  function itemIcon(id) {
+    return mk('icon_' + id, 18, 18, 9, 9, g => {
+      const flask = (L, big, tall) => {   // a round flask: cork, neck, glass body with liquid and a highlight
+        const cy = big ? 11 : 12, r = big ? 6 : 5;
+        g.r(7, tall ? 1 : 2, 4, 2, '#a0703a'); g.r(7, tall ? 1 : 2, 4, 1, '#d0a060');   // cork
+        g.r(7, tall ? 3 : 4, 4, tall ? 4 : 3, '#d8e8f0');                                   // neck
+        if (tall) { g.r(4, 7, 10, 10, '#d8e8f0'); g.r(5, 9, 8, 7, L.m); g.r(5, 9, 8, 2, L.h); g.r(11, 9, 2, 7, L.d); }
+        else { g.ell(9, cy, r + 0.6, r + 0.6, '#d8e8f0'); g.ell(9, cy + 0.5, r - 0.4, r - 0.8, L.m); g.ell(9, cy - r * 0.35, r - 0.8, 1.4, L.h); g.ell(10.5, cy + 1.5, r * 0.45, r * 0.5, L.d); }
+        g.r(5, tall ? 9 : cy - 2, 1, 3, '#ffffff');
+      };
+      if (id === 'herb') {
+        g.line(9, 16, 9, 8, 1.4, '#3a7a2a');
+        g.poly([[9, 9], [3, 6], [2, 2], [7, 3]], '#4aa83a'); g.poly([[9, 9], [4, 5], [7, 3]], '#7ad85a');
+        g.poly([[9, 11], [15, 7], [16, 3], [11, 5]], '#4aa83a'); g.poly([[9, 11], [14, 6], [11, 5]], '#7ad85a');
+        g.poly([[9, 13], [5, 12], [4, 15], [8, 15]], '#3a8a2a');
+      } else if (id === 'potion') flask({ d: '#8a1a1a', m: '#e5483c', h: '#ff9a8a' });
+      else if (id === 'hipotion') { flask({ d: '#1a4a9a', m: '#4a8ae8', h: '#a8d0ff' }); g.p(14, 3, '#ffffff'); g.p(13, 3, '#a8d0ff'); g.p(15, 3, '#a8d0ff'); g.p(14, 2, '#a8d0ff'); g.p(14, 4, '#a8d0ff'); }
+      else if (id === 'megapotion') { flask({ d: '#4a1a8a', m: '#9a50f0', h: '#d8b0ff' }, true); g.r(8, 10, 2, 4, '#ffffff'); g.r(7, 11, 4, 2, '#ffffff'); }
+      else if (id === 'lifewater') { flask({ d: '#147a8a', m: '#3ac8e0', h: '#b0f4ff' }, false, true); g.poly([[9, 10], [7, 13], [9, 15], [11, 13]], '#ffffff'); }
+      else if (id === 'lifedrop') {   // a big shining droplet
+        g.poly([[9, 1], [4, 9], [4, 12], [6, 15], [12, 15], [14, 12], [14, 9]], '#2a8a3a'); g.poly([[9, 3], [5, 10], [5, 12], [7, 14], [11, 14], [13, 12], [13, 10]], '#5ad86a');
+        g.r(6, 9, 2, 3, '#d8ffd8'); g.p(7, 8, '#ffffff'); g.ell(11, 12, 1.4, 1.2, '#2a9a3a');
+      } else if (id === 'elixir') {   // a gold-capped bottle with golden liquid and sparkles
+        g.poly([[6, 1], [12, 1], [11, 4], [7, 4]], '#c8901a'); g.r(7, 1, 4, 1, '#ffe080');
+        g.r(7, 4, 4, 2, '#e8f0f8'); g.poly([[5, 6], [13, 6], [15, 10], [13, 17], [5, 17], [3, 10]], '#e8f0f8');
+        g.poly([[5, 8], [13, 8], [14, 10], [12, 16], [6, 16], [4, 10]], '#f2c14e'); g.poly([[6, 8], [12, 8], [12, 10], [6, 10]], '#fff2a0'); g.r(11, 11, 2, 4, '#c8901a');
+        g.p(1, 3, '#ffffff'); g.p(16, 6, '#ffffff'); g.p(2, 14, '#fff2a0');
+      } else if (id === 'power') { flask({ d: '#a03a10', m: '#ff7a2a', h: '#ffc080' }); g.r(9, 7, 1, 6, '#ffffff'); g.p(9, 6, '#ffffff'); g.r(7, 12, 5, 1, '#ffe080'); g.r(9, 13, 1, 2, '#6a3a10'); }   // a little sword
+      else if (id === 'guard') { flask({ d: '#1a3a7a', m: '#4a7ad8', h: '#a8c0ff' }); g.poly([[6, 9], [12, 9], [12, 12], [9, 15], [6, 12]], '#e8ecf4'); g.r(9, 9, 1, 6, '#a8b4c8'); }
+    }, '#1a1420');
+  }
   // draw a sprite with its feet at (x, y) in logical px
   function draw(ctx, s, x, y, alpha) {
     if (!s) return;
@@ -3312,5 +3344,5 @@ const SPR = (() => {
   };
   function x0ring(g) { g.x.strokeStyle = '#e8f0ff'; g.x.lineWidth = 1; g.x.beginPath(); g.x.arc(8, 8, 4, 0, 7); g.x.stroke(); }
 
-  return { SCALE, shadeOf, stoneOf, part, relic, hero: heroS, enemy, boss, draw, skeletonParts, ENV, floorTile, wallTile, dither, tileCanvas, shade: sh, seeded, cacheSize: () => cache.size, types: () => ({ enemies: Object.keys(EN), bosses: Object.keys(BOSS) }) };
+  return { SCALE, shadeOf, stoneOf, part, relic, itemIcon, hero: heroS, enemy, boss, draw, skeletonParts, ENV, floorTile, wallTile, dither, tileCanvas, shade: sh, seeded, cacheSize: () => cache.size, types: () => ({ enemies: Object.keys(EN), bosses: Object.keys(BOSS) }) };
 })();

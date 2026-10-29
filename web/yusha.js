@@ -500,7 +500,7 @@
   // ---------------------------------------------------------------
   //  SAVE
   // ---------------------------------------------------------------
-  const DEF_SAVE = () => ({ v: 1, lv: 1, exp: 0, gold: 40, hp: null, items: { herb: 5, potion: 0, hipotion: 0, megapotion: 0, lifewater: 0, lifedrop: 0, elixir: 0, power: 0, guard: 0 }, loadout: null,
+  const DEF_SAVE = () => ({ v: 1, lv: 1, exp: 0, gold: 40, hp: null, items: { herb: 5, potion: 0, hipotion: 0, megapotion: 0, lifewater: 0, lifedrop: 0, elixir: 0, power: 0, guard: 0 }, loadout: null, slots: null,
     eq: { weapon: 'w0', armor: 'a0', boots: 'b0', charm: null }, owned: ['w0', 'a0', 'b0'], cleared: Array(35).fill(false), layout10: true, layout15: true, layout25: true,
     kills: 0, skills: [], skill: null, settings: { bgm: 0.8, sfx: 0.8, fps: 0, pad: 1 } });
   let save = DEF_SAVE();
@@ -869,7 +869,7 @@
   // ---------------------------------------------------------------
   function enterDungeon(di) {
     closePanel(); deathT = 0;
-    bag = fillBag(save.loadout || autoLoadout());
+    bag = fillBag(Array.isArray(save.slots) ? slotsLoadout(getSlots()) : save.loadout || autoLoadout());
     genDungeon(di);
     hero = newHero(W / 2, 70);
     camY = hero.y; boss = null; arena = null; zones = []; freezeT = 0; darkT = 0; shades = []; twisters = []; combo = 0; runExp = 0; runGold = 0; runKills = 0; runLoot = []; toasts = [];
@@ -4207,7 +4207,7 @@
     const ids = Object.keys(ITEMS).filter(id => id in bag);
     $('tray').innerHTML = (ids.length ? '' : `<p style="padding:6px 8px;font-size:13px;color:var(--muted)">どうぐを もってきていない</p>`) + ids.map(id => {
       const I = ITEMS[id], n = bag[id] || 0, eff = I.buff ? (I.buff === 'atk' ? 'こうげき×1.5' : 'ダメージ半分') : `+${Math.min(healOf(id, s.maxHp, s.fx), s.maxHp)}`;
-      return `<button data-use="${id}" ${n ? '' : 'disabled'}><span>${I.name}</span><span class="tn">${eff}</span><b>×${n}</b></button>`;
+      return `<button data-use="${id}" ${n ? '' : 'disabled'} class="trow">${icon(id, 30)}<span>${I.name}</span><span class="tn">${eff}</span><b>×${n}</b></button>`;
     }).join('') + `<button data-use="" class="tclose">とじる</button>`;
     $('tray').hidden = false;
     $('tray').querySelectorAll('[data-use]').forEach(b => b.addEventListener('click', ev => { ev.stopPropagation(); const id = b.dataset.use; closeTray(); if (id) useItem(id); }));
@@ -4293,7 +4293,7 @@
           const n = save.items[id] || 0;
           if (!itemOpen(id) && !n) return `<div class="row lock"><span class="nm">？？？</span><span class="sub">${it.unlock}ばんめの ダンジョンを せいはすると ならぶ</span></div>`;
           const can = k => itemOpen(id) && save.gold >= it.price * k && n + k <= ITEM_MAX;
-          return `<div class="row"><span class="nm">${it.name} <span style="color:var(--muted);font-size:13px">×${n}</span></span>
+          return `<div class="row"><span class="nm">${icon(id, 28)} ${it.name} <span style="color:var(--muted);font-size:13px">×${n}</span></span>
           <span class="sub">${it.note}・もちこみ ${it.carry}こまで（いえに ${ITEM_MAX}こまで）</span>
           <span class="act"><span class="price">${it.price} G</span><span style="display:flex;gap:4px"><button class="sbtn" data-buy="${id}" data-k="1" ${can(1) ? '' : 'disabled'}>かう</button><button class="sbtn" data-buy="${id}" data-k="10" ${can(10) ? '' : 'disabled'}>×10</button></span></span></div>`;
         }).join(''),
@@ -4354,29 +4354,55 @@
     render2();
   }
 
-  // 準備: choose up to 3 kinds of item and how many of each to take. The last choice is remembered and refilled from your stock.
+  // 準備: three slots, top to bottom. Tap a slot to pick its item from a list; the count sits beside the slot (− / ＋).
+  // The slots are remembered and refilled from your stock at home every time.
+  const iconCache = {};
+  const icon = (id, sz = 32) => `<img class="ico" src="${iconCache[id] || (iconCache[id] = SPR.itemIcon(id).c.toDataURL())}" width="${sz}" height="${sz}" alt="">`;
+  const effOf = (id, mh) => { const I = ITEMS[id]; return I.buff ? (I.buff === 'atk' ? '20びょう こうげき×1.5' : '20びょう ダメージはんぶん') : I.pct ? `HP ${Math.round(I.pct * 100)}%（+${Math.round(mh * I.pct)}）` : `HP +${I.heal}`; };
+  function getSlots() {
+    if (!Array.isArray(save.slots)) { const lo = save.loadout || autoLoadout(); save.slots = Object.keys(lo).slice(0, BAG_KINDS).map(id => ({ id, n: lo[id] })); }
+    const sl = save.slots.slice(0, BAG_KINDS).map(x => x && ITEMS[x.id] ? x : null); while (sl.length < BAG_KINDS) sl.push(null);
+    return sl;
+  }
+  const slotsLoadout = sl => { const lo = {}; for (const x of sl) if (x && x.n > 0) lo[x.id] = x.n; return lo; };
   function openPrep(di) {
-    const d = DUNGEONS[di], want = Object.assign({}, save.loadout || autoLoadout());
-    const mh = stats().maxHp;
-    const draw = () => {
-      const kinds = Object.keys(want).filter(k => want[k] > 0 && ITEMS[k]);
-      const rows = Object.entries(ITEMS).filter(([id]) => itemOpen(id) || (save.items[id] || 0) > 0 || want[id] > 0).sort((a, b) => (want[b[0]] > 0) - (want[a[0]] > 0)).map(([id, I]) => {
-        const have = save.items[id] || 0, w = Math.min(want[id] || 0, I.carry), n = Math.min(w, have), on = w > 0;
-        const eff = I.buff ? (I.buff === 'atk' ? 'こうげき×1.5' : 'ダメージ半分') : `+${Math.min(healOf(id, mh), mh)}`;
-        const full = !on && kinds.length >= BAG_KINDS;
-        return `<div class="row" style="${on ? 'background:rgba(111,211,138,.12);border-radius:6px' : ''}"><span class="nm">${I.name} <span style="color:var(--muted);font-size:13px">${eff}</span></span>
-          <span class="sub">もちもの ×${have}・もちこみ ${I.carry}こまで${on && n < w ? ` <span class="hpc">（${w - n}こ たりない）</span>` : ''}</span>
-          <span class="act"><span style="display:flex;align-items:center;gap:6px"><button class="sbtn" data-m="${id}" ${w > 0 ? '' : 'disabled'}>−</button><b style="min-width:2.2em;text-align:center;font-weight:400;color:${on ? 'var(--ok)' : 'var(--muted)'}">${n}</b><button class="sbtn" data-p="${id}" ${w >= I.carry || w >= have || full ? 'disabled' : ''}>＋</button></span></span></div>`;
+    const d = DUNGEONS[di], mh = stats().maxHp, sl = getSlots().map(x => x && Object.assign({}, x));
+    const shown = x => Math.min(x.n, ITEMS[x.id].carry, save.items[x.id] || 0);
+    const go = () => { save.slots = sl; save.loadout = slotsLoadout(sl); persist(); transition = { t: 0, mid: 0.4, fn: () => enterDungeon(di) }; closePanel(); };
+    const keep = fn => () => { const sc = panelBody.scrollTop; fn(); panelBody.scrollTop = sc; };
+    const slotsView = () => {
+      const html = sl.map((x, i) => {
+        if (!x) return `<div class="slot"><button class="slotpick empty" data-pick="${i}"><span class="ico slotno">${i + 1}</span><span class="sn">＋ どうぐを えらぶ</span></button><div class="slotnum"></div></div>`;
+        const I = ITEMS[x.id], have = save.items[x.id] || 0, n = shown(x), w = Math.min(x.n, I.carry);
+        return `<div class="slot"><button class="slotpick" data-pick="${i}">${icon(x.id, 36)}<span class="sn">${I.name}<small>${effOf(x.id, mh)}<br>もちもの ×${have}・さいだい ${I.carry}こ${n < w ? ` <span class="hpc">${w - n}こ たりない</span>` : ''}</small></span></button>
+          <div class="slotnum"><button class="sbtn" data-m="${i}" ${n > 0 ? '' : 'disabled'}>−</button><b>${n}</b><button class="sbtn" data-p="${i}" ${n >= I.carry || n >= have ? 'disabled' : ''}>＋</button></div></div>`;
       }).join('');
-      openPanel(`じゅんび：${d.name}`, `<p style="font-size:14px;margin-bottom:2px">どうぐは <b class="gold">${BAG_KINDS}しゅるい</b>まで もっていける（いま ${kinds.length}しゅるい）。つかわなかった ぶんは いえに のこる。</p>
-        <p style="font-size:15px;margin:2px 0 4px;padding:6px 8px;border:1px dashed rgba(243,236,218,.35);border-radius:6px">もっていく：${kinds.length ? kinds.map(k => `<b class="gold" style="font-weight:400">${ITEMS[k].name}×${Math.min(want[k], ITEMS[k].carry, save.items[k] || 0)}</b>`).join('　') : '<span style="color:var(--muted)">なし</span>'}</p>
-        <p style="font-size:13px;color:var(--muted);margin-bottom:4px">さいだいHP ${mh}・つぎも おなじ くみあわせで、もちものから じどうで ほじゅうする</p>${rows}`,
-        [['しゅっぱつ', () => { const lo = {}; for (const k of kinds) lo[k] = want[k]; save.loadout = lo; persist(); transition = { t: 0, mid: 0.4, fn: () => enterDungeon(di) }; closePanel(); }, true], ['もどる', openGate]], 'gate');
-      const redraw = () => { const sc = panelBody.scrollTop; draw(); panelBody.scrollTop = sc; };
-      panelBody.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.p; want[id] = Math.min(ITEMS[id].carry, save.items[id] || 0, Math.min(want[id] || 0, save.items[id] || 0) + 1); A.sfx('select'); redraw(); }));
-      panelBody.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.m; want[id] = Math.max(0, Math.min(want[id] || 0, ITEMS[id].carry, save.items[id] || 0) - 1); A.sfx('select'); redraw(); }));
+      openPanel(`じゅんび：${d.name}`, `<p style="font-size:14px">どうぐを <b class="gold">${BAG_KINDS}つの スロット</b>に セットして もっていく。スロットを タップすると どうぐを えらべる。</p>
+        <div class="slots">${html}</div>
+        <p style="font-size:13px;color:var(--muted);margin-top:6px">さいだいHP ${mh}・つかわなかった ぶんは いえに のこる。つぎも おなじ セットを、もちものから じどうで ほじゅうする。</p>`,
+        [['しゅっぱつ', go, true], ['もどる', openGate]], 'gate');
+      panelBody.scrollTop = 0;
+      panelBody.querySelectorAll('[data-pick]').forEach(b => b.addEventListener('click', () => { A.sfx('select'); pickView(+b.dataset.pick); }));
+      panelBody.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', keep(() => { const x = sl[+b.dataset.p]; x.n = Math.min(ITEMS[x.id].carry, save.items[x.id] || 0, shown(x) + 1); A.sfx('select'); slotsView(); })));
+      panelBody.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', keep(() => { const x = sl[+b.dataset.m]; x.n = Math.max(0, shown(x) - 1); A.sfx('select'); slotsView(); })));
     };
-    draw();
+    const pickView = i => {   // the item list for slot i
+      const ids = Object.keys(ITEMS).filter(id => itemOpen(id) || (save.items[id] || 0) > 0);
+      const html = ids.map(id => {
+        const I = ITEMS[id], have = save.items[id] || 0, at = sl.findIndex(x => x && x.id === id);
+        return `<button class="pickrow" data-id="${id}" ${have ? '' : 'disabled'}>${icon(id, 36)}<span class="sn">${I.name}${at >= 0 ? `<span class="tag">スロット${at + 1}</span>` : ''}<small>${effOf(id, mh)}・もちもの ×${have}・さいだい ${I.carry}こ</small></span></button>`;
+      }).join('');
+      openPanel(`スロット${i + 1}に いれる どうぐ`, `<div class="picklist">${html}</div><p style="font-size:13px;color:var(--muted);margin-top:6px">もっていない どうぐは どうぐやで かえる。べつの スロットの どうぐを えらぶと いれかわる。</p>`,
+        [['もどる', slotsView, true], ['スロットを からにする', () => { sl[i] = null; slotsView(); }]], 'gate');
+      panelBody.scrollTop = 0;
+      panelBody.querySelectorAll('[data-id]').forEach(b => b.addEventListener('click', () => {
+        const id = b.dataset.id, at = sl.findIndex(x => x && x.id === id);
+        if (at >= 0 && at !== i) { const t = sl[i]; sl[i] = sl[at]; sl[at] = t; }   // already in another slot: swap
+        else if (at < 0) sl[i] = { id, n: Math.min(ITEMS[id].carry, save.items[id] || 0) };
+        A.sfx('select'); slotsView();
+      }));
+    };
+    slotsView();
   }
   function openGate() {
     const unlocked = i => i === 0 || save.cleared[i - 1];

@@ -47,6 +47,25 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .btn.primary { background: var(--frame); color: var(--window); }
 .btn:disabled { opacity: .4; cursor: default; }
 .optg { margin-top: 10px; font-size: 14px; }
+.ico { width: 32px; height: 32px; image-rendering: pixelated; image-rendering: crisp-edges; vertical-align: middle; flex: none; }
+.slots { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.slot { display: flex; align-items: stretch; gap: 6px; }
+.slotpick, .pickrow { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; text-align: left; padding: 8px 10px; border: 2px solid rgba(243,236,218,.45); border-radius: 8px; background: rgba(255,255,255,.05); font-size: 16px; }
+.slotpick:active, .pickrow:active { background: var(--window-hi); }
+.slotpick.empty { border-style: dashed; color: var(--muted); }
+.slotno { display: inline-grid; place-items: center; width: 36px; height: 36px; border-radius: 6px; background: rgba(255,255,255,.08); font-size: 18px; }
+.sn { display: flex; flex-direction: column; min-width: 0; }
+.sn small { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.sn .tag { margin-left: 6px; font-size: 11px; }
+.slotnum { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 56px; }
+.slotnum b { font-weight: 400; font-size: 20px; color: var(--ok); }
+.slotnum .sbtn { width: 48px; padding: 2px 0; }
+.picklist { display: flex; flex-direction: column; gap: 6px; }
+.pickrow:disabled { opacity: .35; }
+#tray button.trow { grid-template-columns: auto 1fr auto; column-gap: 8px; }
+#tray button.trow .ico { grid-row: 1 / span 2; width: 30px; height: 30px; }
+#tray button.trow b { grid-column: 3; grid-row: 1 / span 2; }
+#tray button.trow > span { grid-column: 2; }
 .optg .tabs { margin-top: 4px; }
 .optn { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
 .row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 10px; padding: 8px 6px; border-bottom: 1px dashed rgba(243,236,218,.22); }
