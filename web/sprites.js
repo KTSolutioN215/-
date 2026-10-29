@@ -2235,6 +2235,232 @@ const SPR = (() => {
   };
 
   // ---------------------------------------------------------------
+  //  RIGGED BOSSES (31-35): drawn as separate parts that the game moves, turns and squashes every frame,
+  //  so the motion is smooth while each part stays plain pixel art.
+  // ---------------------------------------------------------------
+  const PARTS = {
+    // ===== sandworm (seen along its body: a round maw, armoured rings) =====
+    sw_head(P) {
+      const o = P.open || 0, p2 = P.p2 ? 1 : 0;
+      return mk('swh' + o + p2, 56, 56, 28, 28, g => {
+        const S = { d: '#7a5228', m: '#c89050', h: '#f0cc88' }, Fl = p2 ? '#c02a4a' : '#8a2a5a', E = p2 ? '#ff4a3a' : '#ffb03a';
+        // four mandibles, spreading as the maw opens
+        for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4; spike(g, 28 + Math.cos(a) * 15, 28 + Math.sin(a) * 15, a + (o - 1.5) * 0.12, 10 + o * 2.5, 4, { d: '#5a3a1a', m: '#a8783a', h: '#e8c890' }); }
+        g.ell(28, 28, 19, 19, S.d); g.ell(27, 27, 17.5, 17.5, S.m);
+        for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; g.line(28 + Math.cos(a) * 11, 28 + Math.sin(a) * 11, 28 + Math.cos(a) * 18, 28 + Math.sin(a) * 18, 1, S.d); }   // plate seams
+        g.ell(23, 21, 6, 3, S.h);
+        for (const a of [-0.6, 0.6, Math.PI - 0.6, Math.PI + 0.6]) { g.ell(28 + Math.cos(a) * 14.5, 28 + Math.sin(a) * 14.5, 1.6, 1.6, E); }
+        const R = 7 + o * 2;   // the maw
+        g.ell(28, 28, R + 1.5, R + 1.5, '#2a1018'); g.ell(28, 28, R, R, Fl); g.ell(28, 28, R * 0.6, R * 0.6, '#1a0610');
+        for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; g.poly([[28 + Math.cos(a - 0.2) * R, 28 + Math.sin(a - 0.2) * R], [28 + Math.cos(a) * R * 0.55, 28 + Math.sin(a) * R * 0.55], [28 + Math.cos(a + 0.2) * R, 28 + Math.sin(a + 0.2) * R]], '#fff4e0'); }
+      }, '#2a1608');
+    },
+    sw_seg(P) {
+      const s = P.s || 0, p2 = P.p2 ? 1 : 0, R = [17, 15, 12.5, 10][s];
+      return mk('sws' + s + p2, 44, 44, 22, 22, g => {
+        const S = { d: '#6a4620', m: '#b8844a', h: '#e8c080' };
+        spike(g, 22, 22 - R + 2, -Math.PI / 2, 5, 2.4, S); spike(g, 22, 22 + R - 2, Math.PI / 2, 5, 2.4, S);   // side spines
+        g.ell(22, 22, R, R * 0.92, S.d); g.ell(21, 21, R * 0.88, R * 0.8, S.m); g.ell(18, 17, R * 0.35, R * 0.22, S.h);
+        g.line(22, 22 - R * 0.8, 22, 22 + R * 0.8, 1.5, S.d); g.line(23, 22 - R * 0.7, 23, 22 + R * 0.7, 1, S.h);   // the ridge across
+        if (p2) { g.p(18, 24, '#ff6a3a'); g.p(26, 20, '#ff6a3a'); }
+      }, '#2a1608');
+    },
+    sw_mound(P) {
+      return mk('swm' + (P.f % 2), 46, 24, 23, 14, g => {
+        g.ell(23, 14, 21, 8, '#8a6438'); g.ell(22, 12, 17, 6, '#c8a060'); g.ell(19, 10, 8, 2.4, '#ecd090');
+        g.line(14, 14, 20, 11, 1, '#6a4a28'); g.line(26, 9, 31, 14, 1, '#6a4a28');
+        for (const [x, y] of P.f % 2 ? [[8, 6], [36, 4]] : [[12, 3], [33, 7]]) g.r(x, y, 2, 2, '#e8c890');
+      }, '#3a2410');
+    },
+    // ===== giga crab (front view) =====
+    cr_body(P) {
+      const p2 = P.p2 ? 1 : 0;
+      return mk('crb' + p2, 92, 58, 46, 34, g => {
+        const C = p2 ? { d: '#7a1010', m: '#c82a1e', h: '#ff7a5a' } : { d: '#8a2a14', m: '#e0582a', h: '#ffa070' }, U = { d: '#c8a078', m: '#f0d0a8', h: '#fff4e0' };
+        g.ell(46, 40, 34, 12, U.d); g.ell(46, 39, 30, 9, U.m);   // underside
+        g.ell(46, 30, 42, 22, C.d); g.ell(45, 28, 39, 19.5, C.m); g.ell(34, 19, 14, 5, C.h);
+        for (let i = 0; i < 7; i++) { const x = 14 + i * 10.5, y = 14 + Math.abs(i - 3) * 2.4; spike(g, x, y, -Math.PI / 2 + (i - 3) * 0.25, 5, 2.4, C); }
+        g.line(18, 32, 74, 32, 1, C.d); for (const x of [30, 46, 62]) g.ell(x, 26, 3, 2, C.d);   // shell grooves
+        g.r(38, 40, 16, 5, '#5a1a10'); for (let i = 0; i < 4; i++) g.r(39 + i * 4, 40, 2, 3, U.h);   // mouthparts
+        if (p2) for (const [x, y] of [[24, 24], [66, 27], [52, 18]]) { g.line(x, y, x + 5, y + 4, 1, '#ffb03a'); }
+      }, '#2a0a06');
+    },
+    cr_eye(P) {
+      const p2 = P.p2 ? 1 : 0;
+      return mk('cre' + p2, 14, 22, 7, 21, g => {
+        g.r(5, 8, 4, 13, '#c84a24'); g.r(5, 8, 1, 13, '#ff9a6a');
+        g.ell(7, 6, 5, 5, '#1a0a08'); g.ell(7, 6, 4, 4, p2 ? '#ff3a2a' : '#2a1a14'); g.ell(6, 5, 1.4, 1.4, '#ffffff');
+      }, '#2a0a06');
+    },
+    cr_leg(P) {
+      return mk('crl' + (P.far ? 1 : 0), 40, 22, 3, 6, g => {
+        const C = P.far ? { d: '#6a1e0e', m: '#a83a1a', h: '#d86a4a' } : { d: '#8a2a14', m: '#d0502a', h: '#ff9a6a' };
+        tube(g, [[3, 6, 3.2], [18, 4, 2.8]], C); tube(g, [[18, 4, 2.6], [30, 12, 2], [36, 19, 0.8]], C);
+      }, '#2a0a06');
+    },
+    cr_arm(P) {
+      return mk('cra' + (P.p2 ? 1 : 0), 34, 16, 3, 8, g => { const C = { d: '#8a2a14', m: '#d8562a', h: '#ff9a6a' }; tube(g, [[3, 8, 4.5], [16, 7, 4], [30, 8, 5]], C); spike(g, 18, 3, -1.8, 4, 1.6, C); }, '#2a0a06');
+    },
+    cr_claw(P) {
+      const p2 = P.p2 ? 1 : 0;
+      return mk('crc' + p2, 54, 40, 6, 20, g => {
+        const C = p2 ? { d: '#7a1010', m: '#d02a1e', h: '#ff7a5a' } : { d: '#8a2a14', m: '#e86030', h: '#ffa878' }, T = { d: '#2a1a14', m: '#4a3428', h: '#7a6050' };
+        g.ell(20, 20, 17, 13, C.d); g.ell(19, 19, 15, 11, C.m); g.ell(14, 14, 6, 3, C.h);
+        g.poly([[28, 22], [50, 26], [52, 30], [30, 31]], C.m); g.poly([[30, 27], [52, 30], [30, 31]], C.d);   // the fixed lower finger
+        g.poly([[48, 25], [53, 28], [50, 31]], T.m); for (const x of [34, 39, 44]) g.poly([[x, 25], [x + 1.5, 22], [x + 3, 25]], '#fff0d8');
+      }, '#2a0a06');
+    },
+    cr_finger(P) {
+      const p2 = P.p2 ? 1 : 0;
+      return mk('crf' + p2, 40, 18, 3, 12, g => {
+        const C = p2 ? { d: '#7a1010', m: '#d02a1e', h: '#ff7a5a' } : { d: '#8a2a14', m: '#e86030', h: '#ffa878' };
+        g.poly([[2, 8], [24, 4], [38, 10], [36, 14], [3, 15]], C.m); g.poly([[3, 12], [36, 14], [38, 10], [24, 11]], C.d); g.line(5, 8, 24, 5, 1, C.h);
+        g.poly([[34, 9], [39, 11], [35, 14]], '#4a3428'); for (const x of [12, 18, 24]) g.poly([[x, 14], [x + 1.5, 17], [x + 3, 14]], '#fff0d8');
+      }, '#2a0a06');
+    },
+    // ===== raijin (front view): cloud, body, head, arms with drumsticks, drums =====
+    rj_cloud(P) {
+      return mk('rjc' + (P.f % 2) + (P.p2 ? 1 : 0), 104, 44, 52, 20, g => {
+        const C = P.p2 ? ['#2a1a3a', '#4a3060', '#7a5a9a'] : ['#3a3a5a', '#5a5a80', '#9a9ac0'];
+        for (const [x, y, r] of [[22, 24, 16], [40, 18, 19], [62, 17, 20], [82, 24, 16], [52, 28, 22]]) g.ell(x, y, r, r * 0.72, C[0]);
+        for (const [x, y, r] of [[22, 22, 14], [40, 16, 17], [62, 15, 18], [82, 22, 14], [52, 25, 19]]) g.ell(x - 1, y - 1, r, r * 0.66, C[1]);
+        for (const [x, y, r] of [[38, 11, 8], [60, 10, 9], [20, 17, 5]]) g.ell(x, y, r, r * 0.45, C[2]);
+        if (P.f % 2) { g.line(30, 34, 34, 40, 1, '#fff6a0'); g.line(34, 40, 31, 43, 1, '#fff6a0'); } else { g.line(70, 34, 66, 39, 1, '#fff6a0'); g.line(66, 39, 69, 43, 1, '#fff6a0'); }
+      }, '#14102a');
+    },
+    rj_body(P) {
+      return mk('rjb' + (P.p2 ? 1 : 0), 60, 50, 30, 46, g => {
+        const S = P.p2 ? { d: '#1a5a5a', m: '#2a9a8a', h: '#7ae8d0' } : { d: '#1e5a6a', m: '#3a8aa0', h: '#8ad0e0' }, T = { d: '#a86a10', m: '#f2b030', h: '#ffe080' };
+        g.poly([[14, 12], [46, 12], [42, 34], [18, 34]], S.m); g.poly([[30, 12], [46, 12], [42, 34], [30, 34]], S.d);
+        g.ell(22, 18, 7, 6, S.h); g.ell(38, 18, 7, 6, S.m); g.line(30, 14, 30, 30, 1, S.d); for (const y of [24, 28]) { g.line(24, y, 29, y, 1, S.d); g.line(31, y, 36, y, 1, S.d); }   // chest + abs
+        for (const m of [-1, 1]) blob(g, 30 + m * 17, 13, 7.5, 6, S);
+        // tiger-skin wrap and a belt rope
+        g.poly([[16, 34], [44, 34], [48, 48], [12, 48]], T.m); g.poly([[30, 34], [44, 34], [48, 48], [30, 48]], T.d);
+        for (const x of [18, 25, 33, 40]) g.poly([[x, 36], [x + 3, 38], [x + 1, 44]], '#2a1a08');
+        g.r(14, 33, 32, 3, '#e8e0d0'); g.r(14, 33, 32, 1, '#ffffff');
+      }, '#0a1a20');
+    },
+    rj_head(P) {
+      const m = P.mouth ? 1 : 0, p2 = P.p2 ? 1 : 0;
+      return mk('rjh' + m + p2, 50, 46, 25, 40, g => {
+        const S = p2 ? { d: '#1a5a5a', m: '#2a9a8a', h: '#7ae8d0' } : { d: '#1e5a6a', m: '#3a8aa0', h: '#8ad0e0' }, Hr = ['#c8c8d8', '#f4f4ff', '#ffffff'], Hn = { d: '#a89a70', m: '#f0e8c8', h: '#ffffff' };
+        for (let i = 0; i < 9; i++) { const a = -Math.PI / 2 + (i - 4) * 0.36, L = 16 - Math.abs(i - 4) * 1.2; spike(g, 25 + Math.cos(a) * 9, 22 + Math.sin(a) * 8, a, L, 4.2, { d: Hr[0], m: Hr[1], h: Hr[2] }); }   // wild hair
+        for (const s of [-1, 1]) spike(g, 25 + s * 8, 12, -Math.PI / 2 + s * 0.5, 10, 2.6, Hn);
+        blob(g, 25, 26, 13, 12.5, S);
+        g.poly([[13, 21], [22, 24], [13, 25]], '#0a1418'); g.poly([[37, 21], [28, 24], [37, 25]], '#0a1418');
+        g.poly([[15, 22], [21, 24], [15, 24]], p2 ? '#ff4a3a' : '#ffe14a'); g.poly([[35, 22], [29, 24], [35, 24]], p2 ? '#ff4a3a' : '#ffe14a');
+        g.line(13, 18, 22, 21, 2, '#0a1418'); g.line(37, 18, 28, 21, 2, '#0a1418');
+        g.r(23, 26, 4, 4, S.d);
+        if (m) { g.ell(25, 33, 7, 4.5, '#3a0a10'); g.ell(25, 34, 4, 2, '#c03a3a'); for (const x of [20, 29]) g.poly([[x, 30], [x + 1, 34], [x + 2, 30]], '#ffffff'); }
+        else { g.r(19, 32, 12, 2, '#0a1418'); for (const x of [20, 29]) g.poly([[x, 33], [x + 1, 36], [x + 2, 33]], '#ffffff'); }
+      }, '#0a1418');
+    },
+    rj_arm(P) {
+      return mk('rja' + (P.p2 ? 1 : 0), 56, 18, 4, 9, g => {
+        const S = P.p2 ? { d: '#1a5a5a', m: '#2a9a8a', h: '#7ae8d0' } : { d: '#1e5a6a', m: '#3a8aa0', h: '#8ad0e0' };
+        tube(g, [[4, 9, 5], [18, 9, 4.4], [30, 9, 4.6]], S); g.r(14, 6, 3, 6, '#f2b030');   // armband
+        blob(g, 33, 9, 5, 5, S);
+        g.line(35, 9, 54, 9, 2.6, '#8a5a2a'); g.line(35, 8, 54, 8, 1, '#c89050'); g.ell(54, 9, 2.4, 2.4, '#e8d0a0');   // drumstick
+      }, '#0a1418');
+    },
+    rj_drum(P) {
+      const lit = P.lit ? 1 : 0;
+      return mk('rjd' + lit, 24, 24, 12, 12, g => {
+        g.ell(12, 12, 10, 10, lit ? '#ffe080' : '#8a3a1a'); g.ell(12, 12, 8, 8, lit ? '#ffffff' : '#e8d8b8');
+        for (let i = 0; i < 3; i++) { const a = i * 2.09; g.ell(12 + Math.cos(a) * 3, 12 + Math.sin(a) * 3, 2.4, 2.4, lit ? '#ffb030' : '#3a2a6a'); }   // tomoe
+        for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; g.p(Math.round(12 + Math.cos(a) * 9), Math.round(12 + Math.sin(a) * 9), '#f2c14e'); }
+      }, '#1a0a04');
+    },
+    // ===== demon hands: one great eye, two clawed hands =====
+    dh_eye(P) {
+      const p2 = P.p2 ? 1 : 0;
+      return mk('dhe' + p2, 76, 72, 38, 36, g => {
+        const F = p2 ? { d: '#3a0a2a', m: '#7a1a4a', h: '#c84a7a' } : { d: '#2a0a3a', m: '#5a1a6a', h: '#9a4ab0' };
+        for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 + 0.3; spike(g, 38 + Math.cos(a) * 24, 36 + Math.sin(a) * 22, a, 9 + (i % 3) * 3, 4, F); }
+        g.ell(38, 36, 29, 27, F.d); g.ell(37, 35, 27, 25, F.m); g.ell(30, 24, 9, 4, F.h);
+        g.ell(38, 37, 21, 19, '#1a0614'); g.ell(38, 37, 19.5, 17.5, '#f4ece4'); g.ell(35, 33, 9, 6, '#ffffff');
+        for (const [a, b, c, d] of [[20, 32, 26, 36], [56, 40, 50, 37], [30, 52, 33, 47], [48, 24, 45, 29]]) g.line(a, b, c, d, 1, '#c84a5a');   // veins
+      }, '#10020c');
+    },
+    dh_pupil(P) {
+      const p2 = P.p2 ? 1 : 0;
+      return mk('dhp' + p2, 22, 22, 11, 11, g => { g.ell(11, 11, 9, 9, '#2a0a10'); g.ell(11, 11, 8, 8, p2 ? '#ff3a3a' : '#e8a02a'); g.ell(11, 11, 5, 5, p2 ? '#c01020' : '#c86a10'); g.ell(11, 11, 2, 6, '#100004'); g.ell(8, 8, 1.6, 1.6, '#ffffff'); }, null);
+    },
+    dh_lid(P) {   // k = 1..4: how far the lids have closed
+      const k = P.k || 1, p2 = P.p2 ? 1 : 0;
+      return mk('dhl' + k + p2, 46, 42, 23, 21, g => {
+        const F = p2 ? { d: '#3a0a2a', m: '#7a1a4a' } : { d: '#2a0a3a', m: '#5a1a6a' }, h = k / 4 * 19;
+        g.x.save(); g.x.beginPath(); g.x.ellipse(23, 22, 20.5, 18.5, 0, 0, 7); g.x.clip();
+        g.r(0, 0, 46, 3 + h, F.m); g.r(0, 41 - h * 0.9, 46, h + 2, F.m); g.r(0, 2 + h, 46, 2, F.d); g.r(0, 40 - h * 0.9, 46, 2, F.d);
+        g.x.restore();
+      }, null);
+    },
+    dh_hand(P) {
+      const pose = P.pose || 'open', p2 = P.p2 ? 1 : 0;
+      return mk('dhh' + pose + p2, 60, 64, 30, 40, g => {
+        const S = p2 ? { d: '#3a1a3a', m: '#6a3a6a', h: '#a86aa8' } : { d: '#2a2040', m: '#4a3a6a', h: '#8a7ab0' }, Cl = { d: '#a89a8a', m: '#f0e8dc', h: '#ffffff' }, Rn = p2 ? '#ff4a8a' : '#c86aff';
+        const finger = (bx, by, a, L, w, curl) => {
+          const mx = bx + Math.cos(a) * L * 0.55, my = by + Math.sin(a) * L * 0.55, a2 = a + curl, ex = mx + Math.cos(a2) * L * 0.5, ey = my + Math.sin(a2) * L * 0.5;
+          tube(g, [[bx, by, w], [mx, my, w * 0.85], [ex, ey, w * 0.7]], S); spike(g, ex, ey, a2 + curl * 0.6, 5, w * 0.55, Cl);
+        };
+        if (pose === 'fist') {
+          blob(g, 30, 36, 17, 15, S); for (let i = 0; i < 4; i++) { blob(g, 19 + i * 7.5, 26, 4.2, 4, S); spike(g, 19 + i * 7.5, 22, -Math.PI / 2, 4, 1.6, Cl); }
+          blob(g, 13, 40, 5, 6, S);
+        } else {
+          const open = pose === 'open';
+          const fs = open ? [[-0.55, 22], [-0.2, 25], [0.15, 24], [0.48, 20]] : [[-0.4, 14], [-0.12, 30], [0.2, 13], [0.45, 12]];   // 'point' sticks out the 2nd finger
+          fs.forEach(([da, L], i) => finger(19 + i * 7.5, 28, -Math.PI / 2 + da, L, 3.6, open || i === 1 ? 0.15 : 1.4));
+          blob(g, 30, 38, 16, 14, S); finger(15, 40, Math.PI + 0.5, 16, 3.8, 0.5);
+        }
+        g.ell(26, 36, 6, 3.4, S.h);
+        g.poly([[26, 42], [30, 36], [34, 42], [30, 46]], Rn); g.p(30, 41, '#ffffff');   // a rune on the back of the hand
+        g.r(22, 50, 16, 10, S.d); g.r(22, 50, 16, 2, Rn);   // wrist cuff
+      }, '#0a0612');
+    },
+    // ===== sky whale (seen from above, head to the right) =====
+    wh_head(P) {
+      const o = P.open || 0, p2 = P.p2 ? 1 : 0;
+      return mk('whh' + o + p2, 74, 62, 26, 31, g => {
+        const C = { d: '#14224a', m: '#24427a', h: '#4a7ab8' }, Gl = p2 ? '#ff7ad0' : '#9ae8ff';
+        g.ell(32, 31, 36, 27, C.d); g.ell(31, 30, 34, 25, C.m); g.ell(24, 20, 14, 5, C.h);
+        g.ell(44, 31, 8, 4, '#0a1430'); g.ell(44, 31, 4, 2, Gl);   // blowhole
+        for (const s of [-1, 1]) { g.ell(52, 31 + s * 19, 3.4, 2.6, '#0a0a1a'); g.ell(52, 31 + s * 19, 2, 1.6, p2 ? '#ff4a6a' : '#ffffff'); }
+        if (o) { const w = 4 + o * 5; g.poly([[48, 31 - w], [72, 31 - w * 1.4], [72, 31 + w * 1.4], [48, 31 + w]], '#2a0a1a'); for (let y = -w; y <= w; y += 3) g.line(54, 31 + y, 68, 31 + y * 1.3, 1, '#e8e0d0'); g.ell(56, 31, 4, w * 0.6, '#c84a6a'); }
+        else g.line(60, 18, 66, 31, 1, '#0a1430'), g.line(66, 31, 60, 44, 1, '#0a1430');
+        for (const [x, y] of [[20, 30], [30, 40], [36, 22], [14, 38]]) { g.p(x, y, '#ffffff'); g.p(x + 1, y, Gl); }
+        g.line(20, 30, 30, 40, 1, Gl); g.line(30, 40, 36, 22, 1, Gl);   // a constellation on its back
+      }, '#060c20');
+    },
+    wh_body(P) {
+      const i = P.i || 0, p2 = P.p2 ? 1 : 0, R = [[34, 26], [29, 21], [23, 15]][i];
+      return mk('whb' + i + p2, R[0] * 2 + 6, R[1] * 2 + 6, R[0] + 3, R[1] + 3, g => {
+        const C = { d: '#14224a', m: '#24427a', h: '#4a7ab8' }, Gl = p2 ? '#ff7ad0' : '#9ae8ff', cx = R[0] + 3, cy = R[1] + 3;
+        g.ell(cx, cy, R[0], R[1], C.d); g.ell(cx - 1, cy - 1, R[0] - 2, R[1] - 2, C.m); g.ell(cx - R[0] * 0.3, cy - R[1] * 0.45, R[0] * 0.4, R[1] * 0.18, C.h);
+        for (const s of [-1, 1]) g.line(cx - R[0] * 0.6, cy + s * R[1] * 0.7, cx + R[0] * 0.6, cy + s * R[1] * 0.75, 1, '#3a6aa8');
+        const st = [[0.2, -0.3], [-0.3, 0.2], [0.5, 0.35], [-0.5, -0.4]].slice(0, 4 - i);
+        st.forEach(([a, b], k) => { const x = Math.round(cx + a * R[0]), y = Math.round(cy + b * R[1]); g.p(x, y, '#ffffff'); if (k) { const [a2, b2] = st[k - 1]; g.line(cx + a2 * R[0], cy + b2 * R[1], x, y, 1, Gl); } });
+      }, '#0c1636');
+    },
+    wh_fluke(P) {
+      const p2 = P.p2 ? 1 : 0;
+      return mk('whf' + p2, 56, 56, 52, 28, g => {
+        const C = { d: '#14224a', m: '#24427a', h: '#4a7ab8' }, Gl = p2 ? '#ff7ad0' : '#9ae8ff';
+        for (const s of [-1, 1]) { g.poly([[52, 28], [36, 28 + s * 6], [14, 28 + s * 25], [4, 28 + s * 24], [10, 28 + s * 12], [26, 28 + s * 3]], C.m); g.poly([[52, 28], [36, 28 + s * 6], [14, 28 + s * 25], [20, 28 + s * 13]], C.d); g.line(44, 28 + s * 2, 10, 28 + s * 22, 1, Gl); }
+        g.ell(46, 28, 8, 6, C.m);
+      }, '#060c20');
+    },
+    wh_fin(P) {
+      return mk('whn' + (P.p2 ? 1 : 0), 40, 18, 3, 9, g => { const C = { d: '#14224a', m: '#2a4a86', h: '#5a8ac8' }; g.poly([[3, 4], [24, 1], [38, 9], [24, 17], [3, 14]], C.m); g.poly([[3, 9], [38, 9], [24, 17], [3, 14]], C.d); g.line(6, 7, 26, 5, 1, C.h); }, '#060c20');
+    },
+  };
+  function part(name, P = {}) {
+    const f = PARTS[name]; if (!f) return null;
+    let s = f(P);
+    if (P.flash) s = white(s);
+    return s;
+  }
+
+  // ---------------------------------------------------------------
   //  public API
   // ---------------------------------------------------------------
   // colour variants of existing monsters: the base sprite with its colours shifted.
@@ -2321,7 +2547,7 @@ const SPR = (() => {
   }
   // floor tiles per dungeon style (32 x 32 art px, seamless)
   const FLOOR_STYLE = ['stone', 'earth', 'mine', 'crystal', 'crypt', 'lava', 'ice', 'marble', 'fort', 'wet', 'sand', 'wood', 'void', 'hell',
-    'swamp', 'deck', 'peak', 'library', 'jungle', 'forge', 'mirror', 'abyss', 'bone', 'waste', 'castle', 'canopy', 'dream', 'ruins', 'heaven', 'chaos'];
+    'swamp', 'deck', 'peak', 'library', 'jungle', 'forge', 'mirror', 'abyss', 'bone', 'waste', 'castle', 'canopy', 'dream', 'ruins', 'heaven', 'chaos', 'dune', 'coral', 'storm', 'flesh', 'galaxy'];
   function floorTile(di, pal) {
     const style = FLOOR_STYLE[di] || 'stone';
     return tileCanvas('floor' + di + pal.floor, 32, 32, g => {
@@ -2464,6 +2690,31 @@ const SPR = (() => {
           g.line(0, 9, 7, 12, 1, '#ff4ad8'); g.line(7, 12, 10, 20, 1, '#ff4ad8'); g.line(10, 20, 22, 23, 1, '#c03aff'); g.line(22, 23, 32, 19, 1, '#ff4ad8'); g.p(10, 20, '#ffd0f4');
           for (const [x, y] of [[25, 6], [4, 28], [18, 4]]) g.p(x, y, '#ffffff');
           break;
+        }
+        case 'dune': {     // wind-rippled sand
+          g.r(0, 0, 32, 32, F);
+          for (let y = 2; y < 32; y += 7) { for (let x = 0; x < 32; x++) { const yy = y + Math.round(Math.sin((x + y * 3) * 0.35) * 1.5); g.p(x, yy, Hh); g.p(x, yy + 1, Dk); } }
+          g.p(9, 20, '#8a6a3a'); g.p(24, 9, '#f0e0b0'); break;
+        }
+        case 'coral': {    // wet rock with coral and shells
+          slabs(16, 16, 8);
+          for (const [x, y, c] of [[5, 6, '#ff7a8a'], [22, 20, '#ffb0a0']]) { g.r(x, y, 1, 4, c); g.r(x - 2, y + 1, 1, 2, c); g.r(x + 2, y, 1, 3, c); }
+          g.ell(14, 27, 2.4, 1.6, '#f0e8d0'); g.p(14, 26, '#ffffff'); g.p(27, 5, '#8ae8d0'); break;
+        }
+        case 'storm': {    // cloud-top flagstones with a crackle of lightning
+          slabs(16, 12, 8); g.line(4, 4, 9, 9, 1, '#fff6a0'); g.line(9, 9, 7, 13, 1, '#fff6a0'); g.ell(24, 24, 5, 2, sh(F, 0.18)); break;
+        }
+        case 'flesh': {    // the demon's palm: dark skin, veins, a faint rune
+          g.r(0, 0, 32, 32, F);
+          for (let i = 0; i < 24; i++) g.p(Math.floor(r() * 32), Math.floor(r() * 32), r() < 0.5 ? Dk : Hh);
+          g.line(0, 12, 8, 15, 1, '#7a2a5a'); g.line(8, 15, 14, 24, 1, '#7a2a5a'); g.line(14, 24, 24, 26, 1, '#7a2a5a'); g.line(20, 2, 26, 8, 1, '#5a1a4a');
+          g.p(26, 16, '#c86aff'); g.p(27, 17, '#c86aff'); g.p(25, 17, '#8a3ab0'); break;
+        }
+        case 'galaxy': {   // floating glass tiles over the night sky
+          g.r(0, 0, 32, 32, F);
+          for (let y = 0; y < 32; y += 16) for (let x = 0; x < 32; x += 16) { g.r(x + 1, y + 1, 14, 14, sh(F, ((x + y) / 16) % 2 ? 0.08 : 0.02)); g.r(x + 1, y + 1, 14, 1, '#4a5aa0'); }
+          for (const [x, y, c] of [[6, 5, '#ffffff'], [21, 11, '#fff2a0'], [12, 23, '#a8d0ff'], [27, 27, '#ffffff']]) g.p(x, y, c);
+          g.line(6, 5, 12, 23, 1, 'rgba(160,200,255,0.5)'); break;
         }
         default: slabs(16, 16, 8);
       }
@@ -2664,5 +2915,5 @@ const SPR = (() => {
   };
   function x0ring(g) { g.x.strokeStyle = '#e8f0ff'; g.x.lineWidth = 1; g.x.beginPath(); g.x.arc(8, 8, 4, 0, 7); g.x.stroke(); }
 
-  return { SCALE, shadeOf, stoneOf, hero: heroS, enemy, boss, draw, skeletonParts, ENV, floorTile, wallTile, dither, tileCanvas, shade: sh, seeded, cacheSize: () => cache.size, types: () => ({ enemies: Object.keys(EN), bosses: Object.keys(BOSS) }) };
+  return { SCALE, shadeOf, stoneOf, part, hero: heroS, enemy, boss, draw, skeletonParts, ENV, floorTile, wallTile, dither, tileCanvas, shade: sh, seeded, cacheSize: () => cache.size, types: () => ({ enemies: Object.keys(EN), bosses: Object.keys(BOSS) }) };
 })();
