@@ -181,14 +181,21 @@
   const visOf = id => (EQ[id] && EQ[id].vis) || id;
   const SLOT_NAME = { weapon: 'ぶき', armor: 'よろい', boots: 'くつ', charm: 'そうしょく' };
   // heal = max(fixed amount, share of max HP), so items stay useful late in the game
+  // heal = fixed HP (early game), pct = share of max HP (late game only). carry = how many of it one adventure can take.
+  // unlock = the dungeon you must clear before the shop sells it. Up to 3 kinds go into a dungeon (set on the 準備 screen).
   const ITEMS = {
-    herb: { name: 'やくそう', heal: 35, pct: 0.3, price: 12, note: 'HPを30%かいふく（さいてい35）' },
-    potion: { name: 'ポーション', heal: 110, pct: 0.6, price: 50, note: 'HPを60%かいふく（さいてい110）' },
-    hipotion: { name: 'ハイポーション', heal: 250, pct: 0.9, price: 160, note: 'HPを90%かいふく（さいてい250）' },
-    elixir: { name: 'エリクサー', heal: 99999, pct: 1, price: 400, note: 'HPをぜんかいふく' },
-    power: { name: 'ちからのくすり', buff: 'atk', dur: 20, price: 140, note: '20びょう こうげき1.5ばい' },
-    guard: { name: 'まもりのくすり', buff: 'def', dur: 20, price: 140, note: '20びょう うけるダメージはんぶん' },
+    herb: { name: 'やくそう', heal: 40, price: 8, carry: 10, note: 'HPを 40 かいふく' },
+    potion: { name: 'ポーション', heal: 120, price: 30, carry: 6, note: 'HPを 120 かいふく' },
+    hipotion: { name: 'ハイポーション', heal: 300, price: 90, carry: 4, unlock: 5, note: 'HPを 300 かいふく' },
+    megapotion: { name: 'メガポーション', heal: 600, price: 320, carry: 3, unlock: 13, note: 'HPを 600 かいふく' },
+    lifewater: { name: 'いのちの水', pct: 0.5, price: 3000, carry: 4, unlock: 20, note: 'さいだいHPの 50% かいふく' },
+    lifedrop: { name: 'せいめいのしずく', pct: 0.75, price: 12000, carry: 3, unlock: 26, note: 'さいだいHPの 75% かいふく' },
+    elixir: { name: 'エリクサー', pct: 1, price: 50000, carry: 2, unlock: 30, note: 'HPを ぜんかいふく' },
+    power: { name: 'ちからのくすり', buff: 'atk', dur: 20, price: 150, carry: 2, note: '20びょう こうげき1.5ばい' },
+    guard: { name: 'まもりのくすり', buff: 'def', dur: 20, price: 150, carry: 2, note: '20びょう うけるダメージはんぶん' },
   };
+  const BAG_KINDS = 3;
+  const POTCOL = { potion: '#e5483c', hipotion: '#7ab8ff', megapotion: '#b070ff', lifewater: '#4ad8e8', lifedrop: '#6ad870', elixir: '#f2c14e', power: '#ff8a3a', guard: '#5a8aff' };   // kinds of item one adventure can carry
   // skills: bought at the item shop, one is set at the hero's house, used in a dungeon by tapping the screen twice quickly.
   // dmg = multiple of こうげき (minus half the target's ぼうぎょ), like a weak-to-medium ram; every one has its own cooldown.
   const SKILLS = {
@@ -204,8 +211,9 @@
     sand: { name: 'じかんのすな', ch: '時', cd: 40, price: 1500000, col: '#e8ecff', note: '2びょう てきの 弾が とまる' },
     holy: { name: 'せいなるいちげき', ch: '聖', cd: 24, price: 2000000, col: '#fff2a0', note: '10びょう いない、つぎの たいあたり3かいが いりょく +60%' },
   };
-  const healOf = (id, maxHp, fx) => Math.round(Math.max(ITEMS[id].heal || 0, Math.round(maxHp * (ITEMS[id].pct || 0))) * (1 + ((fx && fx.herbal) || 0)));
-  const ITEM_MAX = 9;
+  const healOf = (id, maxHp, fx) => Math.round((ITEMS[id].pct ? maxHp * ITEMS[id].pct : ITEMS[id].heal) * (1 + ((fx && fx.herbal) || 0)));
+  const ITEM_MAX = 99;   // stock kept at home (shop items)
+  const itemOpen = id => !ITEMS[id].unlock || !!(save.cleared && save.cleared[ITEMS[id].unlock - 1]);
 
   // monsters: base stats (scaled by the dungeon's multiplier)
   const EN = {
@@ -492,7 +500,7 @@
   // ---------------------------------------------------------------
   //  SAVE
   // ---------------------------------------------------------------
-  const DEF_SAVE = () => ({ v: 1, lv: 1, exp: 0, gold: 40, hp: null, items: { herb: 3, potion: 0, hipotion: 0, elixir: 0, power: 0, guard: 0 },
+  const DEF_SAVE = () => ({ v: 1, lv: 1, exp: 0, gold: 40, hp: null, items: { herb: 5, potion: 0, hipotion: 0, megapotion: 0, lifewater: 0, lifedrop: 0, elixir: 0, power: 0, guard: 0 }, loadout: null,
     eq: { weapon: 'w0', armor: 'a0', boots: 'b0', charm: null }, owned: ['w0', 'a0', 'b0'], cleared: Array(35).fill(false), layout10: true, layout15: true, layout25: true,
     kills: 0, skills: [], skill: null, settings: { bgm: 0.8, sfx: 0.8, fps: 0, pad: 1 } });
   let save = DEF_SAVE();
@@ -765,12 +773,26 @@
     if (hero.hp <= 0) { hero.hp = 0; heroDown(); }
   }
 
-  const HEALS = ['herb', 'potion', 'hipotion', 'elixir'];
+  const HEALS = ['herb', 'potion', 'hipotion', 'megapotion', 'lifewater', 'lifedrop', 'elixir'];
+  // what goes into the dungeon: the loadout, topped up from the stock at home (never more than you own or the carry limit)
+  let bag = {};
+  function fillBag(lo) {
+    const b = {};
+    for (const id in lo || {}) { if (!ITEMS[id] || Object.keys(b).length >= BAG_KINDS) continue; const n = Math.min(lo[id], ITEMS[id].carry, save.items[id] || 0); if (n > 0) b[id] = n; }
+    return b;
+  }
+  function autoLoadout() {   // no loadout yet: the three strongest heals you have, as many as you can take
+    const lo = {}, mh = stats().maxHp;
+    HEALS.filter(id => (save.items[id] || 0) > 0).sort((a, b) => healOf(b, mh) * ITEMS[b].carry - healOf(a, mh) * ITEMS[a].carry).slice(0, BAG_KINDS).forEach(id => { lo[id] = ITEMS[id].carry; });
+    return lo;
+  }
+  function gainItem(id, n = 1) { save.items[id] = Math.min(ITEM_MAX, (save.items[id] || 0) + n); bag[id] = (bag[id] || 0) + n; updateHudButtons(); }
+  const tierHeal = () => ['megapotion', 'hipotion', 'potion'].find(itemOpen);   // the best fixed heal of this point in the game (chests etc.)
   const ITEM_CD = 6;   // seconds before the next item can be used (shared by every item)
   // use an item. no id = pick a sensible heal automatically (also used by the test bot)
   function useItem(id) {
     if (!hero || hero.hp <= 0) return false;
-    const it = save.items, miss = hero.s.maxHp - hero.hp;
+    const it = bag, miss = hero.s.maxHp - hero.hp;
     if (!id) {
       if (miss <= 0) return false;
       const order = HEALS.filter(k => it[k] > 0);
@@ -778,14 +800,15 @@
       if (!id) { popText(hero.x, hero.y + 26, 'かいふくアイテムがない', '#ff9a8a', 13, 0.9); return false; }
     }
     if (!it[id]) return false;
+    if (!ITEMS[id].buff && miss <= 0) { popText(hero.x, hero.y + 26, 'HPは まんたん', '#fff', 13, 0.8); return false; }
     if (hero.itemCD > 0) { popText(hero.x, hero.y + 26, `あと ${Math.ceil(hero.itemCD)}びょう`, '#ff9a8a', 13, 0.8); A.sfx('block'); return false; }
     const I = ITEMS[id];
+    save.items[id] = Math.max(0, (save.items[id] || 0) - 1);   // used up for good (what you didn't use stays at home)
     if (I.buff) {
       it[id]--; hero.buff[I.buff] = I.dur * (1 + (hero.s.fx.buff || 0));
       popText(hero.x, hero.y + 26, I.name + '！', I.buff === 'atk' ? '#ff9a5a' : '#9fd0ff', 16, 1.1);
       burst(hero.x, hero.y, 18, I.buff === 'atk' ? '#ff9a5a' : '#9fd0ff', 180); A.sfx('buff');
     } else {
-      if (miss <= 0) { popText(hero.x, hero.y + 26, 'HPは まんたん', '#fff', 13, 0.8); return false; }
       it[id]--;
       const h = Math.min(miss, healOf(id, hero.s.maxHp, hero.s.fx));
       hero.hp += h;
@@ -846,6 +869,7 @@
   // ---------------------------------------------------------------
   function enterDungeon(di) {
     closePanel(); deathT = 0;
+    bag = fillBag(save.loadout || autoLoadout());
     genDungeon(di);
     hero = newHero(W / 2, 70);
     camY = hero.y; boss = null; arena = null; zones = []; freezeT = 0; darkT = 0; shades = []; twisters = []; combo = 0; runExp = 0; runGold = 0; runKills = 0; runLoot = []; toasts = [];
@@ -1623,7 +1647,7 @@
           else {
             p.open = true; A.sfx('chest'); burst(p.x, p.y, 26, '#f2c14e', 260);
             const roll = Math.random();
-            if (roll < 0.4) { drops.push({ type: 'potion', x: p.x, y: p.y + 10, vx: 0, vy: 60, t: 0 }); popText(p.x, p.y + 30, 'ポーション！', '#6fd38a', 15, 1.2); }
+            if (roll < 0.4) { const th = tierHeal(); drops.push({ type: th, x: p.x, y: p.y + 10, vx: 0, vy: 60, t: 0 }); popText(p.x, p.y + 30, ITEMS[th].name + '！', '#6fd38a', 15, 1.2); }
             else if (roll < 0.7) { drops.push({ type: 'herb', x: p.x - 8, y: p.y + 10, vx: -40, vy: 60, t: 0 }); drops.push({ type: 'herb', x: p.x + 8, y: p.y + 10, vx: 40, vy: 60, t: 0 }); popText(p.x, p.y + 30, 'やくそう×2！', '#6fd38a', 15, 1.2); }
             else { dropCoins(p.x, p.y, Math.round(D.gp * 0.08)); popText(p.x, p.y + 30, 'ゴールド！', '#f2c14e', 15, 1.2); }
           }
@@ -1653,7 +1677,7 @@
       if (dist < hero.r + 8 && d.t > 0.25) {
         d.got = true;
         if (d.type === 'gold') { gainGold(d.val * (hero.pw && hero.pw.kind === 'rush' ? 2 : 1)); A.sfx('coin', Math.min(14, combo)); }
-        else { if (save.items[d.type] < ITEM_MAX) save.items[d.type]++; popText(hero.x, hero.y + 30, ITEMS[d.type].name + ' をてにいれた', '#6fd38a', 12, 1); A.sfx('item'); updateHudButtons(); }
+        else { gainItem(d.type); popText(hero.x, hero.y + 30, ITEMS[d.type].name + ' をてにいれた', '#6fd38a', 12, 1); A.sfx('item'); }
       }
     }
     drops = drops.filter(d => !d.got);
@@ -2306,7 +2330,7 @@
     const h = hero, xp = Math.round(D.xp * 0.03);
     banner = { a: 'だいこうしんを ぜんめつさせた！', b: 'PERFECT', t: 2 };
     dropCoins(h.x, h.y + 40, Math.round(D.gp * 0.06)); gainExp(xp); popText(h.x, h.y + 60, `ボーナス +${xp} EXP`, '#9fd0ff', 15, 1.4);
-    drops.push({ type: 'potion', x: h.x, y: h.y + 30, vx: 0, vy: 40, t: 0 }); A.sfx('levelup');
+    drops.push({ type: tierHeal(), x: h.x, y: h.y + 30, vx: 0, vy: 40, t: 0 }); A.sfx('levelup');
   }
   function openMerchant(o) {   // あやしい行商人: a mystery bag of equipment, or a random potion
     const h = hero, bag = Math.max(20, Math.round(D.gp * 0.3 / 10) * 10), med = Math.max(10, Math.round(D.gp * 0.05 / 10) * 10);
@@ -2324,8 +2348,8 @@
     const buyMed = () => {
       if (save.gold < med || (o.meds || 0) >= 2) { A.sfx('block'); return; }
       save.gold -= med; o.meds = (o.meds || 0) + 1;
-      const id = wpick({ hipotion: 0.35, elixir: 0.15, power: 0.25, guard: 0.25 });
-      if (save.items[id] < ITEM_MAX) save.items[id]++; updateHudButtons(); A.sfx('item');
+      const hs = HEALS.filter(itemOpen), id = wpick({ [hs[hs.length - 1]]: 0.3, [hs[Math.max(0, hs.length - 2)]]: 0.2, power: 0.25, guard: 0.25 });   // the best heals you could buy now, or a buff
+      gainItem(id); A.sfx('item');
       toast(`あやしいくすり → ${ITEMS[id].name}！`, '#6fd38a'); persist(); openMerchant(o);
     };
     openPanel('あやしい行商人', `
@@ -3683,7 +3707,7 @@
       const x = d.x, y = sy(d.y);
       if (d.type === 'gold') SPR.draw(ctx, SPR.ENV.coin(Math.floor(globalT * 10 + d.x * 0.1)), x, y);
       else if (d.type === 'herb') SPR.draw(ctx, SPR.ENV.herb(), x, y);
-      else SPR.draw(ctx, SPR.ENV.potion(d.type === 'potion' ? '#e5483c' : d.type === 'hipotion' ? '#7ab8ff' : '#f2c14e'), x, y + 4);
+      else SPR.draw(ctx, SPR.ENV.potion(POTCOL[d.type] || '#f2c14e'), x, y + 4);
     }
   }
   function drawFx() {
@@ -4160,7 +4184,7 @@
 
   function showHud(on) { $('pauseBtn').hidden = !on; $('itemBtn').hidden = !on; if (!on && trayOpen) closeTray(); updateNav(); updateHudButtons(); }
   function updateHudButtons() {
-    const it = save.items; $('itemCount').textContent = Object.keys(ITEMS).reduce((a, k) => a + (it[k] || 0), 0);
+    $('itemCount').textContent = Object.keys(bag).reduce((a, k) => a + (bag[k] || 0), 0);
     itemCdShow(hero && hero.itemCD > 0 ? hero.itemCD : 0);
   }
   // cooldown on the bag button: a dark sweep that empties as the timer runs out, plus the seconds left
@@ -4180,8 +4204,9 @@
     if (hero.itemCD > 0) { popText(hero.x, hero.y + 26, `どうぐは あと ${Math.ceil(hero.itemCD)}びょう`, '#ff9a8a', 13, 0.8); A.sfx('block'); return; }
     trayOpen = true; paused = true;
     const s = hero.s;
-    $('tray').innerHTML = Object.entries(ITEMS).map(([id, I]) => {
-      const n = save.items[id] || 0, eff = I.buff ? (I.buff === 'atk' ? 'こうげき×1.5' : 'ダメージ半分') : `+${Math.min(healOf(id, s.maxHp, s.fx), s.maxHp)}`;
+    const ids = Object.keys(ITEMS).filter(id => id in bag);
+    $('tray').innerHTML = (ids.length ? '' : `<p style="padding:6px 8px;font-size:13px;color:var(--muted)">どうぐを もってきていない</p>`) + ids.map(id => {
+      const I = ITEMS[id], n = bag[id] || 0, eff = I.buff ? (I.buff === 'atk' ? 'こうげき×1.5' : 'ダメージ半分') : `+${Math.min(healOf(id, s.maxHp, s.fx), s.maxHp)}`;
       return `<button data-use="${id}" ${n ? '' : 'disabled'}><span>${I.name}</span><span class="tn">${eff}</span><b>×${n}</b></button>`;
     }).join('') + `<button data-use="" class="tclose">とじる</button>`;
     $('tray').hidden = false;
@@ -4264,13 +4289,18 @@
     const tabs = `<div class="tabs"><button data-st="item" aria-pressed="true">どうぐ</button><button data-st="skill" aria-pressed="false">スキルのしょ</button></div>`;
     const render2 = () => {
       openPanel('どうぐや', tabs + `<p style="font-size:14px;color:var(--muted);margin-bottom:4px">もちもの：<span class="gold">${save.gold} G</span></p>` +
-        Object.entries(ITEMS).map(([id, it]) => `<div class="row"><span class="nm">${it.name} <span style="color:var(--muted);font-size:13px">×${save.items[id]}</span></span>
-          <span class="sub">${it.note}（${ITEM_MAX}こまで）</span>
-          <span class="act"><span class="price">${it.price} G</span><button class="sbtn" data-buy="${id}" ${save.gold < it.price || save.items[id] >= ITEM_MAX ? 'disabled' : ''}>かう</button></span></div>`).join(''),
+        Object.entries(ITEMS).map(([id, it]) => {
+          const n = save.items[id] || 0;
+          if (!itemOpen(id) && !n) return `<div class="row lock"><span class="nm">？？？</span><span class="sub">${it.unlock}ばんめの ダンジョンを せいはすると ならぶ</span></div>`;
+          const can = k => itemOpen(id) && save.gold >= it.price * k && n + k <= ITEM_MAX;
+          return `<div class="row"><span class="nm">${it.name} <span style="color:var(--muted);font-size:13px">×${n}</span></span>
+          <span class="sub">${it.note}・もちこみ ${it.carry}こまで（いえに ${ITEM_MAX}こまで）</span>
+          <span class="act"><span class="price">${it.price} G</span><span style="display:flex;gap:4px"><button class="sbtn" data-buy="${id}" data-k="1" ${can(1) ? '' : 'disabled'}>かう</button><button class="sbtn" data-buy="${id}" data-k="10" ${can(10) ? '' : 'disabled'}>×10</button></span></span></div>`;
+        }).join(''),
         [['みせを でる', closePanel]], 'item');
       panelBody.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => {
-        const id = b.dataset.buy, it = ITEMS[id]; if (save.gold < it.price || save.items[id] >= ITEM_MAX) return;
-        save.gold -= it.price; save.items[id]++; persist(); A.sfx('buy'); render2();
+        const id = b.dataset.buy, it = ITEMS[id], k = +b.dataset.k || 1; if (!itemOpen(id) || save.gold < it.price * k || (save.items[id] || 0) + k > ITEM_MAX) return;
+        save.gold -= it.price * k; save.items[id] = (save.items[id] || 0) + k; persist(); A.sfx('buy'); const sc = panelBody.scrollTop; render2(); panelBody.scrollTop = sc;
       }));
       panelBody.querySelectorAll('[data-st]').forEach(b => b.addEventListener('click', () => { shopTab = b.dataset.st; A.sfx('select'); openItemShop(); }));
     };
@@ -4324,6 +4354,30 @@
     render2();
   }
 
+  // 準備: choose up to 3 kinds of item and how many of each to take. The last choice is remembered and refilled from your stock.
+  function openPrep(di) {
+    const d = DUNGEONS[di], want = Object.assign({}, save.loadout || autoLoadout());
+    const mh = stats().maxHp;
+    const draw = () => {
+      const kinds = Object.keys(want).filter(k => want[k] > 0 && ITEMS[k]);
+      const rows = Object.entries(ITEMS).filter(([id]) => itemOpen(id) || (save.items[id] || 0) > 0 || want[id] > 0).sort((a, b) => (want[b[0]] > 0) - (want[a[0]] > 0)).map(([id, I]) => {
+        const have = save.items[id] || 0, w = Math.min(want[id] || 0, I.carry), n = Math.min(w, have), on = w > 0;
+        const eff = I.buff ? (I.buff === 'atk' ? 'こうげき×1.5' : 'ダメージ半分') : `+${Math.min(healOf(id, mh), mh)}`;
+        const full = !on && kinds.length >= BAG_KINDS;
+        return `<div class="row" style="${on ? 'background:rgba(111,211,138,.12);border-radius:6px' : ''}"><span class="nm">${I.name} <span style="color:var(--muted);font-size:13px">${eff}</span></span>
+          <span class="sub">もちもの ×${have}・もちこみ ${I.carry}こまで${on && n < w ? ` <span class="hpc">（${w - n}こ たりない）</span>` : ''}</span>
+          <span class="act"><span style="display:flex;align-items:center;gap:6px"><button class="sbtn" data-m="${id}" ${w > 0 ? '' : 'disabled'}>−</button><b style="min-width:2.2em;text-align:center;font-weight:400;color:${on ? 'var(--ok)' : 'var(--muted)'}">${n}</b><button class="sbtn" data-p="${id}" ${w >= I.carry || w >= have || full ? 'disabled' : ''}>＋</button></span></span></div>`;
+      }).join('');
+      openPanel(`じゅんび：${d.name}`, `<p style="font-size:14px;margin-bottom:2px">どうぐは <b class="gold">${BAG_KINDS}しゅるい</b>まで もっていける（いま ${kinds.length}しゅるい）。つかわなかった ぶんは いえに のこる。</p>
+        <p style="font-size:15px;margin:2px 0 4px;padding:6px 8px;border:1px dashed rgba(243,236,218,.35);border-radius:6px">もっていく：${kinds.length ? kinds.map(k => `<b class="gold" style="font-weight:400">${ITEMS[k].name}×${Math.min(want[k], ITEMS[k].carry, save.items[k] || 0)}</b>`).join('　') : '<span style="color:var(--muted)">なし</span>'}</p>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:4px">さいだいHP ${mh}・つぎも おなじ くみあわせで、もちものから じどうで ほじゅうする</p>${rows}`,
+        [['しゅっぱつ', () => { const lo = {}; for (const k of kinds) lo[k] = want[k]; save.loadout = lo; persist(); transition = { t: 0, mid: 0.4, fn: () => enterDungeon(di) }; closePanel(); }, true], ['もどる', openGate]], 'gate');
+      const redraw = () => { const sc = panelBody.scrollTop; draw(); panelBody.scrollTop = sc; };
+      panelBody.querySelectorAll('[data-p]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.p; want[id] = Math.min(ITEMS[id].carry, save.items[id] || 0, Math.min(want[id] || 0, save.items[id] || 0) + 1); A.sfx('select'); redraw(); }));
+      panelBody.querySelectorAll('[data-m]').forEach(b => b.addEventListener('click', () => { const id = b.dataset.m; want[id] = Math.max(0, Math.min(want[id] || 0, ITEMS[id].carry, save.items[id] || 0) - 1); A.sfx('select'); redraw(); }));
+    };
+    draw();
+  }
   function openGate() {
     const unlocked = i => i === 0 || save.cleared[i - 1];
     let open = 0; while (open < DUNGEONS.length - 1 && unlocked(open + 1)) open++;
@@ -4333,9 +4387,9 @@
       return `<div class="row ${ok ? '' : 'lock'}" ${i === cur ? 'data-cur="1" style="background:rgba(242,193,78,.14);border-radius:6px"' : ''}><span class="nm">${i + 1}. ${ok ? d.name : '？？？'} ${save.cleared[i] ? '<span class="tag">★せいは</span>' : ''}</span>
         <span class="sub">${ok ? `${d.en}・すいしょう Lv ${d.rec}${warn ? '<span class="hpc">（きけん）</span>' : ''}・ボス：${BOSSES[d.boss].name}` : 'まえのダンジョンを せいはすると いける'}</span>
         <span class="act"><button class="sbtn" data-go="${i}" ${ok ? '' : 'disabled'}>いく</button></span></div>`;
-    }).join('') + `<p style="font-size:13px;color:var(--muted);margin-top:6px">かいふくアイテム ${save.items.herb + save.items.potion + save.items.elixir}こ・やられると この ぼうけんで ひろった ゴールドの はんぶんを おとす</p>`,
+    }).join('') + `<p style="font-size:13px;color:var(--muted);margin-top:6px">つぎに どうぐの じゅんび・やられると この ぼうけんで ひろった ゴールドの はんぶんを おとす</p>`,
       [['街に もどる', closePanel]], 'gate');
-    panelBody.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { A.sfx('confirm'); const i = +b.dataset.go; save.lastGate = i; persist(); transition = { t: 0, mid: 0.4, fn: () => enterDungeon(i) }; closePanel(); }));
+    panelBody.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { A.sfx('confirm'); const i = +b.dataset.go; save.lastGate = i; persist(); openPrep(i); }));
     const row = panelBody.querySelector('[data-cur]');   // open the list where you left off: that row in the middle
     if (row) { panelBody.scrollTop = Math.max(0, row.offsetTop - panelBody.offsetTop - (panelBody.clientHeight - row.offsetHeight) / 2); const bt = row.querySelector('[data-go]'); if (bt && !bt.disabled) bt.focus({ preventScroll: true }); }
   }
@@ -4397,6 +4451,7 @@
   function openHelp() {
     openPanel('あそびかた', `<p>・画面のどこでも 指をおくと そこが スライドパッドになる。たおした ほうこうに 勇者が うごく。</p>
       <p>・パッドを <b class="gold">おおきく たおす</b>と とっしん。オレンジに 光っていれば ぶつかると こうげきになる。ぶつかった あとは はねかえる。</p>
+      <p>・ダンジョンに はいる まえの <b class="gold">じゅんび</b>で、どうぐを 3しゅるいまで もっていける。どうぐごとに もっていける かずが きまっている。</p>
       <p>・指を <b class="gold">すばやく はじく（フリック）</b>と、その ほうこうへ ころがって かいひ。ころがっている あいだは こうげきを うけず、てきも すりぬける（つかうと 0.7びょう まつ）。</p>
       <p>・ゆっくり ふれると モンスターの こうげきを うける。弾や 剣にも ちゅうい。</p>
       <p>・てきを たおすと けいけんちと ゴールド。レベルが あがると つよくなる。</p>
@@ -4560,5 +4615,5 @@
   requestAnimationFrame(frame);
   // test hooks
   window.__yusha = { get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
-    enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN }, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt, openOptions };
+    enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN, ITEMS }, get bag() { return bag; }, openPrep, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt, openOptions };
 })();
