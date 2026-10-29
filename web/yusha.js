@@ -3976,7 +3976,9 @@
     { id: 'item', name: 'どうぐや', sub: 'かいふくアイテムを かう', roof: '#3b9a5a', wall: '#efe2c4' },
     { id: 'smith', name: 'かじや', sub: 'ぶき・ぼうぐを かう', roof: '#b8463b', wall: '#d8c8b0' },
   ];
-  let townPage = 1, townX = 1, inside = null;
+  let townPage = 1, townX = 1, inside = null;   // townPage is a slot that keeps counting while you swipe round: the town loops
+  const pIdx = i => ((i % TOWN_PAGES.length) + TOWN_PAGES.length) % TOWN_PAGES.length;
+  const curPage = () => TOWN_PAGES[pIdx(townPage)];
   const tdrag = { id: null, x0: 0, y0: 0, dx: 0, moved: false };
   function townBuildingRect() { const bw = 236, bh = 210, by = H * 0.64; return { x: W / 2 - bw / 2, y: by - bh, w: bw, h: bh, by }; }
 
@@ -4002,7 +4004,8 @@
     bands.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(0, i * bh, W, bh + 1.5); });
     for (let i = 1; i < bands.length; i++) { ctx.fillStyle = bands[i]; for (let x = 0; x < W; x += 6) ctx.fillRect(x + ((i % 2) ? 0 : 3), i * bh - 1.5, 3, 1.5); }
     for (let i = 0; i < 40; i++) { const x = q(((i * 97.3 - off * 0.05) % W + W) % W), y = q((i * 53.7) % (H * 0.28)); if (Math.sin(globalT * 2 + i) > -0.3) { ctx.fillStyle = i % 5 ? 'rgba(255,255,255,.7)' : '#fff6c0'; ctx.fillRect(x, y, 1.5, 1.5); } }
-    ctx.fillStyle = '#fff2c8'; ctx.beginPath(); ctx.arc(q(W * 0.2 - off * 0.02), q(H * 0.12), 13.5, 0, 7); ctx.fill(); ctx.fillStyle = bands[1]; ctx.beginPath(); ctx.arc(q(W * 0.2 - off * 0.02) + 6, q(H * 0.12) - 3, 12, 0, 7); ctx.fill();
+    const wrapX = v => ((v + 60) % (W + 120) + (W + 120)) % (W + 120) - 60, mx = q(wrapX(W * 0.2 - off * 0.02));
+    ctx.fillStyle = '#fff2c8'; ctx.beginPath(); ctx.arc(mx, q(H * 0.12), 13.5, 0, 7); ctx.fill(); ctx.fillStyle = bands[1]; ctx.beginPath(); ctx.arc(mx + 6, q(H * 0.12) - 3, 12, 0, 7); ctx.fill();
     // far mountains + the demon castle on the horizon (slow parallax)
     const px = -off * 0.15;
     for (const [col, hgt, fr, base] of [['#2e1f40', 52, 0.017, 0.46], ['#3a2547', 40, 0.021, 0.48]]) {
@@ -4010,7 +4013,7 @@
       for (let x = 0; x <= W; x += 6) { const wx = x - px * (base > 0.47 ? 1 : 0.6); ctx.lineTo(x, q(H * base - Math.abs(Math.sin(wx * fr)) * hgt - Math.sin(wx * 0.07) * 7)); }
       ctx.lineTo(W, H * 0.52); ctx.fill();
     }
-    const cx = q(W * 0.82 + px * 0.6), cy = q(H * 0.4);
+    const cx = q(wrapX(W * 0.82 + px * 0.6)), cy = q(H * 0.4);
     ctx.fillStyle = '#25163a'; ctx.fillRect(cx - 18, cy - 9, 36, 30); ctx.fillRect(cx - 27, cy - 22.5, 10.5, 42); ctx.fillRect(cx + 16.5, cy - 22.5, 10.5, 42); ctx.fillRect(cx - 4.5, cy - 34.5, 9, 30);
     for (const tx of [cx - 27, cx + 16.5, cx - 4.5]) { ctx.fillRect(tx - 1.5, (tx === cx - 4.5 ? cy - 37.5 : cy - 25.5), 3, 3); ctx.fillRect(tx + 7.5, (tx === cx - 4.5 ? cy - 37.5 : cy - 25.5), 3, 3); }
     ctx.fillStyle = `rgba(255,60,120,${0.6 + 0.3 * Math.sin(globalT * 2)})`; ctx.fillRect(cx - 1.5, cy - 27, 3, 4.5);
@@ -4099,18 +4102,18 @@
   function drawTown() {
     const off = townX * W;
     drawTownBackdrop(off);
-    for (let i = 0; i < TOWN_PAGES.length; i++) {
+    for (let i = Math.floor(townX) - 1; i <= Math.floor(townX) + 2; i++) {
       const dx = (i - townX) * W;
       if (Math.abs(dx) > W * 1.1) continue;
-      drawShopFront(TOWN_PAGES[i], dx);
+      drawShopFront(TOWN_PAGES[pIdx(i)], dx);
     }
     const r = townBuildingRect();
     drawTownHero(W / 2 + 88, r.by + 22 + (Math.sin(globalT * 3) > 0 ? 0 : 1.5));
   }
   function drawTownUI() {
     const off = townX * W;
-    for (let i = 0; i < TOWN_PAGES.length; i++) { const dx = (i - townX) * W; if (Math.abs(dx) <= W * 1.1) drawShopBoard(TOWN_PAGES[i], dx); }
-    const r = townBuildingRect(), p = TOWN_PAGES[townPage];
+    for (let i = Math.floor(townX) - 1; i <= Math.floor(townX) + 2; i++) { const dx = (i - townX) * W; if (Math.abs(dx) <= W * 1.1) drawShopBoard(TOWN_PAGES[pIdx(i)], dx); }
+    const r = townBuildingRect(), p = curPage();
     // what this screen does + how to enter
     const settled = Math.abs(townX - townPage) < 0.05;
     ctx.globalAlpha = settled ? 1 : 0.4;
@@ -4120,7 +4123,7 @@
     ctx.globalAlpha = 1;
     // page dots
     const dy = Math.min(H - 40, r.by + 140);
-    TOWN_PAGES.forEach((q2, i) => { ctx.fillStyle = i === townPage ? '#f3ecda' : 'rgba(243,236,218,.35)'; const s = i === townPage ? 9 : 7; ctx.fillRect(W / 2 + (i - (TOWN_PAGES.length - 1) / 2) * 20 - s / 2, dy - s / 2, s, s); });
+    TOWN_PAGES.forEach((q2, i) => { const on = i === pIdx(townPage); ctx.fillStyle = on ? '#f3ecda' : 'rgba(243,236,218,.35)'; const s = on ? 9 : 7; ctx.fillRect(W / 2 + (i - (TOWN_PAGES.length - 1) / 2) * 20 - s / 2, dy - s / 2, s, s); });
     txt('◀ スワイプで いどう ▶', W / 2, dy + 26, 12, 'rgba(243,236,218,.6)', 'center', false);
     void off;
     drawTownTop();
@@ -4189,8 +4192,8 @@
     drawTownTop();
   }
   function townSwipeTo(i) {
-    const n = clamp(i, 0, TOWN_PAGES.length - 1); if (n !== townPage) A.sfx('select'); townPage = n; updateNav();
-    if (audioOn && !musicRoom) FMusic.setLayer(TOWN_PAGES[n].id);   // each building re-orchestrates the waltz
+    townPage = i; updateNav();   // no sound: just slide (and loop round)
+    if (audioOn && !musicRoom) FMusic.setLayer(curPage().id);   // each building re-orchestrates the waltz
   }
   function enterBuilding(id) {
     A.sfx('select');
@@ -4271,7 +4274,7 @@
   function updateNav() {
     const on = state === 'town' && !panelOpen && !transition;
     $('navL').hidden = $('navR').hidden = !on;
-    $('navL').disabled = townPage <= 0; $('navR').disabled = townPage >= TOWN_PAGES.length - 1;
+    $('navL').disabled = $('navR').disabled = false;   // the town loops
   }
 
   function showHud(on) { $('pauseBtn').hidden = !on; $('itemBtn').hidden = !on; if (!on && trayOpen) closeTray(); updateNav(); updateHudButtons(); }
@@ -4310,7 +4313,7 @@
     closePanel(); state = 'town'; D = null; arena = null; boss = null; enemies = []; bullets = []; hero = null; paused = false;
     save.hp = null;   // back in town = fully healed
     townPage = 1; townX = 1;
-    A.bgm(FARR.town, { layer: TOWN_PAGES[townPage].id });
+    A.bgm(FARR.town, { layer: curPage().id });
     showHud(false); persist();
   }
 
@@ -4543,7 +4546,7 @@
   }
   function stopMusicRoom() {
     if (musicRoom === null) return;
-    musicRoom = null; A.bgm(FARR.town, { layer: TOWN_PAGES[townPage].id });
+    musicRoom = null; A.bgm(FARR.town, { layer: curPage().id });
   }
 
   function openHouse() {
@@ -4608,7 +4611,7 @@
     if (e.key === 'Escape' && panelOpen) closePanel();
     else if (!panelOpen && e.key === 'ArrowLeft') townSwipeTo(townPage - 1);
     else if (!panelOpen && e.key === 'ArrowRight') townSwipeTo(townPage + 1);
-    else if (!panelOpen && e.key === 'Enter') enterBuilding(TOWN_PAGES[townPage].id);
+    else if (!panelOpen && e.key === 'Enter') enterBuilding(curPage().id);
   });
 
   // canvas input: drag to move (dungeon) / tap a building (town)
@@ -4633,7 +4636,7 @@
     if (state === 'town' && e.pointerId === tdrag.id) {
       tdrag.dx = (e.clientX - tdrag.x0) / S;
       if (Math.abs(tdrag.dx) > 8) tdrag.moved = true;
-      if (tdrag.moved) townX = clamp(townPage - tdrag.dx / W, -0.25, TOWN_PAGES.length - 0.75);
+      if (tdrag.moved) townX = townPage - tdrag.dx / W;
       return;
     }
     if (!drag.down || e.pointerId !== drag.id) return;
@@ -4651,7 +4654,7 @@
       if (tdrag.moved) { if (tdrag.dx < -W * 0.15) townSwipeTo(townPage + 1); else if (tdrag.dx > W * 0.15) townSwipeTo(townPage - 1); }
       else {   // tap: on the building (or its sign) = go inside
         const r = cv.getBoundingClientRect(), y = (e.clientY - r.top) / S, x = (e.clientX - r.left) / S, b = townBuildingRect();
-        if (y > b.y - 60 && y < b.by + 110 && x > b.x - 20 && x < b.x + b.w + 20) enterBuilding(TOWN_PAGES[townPage].id);
+        if (y > b.y - 60 && y < b.by + 110 && x > b.x - 20 && x < b.x + b.w + 20) enterBuilding(curPage().id);
       }
       return;
     }
@@ -4716,7 +4719,7 @@
     if (state === 'over') { goTown(); return true; }
     if (panelOpen) { if (state === 'play' || state === 'boss') paused = false; closePanel(); return true; }
     if (state === 'play' || state === 'boss') { openPause(); return true; }
-    if (state === 'town' && townPage !== 1) { townSwipeTo(1); return true; }
+    if (state === 'town' && pIdx(townPage) !== 1) { let d = 1 - pIdx(townPage); if (d > TOWN_PAGES.length / 2) d -= TOWN_PAGES.length; if (d < -TOWN_PAGES.length / 2) d += TOWN_PAGES.length; townSwipeTo(townPage + d); return true; }
     return false;   // gate page in town: let Android close the app
   };
   let last = performance.now(), lastRaf = last, rafMs = 16.7, nextT = 0;

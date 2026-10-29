@@ -1127,7 +1127,7 @@ const FMusic = (() => {
     return sfxIn;
   }
   // loudness trims (measured peaks -> impacts ~0.7, chimes and UI ~0.35)
-  const SFX_GAIN = { select: 2.5, confirm: 1.4, coin: 1.67, buy: 1.67, equip: 2.06, hit: 0.67, crit: 0.54, bosshit: 0.64, block: 0.9, hurt: 0.65, kill: 1.06, levelup: 1.25, heal: 1.3, spring: 1.3, buff: 0.72, chest: 1.21, item: 2.06, crate: 1.01, door: 0.68, bossAppear: 0.63, bossKill: 0.36, roll: 1.3, roar: 1.35, down: 0.67, quake: 0.47, boom: 0.5, magic: 4.0, magic2: 2.92, summon: 1.6, warp: 2.92 };
+  const SFX_GAIN = { select: 1.25, confirm: 1.4, coin: 1.67, buy: 1.67, equip: 2.06, hit: 0.67, crit: 0.54, bosshit: 0.64, block: 0.9, hurt: 0.65, kill: 1.06, levelup: 1.25, heal: 1.3, spring: 1.3, buff: 0.72, chest: 1.21, item: 2.06, crate: 1.01, door: 0.68, bossAppear: 0.63, bossKill: 0.36, roll: 1.3, roar: 1.35, down: 0.67, quake: 0.47, boom: 0.5, magic: 4.0, magic2: 2.92, summon: 1.6, warp: 2.92 };
   function sfx(name, arg) {
     if (!bind() || !SFX[name]) return;
     try { const g = ac.createGain(); g.gain.value = SFX_GAIN[name] || 1; g.connect(sfxRevIn()); SFX[name](ac.currentTime + 0.005, g, arg); setTimeout(() => { try { g.disconnect(); } catch (e) { } }, 4000); } catch (e) { }
