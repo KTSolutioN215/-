@@ -3953,7 +3953,8 @@
     const spr = SPR.boss(B.type, { f: Math.floor(globalT * (B.type === 'thunderbird' ? 8 : 4)), act: B.mv && B.mv.t < 0.7 ? 1 : 0, p2: B.phase === 2, look: lk, air: (B.z || 0) > 0.05, flash: hurt, noArm: WR[B.type] ? 1 : 0 });
     for (const d of B.decoys || []) SPR.draw(ctx, spr, d.x, sy(d.y) + r * 0.7 - hov, 0.92);   // illusions (no shadow)
     if (B.regen) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(120,255,100,${0.18 + 0.12 * Math.sin(globalT * 9)})`; ctx.beginPath(); ctx.arc(x, y, r * 1.5, 0, 7); ctx.fill(); ctx.restore(); }
-    if (B.type === 'cyclops') drawCyclops(B, x, by + r * 0.7 - z, y, hurt);
+    if (typeof BEAST3 !== 'undefined' && BEAST3.has(B.type)) BEAST3.draw(ctx, B, x, by + r * 0.7 - z - hov, hurt, { t: globalT, hero });   // beasts in three views (beasts3.js)
+    else if (B.type === 'cyclops') drawCyclops(B, x, by + r * 0.7 - z, y, hurt);
     else if (R3[B.type]) drawR3(B, R3[B.type], x, by + r * 0.7 - z - hov, hurt);
     else if (WR[B.type]) drawWeaponBoss(B, WR[B.type], x, by + r * 0.7 - z - hov, y, spr, hurt);
     else SPR.draw(ctx, spr, x, by + r * 0.7 - z - hov);

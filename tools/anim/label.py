@@ -6,10 +6,12 @@ src, dst = sys.argv[1], sys.argv[2]
 fonts = glob.glob('/usr/share/fonts/**/NotoSansCJK-Bold.ttc', recursive=True) + glob.glob('/usr/share/fonts/**/*CJK*.tt[cf]', recursive=True)
 F = fonts[0] if fonts else None
 font = lambda s: ImageFont.truetype(F, s, index=0) if F else ImageFont.load_default()
-NAMES = {'deathknight': 'デスナイト', 'goblinking': 'ゴブリンキング', 'ghostcaptain': 'ゆうれいせんちょう', 'cyclops': 'サイクロプス', 'shadowhero': 'シャドウヒーロー', 'demongeneral': 'まぐんしょうぐん', 'fallenangel': 'だてんし'}
+NAMES = {'deathknight': 'デスナイト', 'goblinking': 'ゴブリンキング', 'ghostcaptain': 'ゆうれいせんちょう', 'cyclops': 'サイクロプス', 'shadowhero': 'シャドウヒーロー', 'demongeneral': 'まぐんしょうぐん', 'fallenangel': 'だてんし', 'nightmare': 'ナイトメア', 'fenrir': 'フェンリル', 'bonedragon': 'ボーンドラゴン', 'leviathan': 'リヴァイアサン', 'quetzal': 'ケツァルコアトル'}
 FACE = {'f': '正面', 'r': '右向き', 'l': '左向き', 'b': '後ろ向き'}
 MOVES = {'idle': 'たいき', 'stalk': 'あるく', 'quake': 'じひびき', 'darkwave': 'やみのざんげき', 'sweep': 'おおぶり', 'dash3': '3れんとっしん', 'charge': 'とっしん',
-         'rocks': 'いわとばし', 'aimed5': 'たまうち', 'cannons': 'いっせいほうげき', 'triple': 'まほうのわ', 'bombs': 'ばくだんなげ', 'boulders': 'いわなだれ', 'jump': 'ジャンプ', 'twin': 'りょうば'}
+         'rocks': 'いわとばし', 'aimed5': 'たまうち', 'cannons': 'いっせいほうげき', 'triple': 'まほうのわ', 'bombs': 'ばくだんなげ', 'boulders': 'いわなだれ', 'jump': 'ジャンプ', 'twin': 'りょうば',
+         'spiral': 'うずまきだん', 'homing': 'ついびだん', 'dreamorbs': 'あくむの あわ', 'breath': 'ブレス', 'gapring': 'すきまの わ', 'packhunt': 'まぼろしの むれ',
+         'tentacles': 'しょくしゅ', 'tsunami': 'だいつなみ', 'wave': 'なみうち', 'tail': 'しっぽ', 'tornado': 'たつまき'}
 os.makedirs(dst, exist_ok=True)
 L = json.load(open(os.path.join(src, 'labels.json')))
 files = sorted(f for f in os.listdir(src) if f.startswith('f') and f.endswith('.png'))

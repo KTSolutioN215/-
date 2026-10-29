@@ -3626,5 +3626,5 @@ const SPR = (() => {
   };
   function x0ring(g) { g.x.strokeStyle = '#e8f0ff'; g.x.lineWidth = 1; g.x.beginPath(); g.x.arc(8, 8, 4, 0, 7); g.x.stroke(); }
 
-  return { SCALE, shadeOf, stoneOf, part, relic, itemIcon, gearIcon, hero: heroS, enemy, boss, draw, skeletonParts, ENV, floorTile, wallTile, dither, tileCanvas, shade: sh, seeded, cacheSize: () => cache.size, types: () => ({ enemies: Object.keys(EN), bosses: Object.keys(BOSS) }) };
+  return { util: { canvas, api, pixelize, tube, blob, spike, feather }, SCALE, shadeOf, stoneOf, part, relic, itemIcon, gearIcon, hero: heroS, enemy, boss, draw, skeletonParts, ENV, floorTile, wallTile, dither, tileCanvas, shade: sh, seeded, cacheSize: () => cache.size, types: () => ({ enemies: Object.keys(EN), bosses: Object.keys(BOSS) }) };
 })();
