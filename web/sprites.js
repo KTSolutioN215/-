@@ -1010,6 +1010,249 @@ const SPR = (() => {
         if (st === 1) for (const [px, py] of [[66, 14], [70, 20], [62, 12]]) { g.p(px, py, V); g.p(px + 1, py + 1, VH); }
       }, '#08020e');
     },
+    // ----- harpy: a bird-woman; wings for arms, talons, a wild red mane. Dives at you -----
+    harpy(P) {
+      const st = P.st === 'wind' ? 1 : P.st === 'dash' ? 2 : 0, k = P.f % 3;
+      return mk('harpy' + st + k, 56, 48, 28, 44, g => {
+        const F = { m: '#3a9a8a', d: '#1e5a52', tip: '#f2c14e' }, F2 = { m: '#5ac0b0', d: '#2a7a6a', tip: '#ffffff' }, Sk = '#f0c8a8', SkS = '#d09878', Hr = { d: '#8a1e2a', m: '#d8404a', h: '#ff8a8a' }, Tl = { d: '#7a5a2a', m: '#c8a050', h: '#f0d890' };
+        const up = st === 1 ? -0.55 : st === 2 ? 0.55 : [-0.25, 0, 0.25][k];
+        for (const m of [-1, 1]) {   // wing-arms
+          const sx = 28 + m * 6, sy = 22;
+          for (let i = 0; i < 6; i++) { const a = (m > 0 ? 0 : Math.PI) + m * (-0.75 + i * 0.3 + up); feather(g, sx, sy, a, 20 - i * 1.6, 3.2, i % 2 ? F : F2); }
+        }
+        // tail feathers
+        for (let i = 0; i < 3; i++) feather(g, 28, 32, Math.PI / 2 + (i - 1) * 0.35, 10, 2.4, i === 1 ? F2 : F);
+        // bird legs with talons (reach forward in the dive)
+        const ly = st === 2 ? -2 : 0;
+        for (const m of [-1, 1]) { g.line(28 + m * 3, 30, 28 + m * 5, 37 + ly, 1.6, Tl.m); for (const c of [-2, 0, 2]) spike(g, 28 + m * 5 + c, 38 + ly, Math.PI / 2 + c * 0.2, 3, 0.8, Tl); }
+        // body: feathered chest
+        blob(g, 28, 26, 6.5, 7, { d: F.d, m: F2.m, h: '#a8f0e0' });
+        g.ell(28, 21, 3, 1.6, Sk);
+        // head: face, mane
+        g.poly([[20, 10], [28, 4], [36, 10], [38, 22], [33, 16], [23, 16], [18, 22]], Hr.m); g.poly([[28, 4], [36, 10], [38, 22], [33, 16], [28, 14]], Hr.d);
+        g.ell(28, 13, 5.5, 5.5, Sk); g.ell(30, 15, 3, 3, SkS);
+        g.poly([[22, 8], [28, 5], [34, 8], [30, 9], [26, 9]], Hr.h);
+        const E = st ? '#ffe14a' : '#2a1420';
+        g.r(25, 12, 2, 2, E); g.r(30, 12, 2, 2, E); if (st) { g.p(25, 12, '#ffffff'); g.p(30, 12, '#ffffff'); }
+        g.line(24, 11, 27, 12, 1, Hr.d); g.line(33, 11, 30, 12, 1, Hr.d);
+        g.r(27, 16, 3, 1, st ? '#8a1a2a' : '#b05050');
+      }, '#10201c');
+    },
+    // ----- crossbow soldier of the dark fortress: iron helm, red tabard, a heavy crossbow -----
+    crossbow(P) {
+      const aim = P.st === 'aim' ? 1 : 0, step = P.step || 0, k = P.f % 2;
+      return mk('xbow' + aim + step + k, 50, 48, 22, 44, g => {
+        const I = { d: '#2a2e3a', m: '#4e5468', h: '#8a92a8' }, Rd = { d: '#4a0e14', m: '#8a1e24', h: '#c84a4a' }, Wd = '#6a4020', WdS = '#4a2a14';
+        for (const [x, o] of [[16, step > 0 ? -2 : 0], [23, step < 0 ? -2 : 0]]) { bevel(g, x, 33 + o, 5, 8, I); g.r(x - 1, 40 + o, 7, 3, '#14161c'); }
+        g.poly([[14, 20], [30, 20], [31, 36], [13, 36]], I.m); g.poly([[22, 20], [30, 20], [31, 36], [22, 36]], I.d);
+        for (let y = 22; y < 35; y += 2) for (let x = 15 + (y % 4 ? 1 : 0); x < 30; x += 2) g.p(x, y, I.h);   // chainmail glints
+        g.poly([[17, 20], [27, 20], [26, 38], [22, 41], [18, 38]], Rd.m); g.poly([[22, 20], [27, 20], [26, 38], [22, 41]], Rd.d); g.r(20, 26, 4, 4, '#1a1a22'); g.p(21, 27, '#c8c8d8');
+        g.r(13, 30, 18, 2, '#2a1a10'); g.r(20, 30, 3, 2, '#c9a24a');
+        for (const m of [-1, 1]) blob(g, 22 + m * 8, 21, 4, 3, I);
+        // helm with eye slit
+        g.poly([[15, 8], [22, 3], [29, 8], [29, 19], [15, 19]], I.m); g.poly([[22, 3], [29, 8], [29, 19], [22, 19]], I.d); g.line(16, 9, 21, 5, 1, I.h);
+        g.r(16, 12, 13, 2, '#0a0a10'); g.r(23, 12, 3, 2, aim ? '#ff4a3a' : '#a02a2a'); g.r(21, 15, 2, 4, '#0a0a10');
+        g.poly([[21, 3], [22, 0], [23, 3]], '#c84a4a');
+        // crossbow: held low, or levelled at you
+        const cy = aim ? 24 : 30, cx = aim ? 30 : 28;
+        g.r(cx, cy - 1, 16, 3, Wd); g.r(cx, cy - 1, 16, 1, '#8a6030');
+        g.line(cx + 12, cy - 7, cx + 14, cy + 7, 2, WdS); g.line(cx + 12, cy - 7, cx + 6, cy, 1, '#c8c0a0'); g.line(cx + 14, cy + 7, cx + 6, cy, 1, '#c8c0a0');
+        if (aim) { g.r(cx + 4, cy, 14, 1, '#d8d8e0'); g.poly([[cx + 18, cy - 1.5], [cx + 21, cy + 0.5], [cx + 18, cy + 2.5]], '#e8e8f0'); }
+        blob(g, cx + 1, cy + 1, 2.6, 2.6, I);
+      }, '#0c0e14');
+    },
+    // ----- clockwork soldier: a brass wind-up toy. Winds up, spins with its blades out, then gets dizzy -----
+    clockwork(P) {
+      const st = P.st === 'wind' ? 1 : P.st === 'spin' ? 2 : P.st === 'dizzy' ? 3 : 0, k = P.f % 4, step = P.step || 0;
+      return mk('clock' + st + k + (st ? 0 : step), 52, 54, 26, 50, g => {
+        const B = { d: '#7a4a1a', m: '#c8902a', h: '#ffe08a' }, Rd = { d: '#6a1414', m: '#b02a2a', h: '#e86a5a' }, Bl = { d: '#6a7080', m: '#c8d0dc', h: '#ffffff' }, Dk = '#1a1210';
+        const tilt = st === 3 ? 2 : 0;
+        // legs on a little wheel base
+        if (st !== 2) for (const [x, o] of [[20, step > 0 ? -2 : 0], [28, step < 0 ? -2 : 0]]) { bevel(g, x, 38 + o, 5, 7, B); g.r(x - 1, 44 + o, 7, 3, Dk); }
+        else { g.ell(26, 45, 9, 3, B.d); g.ell(26, 44, 7, 2, B.m); }
+        // body: a red drum with brass bands
+        bevel(g, 16, 22, 21, 17, Rd); g.r(16, 25, 21, 2, B.m); g.r(16, 34, 21, 2, B.m); g.r(16, 25, 21, 1, B.h);
+        for (const x of [19, 26, 33]) { g.r(x, 29, 2, 2, B.m); g.p(x, 29, B.h); }
+        // wind-up key on the back (turns while winding)
+        const ka = st === 1 ? k * Math.PI / 4 : st === 2 ? k * Math.PI / 2 : 0;
+        g.r(36, 28, 5, 2, B.d); for (const s of [-1, 1]) g.ell(43 + Math.cos(ka) * s * 0.4, 29 + Math.sin(ka) * s * 5, 2.6, Math.abs(Math.cos(ka)) * 2.6 + 1, B.m);
+        // arms with blades: tucked, raised, or flung out in the spin
+        if (st === 2) for (const m of [-1, 1]) { const a = k * Math.PI / 2 + (m > 0 ? 0 : Math.PI); g.line(26, 30, 26 + Math.cos(a) * 24, 30 + Math.sin(a) * 8, 3, Bl.d); g.line(26, 30, 26 + Math.cos(a) * 23, 30 + Math.sin(a) * 8, 1.6, Bl.h); for (let i = 0; i < 3; i++) g.p(26 + Math.round(Math.cos(a + 0.4 + i * 0.2) * 20), 30 + Math.round(Math.sin(a + 0.4 + i * 0.2) * 7), '#fff6c0'); }
+        else for (const m of [-1, 1]) { const ry = st === 1 ? -5 : 0; tube(g, [[26 + m * 11, 25, 2.6], [26 + m * 14, 31 + ry, 2.2]], B); g.line(26 + m * 14, 31 + ry, 26 + m * 18, 22 + ry, 2.4, Bl.m); g.line(26 + m * 14, 31 + ry, 26 + m * 18, 22 + ry, 1, Bl.h); }
+        // head: painted face, tall hat
+        blob(g, 26 + tilt, 15, 7.5, 7, { d: '#c8a890', m: '#f4e0d0', h: '#ffffff' });
+        g.p(23 + tilt, 14, Dk); g.p(29 + tilt, 14, Dk); g.ell(22 + tilt, 17, 1.4, 1, '#f09090'); g.ell(30 + tilt, 17, 1.4, 1, '#f09090');
+        if (st === 3) { g.line(22 + tilt, 13, 24 + tilt, 15, 1, Dk); g.line(24 + tilt, 13, 22 + tilt, 15, 1, Dk); g.line(28 + tilt, 13, 30 + tilt, 15, 1, Dk); g.line(30 + tilt, 13, 28 + tilt, 15, 1, Dk); g.ell(26 + tilt, 19, 1.6, 1.2, Dk); }
+        else g.r(25 + tilt, 18, 3, 1, '#a03030');
+        bevel(g, 20 + tilt, 1, 12, 8, { d: '#1a1a2a', m: '#2a2a44', h: '#4a4a6a' }); g.r(18 + tilt, 8, 16, 2, '#2a2a44'); g.r(20 + tilt, 6, 12, 1, B.m);
+        if (st === 3) for (let i = 0; i < 3; i++) { const a = k * 0.8 + i * 2.1, x = 26 + Math.cos(a) * 11, y = 3 + Math.sin(a) * 3; g.p(Math.round(x), Math.round(y), '#ffe14a'); g.p(Math.round(x) + 1, Math.round(y), '#fff6c0'); }
+      }, '#140c08');
+    },
+    // ----- star spirit: a five-pointed star with a face and a comet tail; it scatters starlight -----
+    starspirit(P) {
+      const cast = P.st === 'cast' ? 1 : 0, k = P.f % 3;
+      return mk('star' + 'sp' + cast + k, 46, 48, 23, 44, g => {
+        const Y = { d: '#c8901a', m: '#ffd84a', h: '#fffbe0' }, T = ['#9a8aff', '#c8bcff', '#eee8ff'];
+        // comet tail
+        for (let i = 0; i < 7; i++) { const t = i / 6; g.ell(21 - t * 9 + Math.sin(k + t * 3) * 1.5, 28 + t * 14, 5 - t * 3.8, 3 - t * 2, T[i % 3]); if (i % 2) g.p(Math.round(19 - t * 9), Math.round(27 + t * 14), '#ffffff'); }
+        const R = cast ? 15 : 13.5, pts = [], rot = (k - 1) * 0.06;
+        for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + rot + i * Math.PI / 5, r = i % 2 ? R * 0.48 : R; pts.push([23 + Math.cos(a) * r, 21 + Math.sin(a) * r]); }
+        g.poly(pts, Y.d); g.poly(pts.map(([x, y]) => [23 + (x - 23) * 0.82 - 0.6, 20.5 + (y - 21) * 0.82]), Y.m); g.poly(pts.slice(0, 4).map(([x, y]) => [23 + (x - 23) * 0.5 - 1, 19 + (y - 21) * 0.5]), Y.h);
+        // face
+        g.r(19, 19, 2, 3, '#4a2a10'); g.r(25, 19, 2, 3, '#4a2a10'); g.p(19, 19, '#ffffff'); g.p(25, 19, '#ffffff');
+        g.ell(17, 24, 1.6, 1, '#ff9ab0'); g.ell(29, 24, 1.6, 1, '#ff9ab0');
+        if (cast) g.ell(23, 25, 2, 1.6, '#8a3a2a'); else g.r(21, 24, 4, 1, '#8a3a2a');
+        // orbiting sparkles
+        for (let i = 0; i < 3; i++) { const a = k * 0.7 + i * 2.1, x = 23 + Math.cos(a) * 19, y = 21 + Math.sin(a) * 8; g.p(Math.round(x), Math.round(y), '#ffffff'); g.p(Math.round(x) - 1, Math.round(y), '#fff2a0'); g.p(Math.round(x) + 1, Math.round(y), '#fff2a0'); }
+        if (cast) for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * Math.PI * 0.4; g.line(23 + Math.cos(a) * 17, 21 + Math.sin(a) * 17, 23 + Math.cos(a) * 21, 21 + Math.sin(a) * 21, 1, '#fffbe0'); }
+      }, '#4a2a08');
+    },
+    // ----- fire spirit: a living flame with a face; it streaks at you and leaves fire behind -----
+    fireelem(P) {
+      const st = P.st === 'wind' ? 1 : P.st === 'dash' ? 2 : 0, k = P.f % 3;
+      return mk('fel' + st + k, 44, 50, 22, 46, g => {
+        const C = ['#a01a08', '#ff5a1a', '#ffa02a', '#ffe060', '#fffbe0'], o = [-2, 0, 2][k], s2 = st === 2 ? 1 : 0, swell = st === 1 ? 2 : 0;
+        // tongues of flame rising from the body (lean back while it streaks)
+        for (let i = 0; i < 5; i++) { const x = 13 + i * 4.5, h = 14 + ((i + k) % 3) * 4 + swell, lean = s2 ? 6 : o * 0.5; g.poly([[x - 4, 26], [x + lean, 26 - h], [x + 4, 26]], i % 2 ? C[1] : C[0]); }
+        g.ell(22, 30, 12 + swell, 13 + swell, C[0]); g.ell(22, 30, 10.5 + swell, 11.5 + swell, C[1]); g.ell(21, 31, 8 + swell, 8.5 + swell, C[2]);
+        for (let i = 0; i < 3; i++) { const x = 15 + i * 7; g.poly([[x - 3, 24], [x + o * 0.4, 14 - (i % 2) * 3], [x + 3, 24]], C[2]); }
+        g.ell(22, 33, 4.5, 4, C[3]); g.ell(21, 32, 2, 2, C[4]);   // core
+        // face
+        const E = st ? '#ffffff' : '#3a0a04';
+        g.poly([[15, 26], [20, 27], [16, 29]], '#3a0a04'); g.poly([[29, 26], [24, 27], [28, 29]], '#3a0a04'); g.p(17, 27, E); g.p(27, 27, E);
+        if (st) g.ell(22, 37, 3, 2, '#3a0a04'); else g.r(20, 36, 4, 1, '#3a0a04');
+        // embers
+        for (let i = 0; i < 3; i++) g.p(10 + ((i * 13 + k * 5) % 24), 8 + ((i * 7 + k * 3) % 10), C[3]);
+        if (s2) for (let i = 0; i < 4; i++) g.r(4 + i * 2, 30 + i * 3, 4, 1, C[2]);
+      }, '#3a0804');
+    },
+    // ----- ghost pirate: tricorn hat, beard, a flintlock that fires slow cannonballs -----
+    ghostpirate(P) {
+      const aim = P.st === 'aim' ? 1 : 0, k = P.f % 2;
+      return mk('gpir' + aim + k, 52, 52, 24, 48, g => {
+        const G = { d: '#2a6a6a', m: '#5ac0b0', h: '#b8fff0' }, Ct = { d: '#14304a', m: '#24507a', h: '#4a80b0' }, Au = '#c9a24a', Bk = '#0e1a1a';
+        // ghostly tail instead of legs
+        for (let i = 0; i < 4; i++) { const t = i / 3; g.ell(24 + Math.sin(k * 2 + t * 4) * 2 - t * 3, 38 + t * 7, 7 - t * 4.5, 3.4 - t * 1.6, i % 2 ? G.m : G.d); }
+        // coat
+        g.poly([[15, 22], [33, 22], [35, 40], [24, 38], [13, 40]], Ct.m); g.poly([[24, 22], [33, 22], [35, 40], [24, 38]], Ct.d); g.line(16, 23, 15, 38, 1, Ct.h);
+        for (const y of [26, 31, 36]) { g.p(23, y, Au); g.p(25, y, Au); }
+        g.r(14, 30, 20, 2, '#3a1a10'); g.r(22, 30, 4, 2, Au);
+        for (const m of [-1, 1]) blob(g, 24 + m * 9, 23, 4, 3, Ct);
+        // head: pale blue-green face, big beard, tricorn
+        blob(g, 24, 15, 7, 6.5, G);
+        g.poly([[17, 15], [31, 15], [30, 22], [24, 26], [18, 22]], '#d8e8e8'); g.poly([[24, 15], [31, 15], [30, 22], [24, 26]], '#a8c0c0');
+        for (let i = 0; i < 4; i++) g.line(19 + i * 3, 18, 20 + i * 3, 23, 1, '#8aa0a0');
+        g.r(20, 13, 3, 2, Bk); g.r(26, 13, 3, 2, Bk); g.p(21, 13, '#ffe14a'); g.p(27, 13, '#ffe14a');
+        g.r(25, 12, 5, 1, Bk);   // eyepatch strap
+        g.poly([[13, 9], [24, 3], [35, 9], [31, 11], [24, 9], [17, 11]], '#1a1a22'); g.r(14, 9, 20, 2, Au); g.ell(24, 6, 2.2, 1.8, '#e8e8e0'); g.p(23, 6, Bk); g.p(25, 6, Bk);
+        // flintlock pistol
+        const px = aim ? 34 : 32, py = aim ? 22 : 30;
+        tube(g, [[30, 24, 2.6], [px, py, 2.2]], Ct);
+        g.r(px, py - 1, 9, 3, '#3a3a40'); g.r(px, py - 1, 9, 1, '#8a8a90'); g.r(px - 2, py, 3, 5, '#6a4020');
+        if (aim) { g.p(px + 10, py, '#ffe080'); g.p(px + 11, py - 1, '#ffffff'); }
+      }, '#061414');
+    },
+    // ----- dwarf warrior: horned helm, great orange beard, a huge hammer -----
+    dwarf(P) {
+      const sw = P.st === 'wind' ? 2 : P.st === 'slash' ? 1 : 0, k = P.f % 2, step = P.step || 0;
+      const ka = sw === 1 ? Math.round(Math.min(1, P.k || 0) * 4) / 4 : 0;
+      return mk('dwarf' + sw + ka + k + step, 60, 54, 26, 50, g => {
+        const Sk = '#f0b890', SkS = '#c88a60', Bd = { d: '#a0401a', m: '#e0702a', h: '#ffb060' }, I = { d: '#4a5060', m: '#8a92a4', h: '#d0d8e8' }, L = { d: '#4a2a14', m: '#7a4a24', h: '#a87040' }, HN = { d: '#a89a70', m: '#e8e0c0', h: '#ffffff' };
+        for (const [x, o] of [[17, step > 0 ? -2 : 0], [27, step < 0 ? -2 : 0]]) { bevel(g, x, 38 + o, 7, 7, L); g.r(x - 1, 44 + o, 9, 3, '#1a1008'); }
+        g.poly([[13, 22], [37, 22], [38, 40], [12, 40]], L.m); g.poly([[25, 22], [37, 22], [38, 40], [25, 40]], L.d);
+        bevel(g, 17, 26, 16, 13, { d: '#5a3a1a', m: '#8a5a2a', h: '#b88a4a' });   // apron
+        g.r(12, 34, 26, 3, '#2a1a0a'); g.r(22, 34, 5, 3, '#c9a24a');
+        for (const m of [-1, 1]) blob(g, 25 + m * 12, 25, 5.5, 4.5, I);
+        blob(g, 25, 16, 8.5, 7.5, { d: SkS, m: Sk, h: '#ffe0c8' });
+        // beard
+        g.poly([[16, 16], [34, 16], [33, 27], [29, 33], [25, 30], [21, 33], [17, 27]], Bd.m); g.poly([[25, 16], [34, 16], [33, 27], [29, 33], [25, 30]], Bd.d);
+        for (let i = 0; i < 4; i++) g.line(19 + i * 4, 19, 20 + i * 4, 29, 1, Bd.h);
+        g.ell(25, 16, 2.6, 2, '#d88a6a');
+        g.r(20, 12, 3, 2, '#1a1008'); g.r(27, 12, 3, 2, '#1a1008'); g.p(21, 12, '#ffffff'); g.p(28, 12, '#ffffff');
+        g.line(19, 10, 23, 11, 1.4, Bd.d); g.line(31, 10, 27, 11, 1.4, Bd.d);
+        // helmet with horns
+        g.ell(25, 8, 10, 6, I.d); g.ell(24, 7, 9, 5, I.m); g.ell(21, 5, 3, 1.6, I.h); g.r(15, 9, 20, 2, '#c9a24a');
+        for (const m of [-1, 1]) tube(g, [[25 + m * 9, 7, 2.4], [25 + m * 14, 3, 1.8], [25 + m * 15, -1, 0.9]], HN);
+        // hammer
+        const a = sw === 2 ? -2.6 : sw === 1 ? ka * 2.9 - 1.3 : -0.7 + k * 0.05, hx = 37, hy = 30, dx = Math.cos(a), dy = Math.sin(a);
+        g.line(hx, hy, hx + dx * 20, hy + dy * 20, 2.6, '#6a4020');
+        const tx = hx + dx * 21, ty = hy + dy * 21, nx = -dy, ny = dx;
+        g.poly([[tx + nx * 7 - dx * 4, ty + ny * 7 - dy * 4], [tx + nx * 7 + dx * 4, ty + ny * 7 + dy * 4], [tx - nx * 7 + dx * 4, ty - ny * 7 + dy * 4], [tx - nx * 7 - dx * 4, ty - ny * 7 - dy * 4]], I.m);
+        g.line(tx + nx * 7 - dx * 4, ty + ny * 7 - dy * 4, tx - nx * 7 - dx * 4, ty - ny * 7 - dy * 4, 1, I.h); g.p(Math.round(tx), Math.round(ty), '#c9a24a');
+        blob(g, hx, hy, 3.4, 3.4, { d: SkS, m: Sk, h: '#ffe0c8' });
+      }, '#140a04');
+    },
+    // ----- magic mirror: a floating gilded mirror with an eye inside; when it shines it throws a ram back at you -----
+    magicmirror(P) {
+      const shine = P.shine ? 1 : 0, k = P.f % 3;
+      return mk('mmir' + shine + k, 44, 54, 22, 50, (g, x) => {
+        const Au = { d: '#8a5a1a', m: '#e0b04a', h: '#fff0a0' }, Gl = shine ? ['#ffffff', '#e8f4ff', '#c8e4ff'] : ['#5a7aa8', '#8ab0d8', '#c8dcf4'];
+        // frame: an oval with scrolls top and bottom
+        g.ell(22, 22, 15, 19, Au.d); g.ell(21.5, 21.5, 13.5, 17.5, Au.m); g.ell(18, 12, 4, 2.4, Au.h);
+        for (const [cx, cy] of [[22, 2], [22, 42]]) { g.ell(cx, cy, 5, 3, Au.m); g.ell(cx - 1, cy - 1, 2.6, 1.4, Au.h); }
+        for (const m of [-1, 1]) { g.ell(22 + m * 14, 22, 2.6, 4, Au.m); g.p(22 + m * 14, 20, Au.h); }
+        g.ell(22, 22, 11, 15, '#2a2018');
+        g.ell(22, 22, 10, 14, Gl[0]); g.ell(22, 23, 8.5, 12, Gl[1]); g.ell(20, 20, 5, 8, Gl[2]);
+        // the eye that lives in the glass
+        if (!shine) { g.ell(22, 23, 5.5, 3.6, '#f4f0e8'); g.ell(22 + (k - 1), 23, 2.6, 2.6, '#7a2a9a'); g.ell(22 + (k - 1), 23, 1.2, 1.6, '#100818'); g.p(21 + (k - 1), 22, '#ffffff'); g.line(16.5, 21, 27.5, 21, 1, '#3a2a40'); }
+        else for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + k * 0.3; g.line(22, 22, 22 + Math.cos(a) * 9, 22 + Math.sin(a) * 12, 1, '#ffffff'); }
+        g.line(15, 14, 19, 10, 1, '#ffffff'); g.line(16, 18, 18, 16, 1, '#ffffff');   // glints
+        // the handle tail and a sparkle
+        g.r(20, 44, 4, 6, Au.d); g.r(21, 44, 2, 6, Au.m); g.ell(22, 50, 3, 1.6, Au.m);
+        if (shine) for (const [px, py] of [[4, 8], [40, 14], [6, 36], [38, 40]]) { g.p(px, py, '#ffffff'); g.p(px - 1, py, '#c8e4ff'); g.p(px + 1, py, '#c8e4ff'); g.p(px, py - 1, '#c8e4ff'); g.p(px, py + 1, '#c8e4ff'); }
+      }, '#2a1808');
+    },
+    // ----- bone wyvern: a dead wyvern's skeleton held together by green ghost-fire -----
+    bonewyvern(P) {
+      const k = P.f % 3, fire = P.st === 'wind' || P.st === 'fire' ? 1 : 0;
+      return mk('bwyv' + k + fire, 64, 52, 32, 46, (g, x) => {
+        const B = { d: '#8a8068', m: '#d8d0b8', h: '#fffaf0' }, M = { d: '#14302a', m: '#2a5a4a' }, Gh = '#6affc0', GhD = '#1a8a5a';
+        const o = [-10, 0, 8][k];
+        const wing = (rx, ry, sc, far) => {
+          const el = [rx - 8 * sc, ry - 14 + o * 0.7], tips = [[rx - 22 * sc, ry - 16 + o], [rx - 26 * sc, ry - 4 + o * 0.6], [rx - 20 * sc, ry + 6 + o * 0.3], [rx - 8 * sc, ry + 8]];
+          g.poly([[rx, ry], el, tips[0], tips[1]], far ? '#0e221c' : M.m); g.poly([[rx, ry], tips[2], tips[3]], far ? '#0a1814' : M.d);   // tattered membrane
+          tube(g, [[rx, ry, 1.8], [el[0], el[1], 1.5]], B); for (const T of tips) g.line(el[0], el[1], T[0], T[1], 1.2, B.m); g.ell(el[0], el[1], 1.6, 1.6, B.h);
+        };
+        wing(28, 26, -0.8, true);
+        for (let i = 0; i < 6; i++) blob(g, 20 - i * 3.4, 30 + Math.sin(i * 0.9) * 2 - (i > 3 ? (i - 3) * 2 : 0), 2.6 - i * 0.25, 2.2 - i * 0.2, B);   // tail vertebrae
+        // ribcage with ghost-fire inside
+        g.ell(30, 31, 9, 6, '#0a1814'); g.ell(30, 31, 5, 3.6, GhD); g.ell(30, 31, 3, 2, Gh);
+        for (let i = 0; i < 5; i++) { const rx2 = 24 + i * 3; g.line(rx2, 25, rx2 - 1, 37, 1.4, B.m); g.p(rx2, 25, B.h); }
+        tube(g, [[22, 25, 1.6], [36, 24, 1.6]], B);
+        for (const [lx, m] of [[26, 0], [34, 1]]) { tube(g, [[lx, 34, 1.6], [lx + m, 41, 1.2]], B); for (const c of [-2, 0, 2]) g.line(lx + m, 41, lx + m + c, 44, 1, B.m); }
+        // neck + skull
+        for (let i = 0; i < 4; i++) blob(g, 37 + i * 3, 24 - i * 2.4, 2.2, 2, B);
+        blob(g, 49, 15, 6, 4.6, B);
+        g.poly([[51, 13], [61, 15], [60, 18], [51, 19]], B.m); g.poly([[51, 16], [60, 18], [51, 19]], B.d);
+        spike(g, 46, 11, -Math.PI / 2 - 0.7, 7, 1.6, B); spike(g, 49, 10, -Math.PI / 2 - 0.3, 7, 1.6, B);
+        g.ell(49, 14, 2.2, 2, '#0a1410'); g.ell(49, 14, 1.2, 1.2, Gh); g.p(49, 13, '#ffffff');
+        if (fire) { g.poly([[52, 19], [61, 18], [60, 24], [53, 23]], '#0a1410'); g.ell(56, 21, 2.6, 1.6, Gh); g.p(55, 21, '#ffffff'); }
+        else { for (const xx of [53, 56, 59]) g.poly([[xx, 18], [xx + 0.8, 20], [xx + 1.6, 18]], '#ffffff'); }
+        wing(34, 25, 1, false);
+      }, '#081410');
+    },
+    // ----- dark priest: a hooded servant of the demon king; its staff sends seeking curses -----
+    darkpriest(P) {
+      const cast = P.st === 'cast' ? 1 : 0, k = P.f % 2;
+      return mk('dpri' + cast + k, 44, 52, 20, 48, g => {
+        const R = { d: '#1a0a24', m: '#3a1a4a', h: '#6a3a8a' }, Au = '#c9a24a', AuH = '#fff0b0', Mk = { d: '#8a8090', m: '#d8d0e0', h: '#ffffff' };
+        g.poly([[12, 18], [28, 18], [33, 48], [7, 48]], R.m); g.poly([[20, 18], [28, 18], [33, 48], [21, 48]], R.d); g.line(13, 20, 9, 46, 1, R.h);
+        g.r(18, 20, 4, 27, '#5a1a2a'); for (let y = 24; y < 46; y += 6) g.r(18, y, 4, 1, Au); g.r(7, 46, 26, 2, Au);
+        // hood and mask
+        g.poly([[11, 20], [20, 3], [29, 20]], R.m); g.poly([[20, 3], [29, 20], [20, 20]], R.d);
+        g.ell(20, 14, 6, 6.5, '#06020a');
+        g.ell(20, 14, 4.2, 5, Mk.m); g.ell(21, 15, 3, 4, Mk.d); g.r(17, 13, 2, 1, cast ? '#ff4ad8' : '#a03ac8'); g.r(22, 13, 2, 1, cast ? '#ff4ad8' : '#a03ac8'); g.r(19, 17, 3, 1, '#4a3a50');
+        g.r(16, 8, 8, 1, Au); g.p(20, 7, AuH);
+        // sleeves; the staff rises when it casts
+        g.poly([[11, 22], [6, 32 - cast * 6], [11, 34 - cast * 6], [15, 26]], R.m);
+        const sy = cast ? 2 : 8 + k;
+        g.line(33, sy + 4, 33, 48, 2, '#2a1a10'); g.r(30, sy + 4, 7, 1, Au);
+        g.ell(33, sy, cast ? 4 : 3.2, cast ? 4 : 3.2, cast ? '#ff4ad8' : '#a03ac8'); g.ell(32, sy - 1, 1.4, 1.4, '#ffd0f8');
+        for (const m of [-1, 1]) spike(g, 33 + m * 3, sy + 2, -Math.PI / 2 + m * 0.6, 5, 1, { d: '#6a5a40', m: Au, h: AuH });
+        g.poly([[28, 22], [33, 28 - cast * 4], [29, 31 - cast * 4], [26, 26]], R.d); blob(g, 32, 28 - cast * 4, 2.4, 2.4, Mk);
+        if (cast) for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + k * 0.7; g.p(33 + Math.round(Math.cos(a) * 7), sy + Math.round(Math.sin(a) * 7), '#ffb0f0'); }
+      }, '#08020c');
+    },
   };
   // wolf / hellhound share the body
   function wolfish(P, key, C) {
