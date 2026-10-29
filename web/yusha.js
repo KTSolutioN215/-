@@ -11,14 +11,21 @@
   // ---- pixel layer: the world is drawn at 1 art pixel = 1.5 logical px, then scaled up without smoothing ----
   const PXS = 1.5;
   const q = v => Math.round(v / PXS) * PXS;   // snap to the art grid
-  const pixC = document.createElement('canvas'); let pixX = pixC.getContext('2d');
-  function beginPix() {
+  // The world is drawn at 1 art pixel per canvas pixel into #px, and the browser scales that canvas up on screen (CSS, nearest neighbour):
+  // no big upscale copy every frame, the GPU compositor does it. HUD and text go on #cv (full resolution) above it.
+  const pixC = document.getElementById('px'); let pixX = pixC.getContext('2d', { alpha: false }), pixCss = '';
+  function sizePix() {
     const w = Math.ceil(W / PXS) + 2, h = Math.ceil(H / PXS) + 2;
-    if (pixC.width !== w || pixC.height !== h) { pixC.width = w; pixC.height = h; pixX = pixC.getContext('2d'); }
-    ctx = pixX; ctx.setTransform(1 / PXS, 0, 0, 1 / PXS, 0, 0); ctx.imageSmoothingEnabled = false;
-    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.clearRect(0, 0, W + 6, H + 6);
+    if (pixC.width !== w || pixC.height !== h) { pixC.width = w; pixC.height = h; pixX = pixC.getContext('2d', { alpha: false }); pixCss = ''; }
+    const css = (w * PXS * S).toFixed(2) + 'x' + (h * PXS * S).toFixed(2);
+    if (css !== pixCss) { pixCss = css; pixC.style.width = (w * PXS * S) + 'px'; pixC.style.height = (h * PXS * S) + 'px'; }
   }
-  function endPix() { ctx = mainCtx; ctx.imageSmoothingEnabled = false; ctx.drawImage(pixC, 0, 0, pixC.width * PXS, pixC.height * PXS); }
+  function beginPix() {
+    sizePix();
+    ctx = pixX; ctx.setTransform(1 / PXS, 0, 0, 1 / PXS, 0, 0); ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = '#0e0c16'; ctx.fillRect(0, 0, W + 6, H + 6);
+  }
+  function endPix() { ctx = mainCtx; ctx.imageSmoothingEnabled = false; }
   const $ = id => document.getElementById(id);
   const VW = 360;
   let W = VW, H = 640, S = 1, dpr = 1;
@@ -3862,7 +3869,7 @@
       txt(lab, bx + bw / 2, top + 69, 12, Q.col, 'center', false);
     }
     if (save.skill && SKILLS[save.skill]) {   // the set skill: double tap to use; the dark sweep is its cooldown
-      const S = SKILLS[save.skill], cx = 40, cy = H - 52, cd = Math.max(0, h.skCD || 0), ready = cd <= 0;
+      const S = SKILLS[save.skill], cx = 40, cy = H - 52 - safeBottom(), cd = Math.max(0, h.skCD || 0), ready = cd <= 0;
       ctx.fillStyle = 'rgba(19,24,58,.86)'; ctx.beginPath(); ctx.arc(cx, cy, 26, 0, 7); ctx.fill();
       ctx.strokeStyle = ready ? S.col : 'rgba(243,236,218,.4)'; ctx.lineWidth = ready ? 3 : 2; ctx.beginPath(); ctx.arc(cx, cy, 26, 0, 7); ctx.stroke();
       txt(S.ch, cx, cy + 8, 22, ready ? S.col : 'rgba(243,236,218,.5)', 'center', false);
@@ -3924,7 +3931,8 @@
       ctx.globalAlpha = 1;
     }
   }
-  function safeTop() { return 0; }
+  function safeTop() { return safeT; }
+  function safeBottom() { return safeB; }
   function drawPad() {
     if (!drag.down || paused || (state !== 'play' && state !== 'boss')) return;
     const charge = hero && heroSpeed() > RAM_MIN;
@@ -4662,14 +4670,24 @@
   // ---------------------------------------------------------------
   // resolution: device pixel ratio capped at 2 and ~1.2M pixels, then lowered automatically if frames are slow
   let quality = 1;
+  // any phone shape: the play field is always 360 wide (logical); a taller screen just sees more of the dungeon.
+  // Screens wider than 360:540 (tablets, foldables, landscape) get side bars so the field never gets too short.
+  let safeT = 0, safeB = 0;
   function resize() {
+    const game = $('game'), vw = window.innerWidth, vh = window.innerHeight;
+    game.style.maxWidth = Math.max(240, Math.min(560, vw, Math.floor(vh * VW / 540))) + 'px';
     const r = cv.getBoundingClientRect();
     const cap = Math.sqrt(1.2e6 / Math.max(1, r.width * r.height));
     dpr = Math.max(0.75, Math.min(2, window.devicePixelRatio || 1, cap) * quality);
     S = r.width / VW; W = VW; H = Math.round(r.height / S);
     cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    const pr = $('safeProbe'), cs = pr ? getComputedStyle(pr) : null, T = window.__safeTest;   // notch / punch-hole and the gesture bar, in logical px
+    safeT = (T ? T.t : cs ? parseFloat(cs.paddingTop) || 0 : 0) / S; safeB = (T ? T.b : cs ? parseFloat(cs.paddingBottom) || 0 : 0) / S;
+    sizePix();
   }
   window.addEventListener('resize', resize);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);   // foldables / split screen
+  window.addEventListener('orientationchange', () => setTimeout(resize, 120));
   // app in the background (other app, screen off, tab hidden): stop the music and the game loop entirely
   let sleeping = false;
   function sleep() {

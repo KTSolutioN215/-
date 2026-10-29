@@ -60,7 +60,7 @@ tasks.register('syncWeb') {
         def body = new File(webDir, 'index.html').getText('UTF-8')
         def head = '<!doctype html><html lang="ja"><head><meta charset="utf-8">' +
                 '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">' +
-                '<style>:root{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}body{margin:0}[hidden]{display:none!important}</style>' +
+                '<style>body{margin:0}[hidden]{display:none!important}</style>' +   // the page handles the notch / gesture bar itself (safe-area)
                 '</head><body>'
         new File(outDir, 'index.html').setText(head + body + '</body></html>', 'UTF-8')
     }
