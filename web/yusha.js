@@ -4058,7 +4058,10 @@
     const sway=Math.sin(globalT*1.8)*.025+(slam*.035),drop=slam*3;
     part('roots',[0,0],0,1+slam*.06,1);
     const branch=(side)=>{
-      const shoulder=[side*(v==='s'?14:19),-38+drop],el=[side*(v==='s'?23:32),-47-raise*14+drop],hand=[side*(v==='s'?31:43),-62-raise*15+drop];
+      // In profile the near socket is on the visible side of the trunk, below
+      // and behind the mouth. The far arm is masked by the trunk itself.
+      const shoulder=v==='s'?[-5,-26+drop]:[side*19,-38+drop];
+      const el=[v==='s'?-side*23:side*32,-47-raise*14+drop],hand=[v==='s'?-side*31:side*43,-62-raise*15+drop];
       for(const [a,b]of[[shoulder,el],[el,hand]]){const dx=b[0]-a[0],dy=b[1]-a[1];part('branch',a,Math.atan2(dy,dx),Math.hypot(dx,dy)/14,1);}
       part('twig',hand,side*raise*.15);
     };
@@ -4102,7 +4105,7 @@
     if(def.halo) spr(def.p+'_halo',{v,p2:P2,f:animF},T([0,def.shY+6,-6]),0,-45);
     if(def.wings && (!def.rageWings || P2)) spr(def.p+'_wings',{v,p2:P2,f:animF},T([0,def.shY,-4]),v==='s'?mir*p.pitch*.4:0,v==='b'?.4:-30);
     if(def.skirt) spr(def.p+'_skirt',{v},hip,v==='s'?mir*(p.pitch*.35+Math.sin(globalT*2)*.025):Math.sin(globalT*2)*.025,-.5);
-    if(def.tail) spr(def.p+'_tail',{v,f:animF},hip,v==='s'?-mir*(p.pitch*.4+p.sz*.025):Math.sin(globalT*2)*.04,-3);
+    if(def.tail) spr(def.p+'_tail',{v,f:animF},hip,B.type==='hakaishin'?(v==='s'?mir*p.pitch:0):(v==='s'?-mir*(p.pitch*.4+p.sz*.025):Math.sin(globalT*2)*.04),-3);
     // legs (behind the torso's tassets): near leg over far leg
     if(def.legs!==false) for (const [hp, kn, an] of [[hipO, knO, aO], [hipS, knS, aS]]) {
       // Cyclops' wrap is part of the torso sprite: even a raised near knee

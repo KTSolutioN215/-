@@ -3283,7 +3283,7 @@ const SPR = (() => {
     if(partName==='world')return h3mk(type,partName,P,38,38,19,19,(g)=>{g.ell(0,0,13,13,'#0a1a3a');g.ell(-1,-1,11.5,11.5,'#2a6ab0');g.ell(-4,-4,5,3,'#4ac07a');g.ell(4,3,4,2.5,'#4ac07a');g.line(-6,-10,2,2,1.4,'#ff4ad8');g.line(2,2,8,6,1.4,'#ff4ad8');g.line(2,2,-2,10,1,'#ff4ad8');g.ell(-5,-6,2,1,'#fff');});
     if(type==='kingslime') {
       if(partName==='body')return h3mk(type,partName,P,96,72,48,68,(g,C,A)=>{const s=P.v==='s',b=P.v==='b',w=s?33:38;g.ell(0,-26,w,27,A.d);g.ell(-1,-28,w-3,24,A.m);g.ell(-4,-33,w-10,17,A.h);g.ell(-16,-42,6,3,'#c8f8cc');for(const x of[-23,20])g.ell(x,-16,2,2,'#9af0a8');
-        if(!b){for(const x of(s?[22]:[-13,13])){g.ell(x,-29,5.5,6.5,'#fff');g.ell(x+1,-28,3,4,P.p2?'#c01818':'#16261a');g.p(x,-31,'#fff');g.line(x-5,-39,x+5,-36,2,'#1f6a34');}g.ell(s?29:0,-14,s?6:10,4,'#1f6a34');g.ell(s?29:0,-12,4,2,'#e86a7a');}});
+        if(!b){for(const x of(s?[22]:[-13,13])){g.ell(x,-29,5.5,6.5,'#fff');g.ell(x+1,-28,3,4,P.p2?'#c01818':'#16261a');g.p(x,-31,'#fff');g.line(x-5,-39,x+5,-36,2,'#1f6a34');}g.ell(s?22:0,-14,s?4:10,s?2.8:4,'#1f6a34');g.ell(s?22:0,-12,s?2.5:4,s?1.4:2,'#e86a7a');}});
       if(partName==='crown')return h3mk(type,partName,P,52,30,26,23,(g,C)=>{const w=P.v==='s'?13:18;g.r(-w,-6,w*2,8,C.trim);g.r(-w,0,w*2,2,'#c08a2a');for(let i=0;i<5;i++){const x=-w+i*w/2;g.poly([[x,-6],[x+3,-17+(i%2)*4],[x+6,-6]],C.trim);}g.ell(0,-2,3,3,P.v==='b'?'#c08a2a':'#e04050');if(P.v!=='b')for(const x of[-10,10])g.ell(x,-2,2,2,'#3a8ae0');g.line(-w+2,-5,w-2,-5,1,'#fff2c0');});
     }
     if(type==='treant') {
@@ -3342,7 +3342,14 @@ const SPR = (() => {
       const k=(P.f||0),s=P.v==='s',w=s?32:48,pal={d:'#2a5a3a',m:'#5aa86a',h:'#b8f0b0'};
       tube(g,[[0,0,10],[-w*.6,15,11],[-w,25,10],[0,35,12],[w,23,11],[w*.8,11,9],[w*.4,15,7],[w*.65+Math.sin(k)*3,28,3]],pal,{scale:true,belly:{c:'#e0d890',s:'#a89a50',w:.35}});
     });
-    if(partName==='tail' && type==='hakaishin')return h3mk(type,partName,P,100,64,50,0,(g,C,A,S)=>{for(let i=0;i<7;i++){const x=(i-3)*7,sw=Math.sin((P.f||0)*1.57+i)*4;tube(g,[[x,0,6],[x+sw,20,4],[x-sw-(i-3)*3,38,2],[x+sw,45,1]],S);g.p(x-sw,32,'#ff4ad8');}});
+    if(partName==='tail' && type==='hakaishin')return h3mk(type,partName,P,100,64,50,6,(g,C,A,S)=>{
+      const half=C.w*(P.v==='s'?.62:1)*.32;
+      // Overlap the torso under the belt, using its exact view-dependent waist width.
+      g.poly([[-half,-5],[half,-5],[half*.9,9],[0,14],[-half*.9,9]],A.m);
+      g.poly([[0,-5],[half,-5],[half*.9,9],[0,14]],A.d);
+      for(let i=0;i<7;i++){const root=(i-3)*(half-4)/3,spread=(i-3)*7,sw=Math.sin((P.f||0)*1.57+i)*4;
+        tube(g,[[root,6,3.8],[root+sw,18,3.5],[spread-sw,36,2],[spread+sw,45,1]],S);g.p(spread-sw,32,'#ff4ad8');}
+    });
     if(partName==='tail')return h3mk(type,partName,P,88,52,44,0,(g,C,A,S)=>{
       const s=P.v==='s',w=s?13:23,k=P.f%4;g.poly([[-w,0],[w,0],[w+4,20],[5,36],[-8,40],[-w-6,29]],S.d);g.poly([[-w+3,0],[3,0],[-3,31],[-14,35]],S.m);
       for(let i=0;i<5;i++){const x=(s?i*4-10:i*9-20)+Math.sin(i+k)*2;g.ell(x,28+(i%2)*5,4,9,i%2?S.m:S.d);g.p(x,26,S.h);}
