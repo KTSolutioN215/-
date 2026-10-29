@@ -192,7 +192,6 @@
   // skills: bought at the item shop, one is set at the hero's house, used in a dungeon by tapping the screen twice quickly.
   // dmg = multiple of こうげき (minus half the target's ぼうぎょ), like a weak-to-medium ram; every one has its own cooldown.
   const SKILLS = {
-    dash: { name: 'ステップ', ch: '速', cd: 6, price: 300, col: '#9fe8ff', note: 'パッドの ほうこうへ すばやく ふみこむ。0.45びょう むてき（ぶつかれば こうげき）' },
     shock: { name: 'しょうげきは', ch: '波', cd: 10, price: 1200, col: '#ffd27a', note: 'まわりの てきに こうげき×1.3 の ダメージ＋ふきとばす' },
     guard: { name: 'てっぺきのかまえ', ch: '盾', cd: 16, price: 4500, col: '#9fd0ff', note: '3びょう うける ダメージ -60%・ふきとばされにくい' },
     cry: { name: 'ときのこえ', ch: '吼', cd: 28, price: 15000, col: '#ff9a5a', note: '10びょう こうげき +25%' },
@@ -519,6 +518,8 @@
         for (let i = 0; i < 14; i++) c[i] = !!old[i];
         c[24] = !!old[14]; save.cleared = c; save.layout25 = true;
       }
+      // ステップ (skill) became the basic roll: refund it
+      if (save.skills && save.skills.includes('dash')) { save.skills = save.skills.filter(k => k !== 'dash'); if (save.skill === 'dash') save.skill = save.skills[0] || null; save.gold += 300; }
     } catch (e) { /* storage blocked: play without saving */ }
   }
   function persist() { try { localStorage.setItem('bumphero_save', JSON.stringify(save)); } catch (e) { } }
@@ -741,7 +742,7 @@
   const hurtLog = {};
   // put the hero to sleep / turn them to stone for a moment (no control); a short immunity follows so it can't chain
   function stunHero(t, kind) {
-    const h = hero; if (!h || h.hp <= 0 || h.stunImm > 0 || (h.pw && h.pw.kind === 'giant')) return;
+    const h = hero; if (!h || h.hp <= 0 || h.roll > 0 || h.stunImm > 0 || (h.pw && h.pw.kind === 'giant')) return;
     h.stun = t; h.stunKind = kind; h.stunImm = t + 2.6; h.vx *= 0.3; h.vy *= 0.3;
     popText(h.x, h.y + 36, kind === 'stone' ? 'せきか！' : 'ねむってしまった…', kind === 'stone' ? '#e0dcd0' : '#e8c0ff', 15, 1.1);
     A.sfx(kind === 'stone' ? 'block' : 'magic2');
@@ -941,10 +942,24 @@
   // slide pad: touch anywhere = pad center (ox,oy); the finger's offset (px,py) steers. Full tilt = charge speed.
   const drag = { down: false, id: null, ox: 0, oy: 0, px: 0, py: 0 };
 
+  // ころがり回避: a quick flick on the pad rolls the hero that way. Can't be hit and passes through monsters while rolling.
+  const ROLL_T = 0.3, ROLL_CD = 0.7;
+  function startRoll(dx, dy) {
+    const h = hero; if (!h || h.hp <= 0 || h.stun > 0 || (h.rollCD || 0) > 0 || paused || (state !== 'play' && state !== 'boss')) return false;
+    const flip = h.pw && h.pw.kind === 'mirror' ? -1 : 1;
+    h.rollA = Math.atan2(-dy * flip, dx * flip); h.roll = ROLL_T; h.rollCD = ROLL_CD; h.recoil = 0; h.inv = Math.max(h.inv, ROLL_T + 0.06);
+    burst(h.x, h.y - 6, 10, '#d8ccb0', 140, 0.35); A.sfx('roll');
+    return true;
+  }
   function updateHero(dt) {
     const h = hero, maxS = MAXSPD * h.s.ram, pk = h.pw ? h.pw.kind : '', G = pk === 'slip' ? Object.assign({ ice: 1 }, h.gnd) : (h.gnd || {}), flip = pk === 'mirror' ? -1 : 1;
     if (h.stunImm > 0) h.stunImm -= dt;
-    if (h.stun > 0) {     // asleep / petrified: no control, slides to a stop
+    if (h.rollCD > 0) h.rollCD -= dt;
+    if (h.roll > 0) {   // rolling: fast at first, easing out
+      h.roll -= dt; const k = Math.max(0, h.roll / ROLL_T), v = (230 + 400 * k) * Math.min(1.3, h.s.ram);
+      h.vx = Math.cos(h.rollA) * v; h.vy = Math.sin(h.rollA) * v;
+      if (Math.random() < dt * 30) fx.push({ x: h.x + rnd(-6, 6), y: h.y - 14, vx: rnd(-30, 30), vy: rnd(10, 40), life: 0.35, max: 0.35, col: '#d8ccb0', r: 2.5 });
+    } else if (h.stun > 0) {     // asleep / petrified: no control, slides to a stop
       h.stun -= dt; const f = Math.exp(-dt * 6); h.vx *= f; h.vy *= f;
       if (h.recoil > 0) h.recoil -= dt;
     } else if (h.recoil > 0) {   // 反動: just after a ram the hero flies back and the pad is ignored for a moment
@@ -1008,6 +1023,7 @@
 
   // hero vs a body. returns 'ram' | 'bump' | null
   function collide(o, mass) {
+    if (hero.roll > 0) return null;   // rolling through
     const h = hero, dx = o.x - h.x, dy = o.y - h.y, d = hyp(dx, dy), rr = o.r + h.r;
     if (d >= rr || d === 0) return null;
     const nx = dx / d, ny = dy / d;
@@ -2122,12 +2138,6 @@
     h.skCD = S.cd; h.skFlash = 0.5;
     popText(h.x, h.y + 46, S.name + '！', S.col, 17, 1);
     switch (id) {
-      case 'dash': {
-        const dx = drag.px - drag.ox, dy = drag.py - drag.oy, d = hyp(dx, dy);
-        const a = drag.down && d > 6 ? Math.atan2(-dy, dx) : h.face, v = PAD_MAX * h.s.ram * 1.9;
-        h.vx = Math.cos(a) * v; h.vy = Math.sin(a) * v; h.recoil = 0.22; h.inv = Math.max(h.inv, 0.45);
-        burst(h.x, h.y, 16, S.col, 200, 0.4); A.sfx('magic'); break;
-      }
       case 'shock':
         rings.push({ x: h.x, y: h.y, r: 10, max: 120, spd: 520, dmg: 0, w: 8, fx: true }); burst(h.x, h.y, 30, S.col, 300, 0.5); shake = Math.max(shake, 10); A.sfx('quake');
         for (const t of targetsNear(h.x, h.y, 110)) skillHit(t, 1.3, h.x, h.y, 420, S.col);
@@ -3391,10 +3401,10 @@
       const [cx, cy] = h.hist[0], cyy = sy(cy) + HERO_R * 0.75;
       SPR.draw(ctx, spr, cx, cyy, 0.5); ctx.save(); ctx.globalCompositeOperation = 'lighter'; SPR.draw(ctx, spr, cx, cyy, 0.35); ctx.restore();
     }
-    if (h.inv > 0) ctx.globalAlpha = 0.55 + 0.35 * Math.cos(h.inv * 18);   // soft pulse instead of a hard 20Hz blink
+    if (h.inv > 0 && !(h.roll > 0)) ctx.globalAlpha = 0.55 + 0.35 * Math.cos(h.inv * 18);   // soft pulse instead of a hard 20Hz blink
     shadow(x, y, h.r);
     // charge aura: shows the hit will count
-    if (ram) {
+    if (ram && !(h.roll > 0)) {   // (a roll doesn't attack, so no aura)
       const k = Math.min(1, (sp - RAM_MIN) / 350);
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = `rgba(255,${180 - k * 80},60,${0.22 + k * 0.25})`; ctx.beginPath(); ctx.ellipse(x, y, h.r * (1.4 + k * 0.5), h.r * (1.6 + k * 0.5), 0, 0, 7); ctx.fill();
@@ -3406,7 +3416,10 @@
     const drawRel = () => { const rs = SPR.relic(rel, Math.floor(globalT * 6)); ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(q(relX - 4.5), q(y + 4), 9, 3); SPR.draw(ctx, rs, relX, relY); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.18 + 0.1 * Math.sin(globalT * 5); ctx.fillStyle = '#fff6c0'; ctx.beginPath(); ctx.arc(relX, relY, 9, 0, 7); ctx.fill(); ctx.restore(); };
     if (rel && relBehind) drawRel();
     if (giant) { ctx.save(); ctx.translate(x, fy); ctx.scale(1.55, 1.55); ctx.translate(-x, -fy); }
-    SPR.draw(ctx, h.stun > 0 && h.stunKind === 'stone' ? SPR.stoneOf(spr) : spr, x, fy);
+    if (h.roll > 0) {   // ころがり: the sprite tumbles once around its middle, tucked a little
+      const k = 1 - h.roll / ROLL_T, dirS = Math.cos(h.rollA) >= 0 ? 1 : -1, cy = fy - 30;
+      ctx.save(); ctx.translate(x, cy); ctx.rotate(dirS * k * Math.PI * 2); ctx.scale(0.88, 0.88); SPR.draw(ctx, spr, 0, 30); ctx.restore();
+    } else SPR.draw(ctx, h.stun > 0 && h.stunKind === 'stone' ? SPR.stoneOf(spr) : spr, x, fy);
     if (rel && !relBehind) drawRel();
     if (giant) {   // rainbow shimmer, faster as it runs out
       ctx.globalCompositeOperation = 'lighter'; SPR.draw(ctx, spr, x, fy, 0.25 + 0.2 * Math.sin(globalT * (h.pw.t < 2 ? 30 : 14))); ctx.restore();
@@ -4384,6 +4397,7 @@
   function openHelp() {
     openPanel('あそびかた', `<p>・画面のどこでも 指をおくと そこが スライドパッドになる。たおした ほうこうに 勇者が うごく。</p>
       <p>・パッドを <b class="gold">おおきく たおす</b>と とっしん。オレンジに 光っていれば ぶつかると こうげきになる。ぶつかった あとは はねかえる。</p>
+      <p>・指を <b class="gold">すばやく はじく（フリック）</b>と、その ほうこうへ ころがって かいひ。ころがっている あいだは こうげきを うけず、てきも すりぬける（つかうと 0.7びょう まつ）。</p>
       <p>・ゆっくり ふれると モンスターの こうげきを うける。弾や 剣にも ちゅうい。</p>
       <p>・てきを たおすと けいけんちと ゴールド。レベルが あがると つよくなる。</p>
       <p>・たからばこ と 木箱は たいあたりで あけられる。</p>
@@ -4436,7 +4450,7 @@
     if (now - lastTap.t < 320 && hyp(tx - lastTap.x, ty - lastTap.y) < 70) { lastTap.t = 0; useSkill(); }   // double tap = skill
     if (drag.down) return;
     drag.down = true; drag.id = e.pointerId; drag.t0 = now; drag.far = 0;
-    drag.ox = drag.px = (e.clientX - r.left) / S; drag.oy = drag.py = (e.clientY - r.top) / S;
+    drag.ox = drag.px = drag.sx = (e.clientX - r.left) / S; drag.oy = drag.py = drag.sy = (e.clientY - r.top) / S;
     try { cv.setPointerCapture(e.pointerId); } catch (er) { }
   });
   cv.addEventListener('pointermove', e => {
@@ -4467,7 +4481,9 @@
     }
     if (e.pointerId === drag.id) {
       const now = performance.now();
-      if (now - (drag.t0 || 0) < 230 && (drag.far || 0) < 16) { lastTap.t = now; lastTap.x = drag.ox; lastTap.y = drag.oy; }   // a short tap: the 1st half of a double tap
+      const fdx = drag.px - drag.sx, fdy = drag.py - drag.sy, fd = hyp(fdx, fdy), ft = now - (drag.t0 || 0);
+      if (ft < 230 && (drag.far || 0) < 16) { lastTap.t = now; lastTap.x = drag.ox; lastTap.y = drag.oy; }   // a short tap: the 1st half of a double tap
+      else if (ft < 240 && fd > 30 && fd / ft > 0.22) startRoll(fdx, fdy);   // a quick flick = roll that way
       drag.down = false; drag.id = null;
     }
   };
