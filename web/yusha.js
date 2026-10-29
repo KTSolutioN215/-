@@ -3863,6 +3863,9 @@
     R3[type] = Object.assign({ p, sword: p+'_weapon', hand: p+'_hand', upper: p+'_upper', fore: p+'_fore', cape: false }, d, { cape: !!d.capeH, pose: d.pose || { base: {} } });
   }
 
+  // Farthest authored weapon point relative to its grip (art px); curved blades retain their offset.
+  for(const [type,tip] of Object.entries({deathknight:[47,0],goblinking:[36.5,0],ghostcaptain:[40,-10],cyclops:[55*1.35,0],shadowhero:[45,0],fallenangel:[49,0],demongeneral:[39*1.15,0]})) R3[type].spinTip=tip;
+
   const P3B = { hd: [3, 19, 5], sw: [0.1, 0.95, 0.3], oh: [-3, 19, 3], drop: 1, sz: 0, pitch: 0.02, yaw: 0, stride: 4, wid: 6, lf: 0, lb: 0, fz: 0, nz: 0 };
   const p3 = o => Object.assign({}, P3B, o);
   const P3 = {   // hd: weapon hand from its shoulder, sw: weapon direction, oh: free hand; drop/sz: hips down/forward; pitch: lean in; yaw: shoulders turned (+ = weapon side back); stride: feet apart front-to-back; lf/lb: lift the front/back foot
@@ -3900,7 +3903,7 @@
   function r3Face(B, p) {
     const mv = B.mv, look = Math.atan2(hero.y - B.y, hero.x - B.x);
     let want;
-    if (p.sweep) want = face4(p.sweep.ang + (B.type==='demongeneral' && p.sweep.t>=p.sweep.tele ? Math.PI/2 : 0));   // a full swing turns the whole body round with the blade
+    if (p.sweep) want = face4(p.sweep.ang + (R3[B.type].spinTip && p.sweep.t>=p.sweep.tele ? Math.PI/2 : 0));   // a full swing turns the whole body round with the blade
     else if (mv && /charge|dash3|firetrail/.test(mv.name) && mv.a0 != null && mv.ph) want = face4(mv.a0);
     else if (mv) { if (mv.f3 == null) mv.f3 = face4(look); want = mv.f3; }
     else { want = face4(look); if (want !== B.f3 && B.f3) { if (B.f3s == null) B.f3s = globalT; if (globalT - B.f3s < 0.25) want = B.f3; else B.f3s = null; } else B.f3s = null; }
@@ -3921,7 +3924,7 @@
     };
     const rest = custom ? Object.assign({}, Q('rest'), { drop: Q('rest').drop + b * 0.4, hd: Q('rest').hd.map((v, i) => i === 1 ? v - b * 0.35 : v) }) : p3({ drop: 1 + b * 0.5, sw: [0.1, 0.95, 0.3 + b * 0.05], hd: [3, 19 - b * 0.4, 5] });
     // Some rotating hitboxes outlive the move timer: keep the held blades on them until they expire.
-    if(B.type==='demongeneral' && B.sweeps[0] && B.sweeps[0].t>=B.sweeps[0].tele && (!mv || !['sweep','twin','whirlblade'].includes(mv.name)))
+    if(def.spinTip && B.sweeps[0] && B.sweeps[0].t>=B.sweeps[0].tele && (!mv || !['sweep','twin','whirlblade'].includes(mv.name)))
       return settle(B,Object.assign({},scaled(Q('thrust')),{sweep:B.sweeps[0]}),scaled(rest));
     if (!mv) return settle(B, null, scaled(rest));
     const n = mv.name.split(':')[0], t = mv.t, K = s => keysAt(Q, s, t);
@@ -3982,20 +3985,31 @@
     } else B.mv=null;
     drawR3(B,def,x,yFeet,fl);
   }
-  // Screen-space orbit for the general's active spin. Tip first, grip second, elbows last.
-  // The rendered blade ends at 39 art px, scaled by the character's 1.15 sprite scale.
+  // Screen-space orbit: place the authored tip first, then solve the grip and both elbows.
   function generalSpinGeometry(B, def, x, yFeet, K) {
-    const center=[x,yFeet+(def.hipY+def.shY)*K], bladeTip=39*1.15;
-    return B.sweeps.slice(0,2).map((sw,i)=>{
+    const center=[x,yFeet+(def.hipY+def.shY)*K], tipArt=def.spinTip;
+    const result=B.sweeps.slice(0,def.dual?2:1).map((sw,i)=>{
       const a=sw.ang, u=[Math.cos(a),-Math.sin(a)], radius=sw.len;
-      const gripR=Math.min((def.A1+def.A2+def.shX*.3-1)*K,radius*.4);
+      const reach=def.A1+def.A2;
+      const gripR=Math.min((def.twoHand?reach-def.shX-1:reach+def.shX*.3-1)*K,radius*.4);
       const shoulder=[center[0]+u[0]*def.shX*K,center[1]+u[1]*def.shX*K*.3,0];
       const hand=[center[0]+u[0]*gripR,center[1]+u[1]*gripR,0];
       const pole=[-u[1]*(i?-1:1),u[0]*(i?-1:1),0];
       const [elbow,reached]=ik3(shoulder,hand,def.A1*K,def.A2*K,pole);
       const tip=[center[0]+u[0]*radius,center[1]+u[1]*radius];
-      return {center,shoulder,hand:reached,elbow,tip,angle:-a,scale:(radius-gripR)/(bladeTip*K),depth:u[1]*20};
+      // A cutlass tip is above its axis; account for that offset without changing blade thickness.
+      const bladeLength=radius-gripR, scale=Math.sqrt(Math.max(1,bladeLength**2-(tipArt[1]*K)**2))/(tipArt[0]*K);
+      const angle=-a-Math.atan2(tipArt[1],tipArt[0]*scale);
+      return {center,shoulder,hand:reached,elbow,tip,angle,scale,depth:u[1]*20,weapon:true};
     });
+    if(!def.dual && result.length) {
+      const first=result[0],a=B.sweeps[0].ang,u=[Math.cos(a),-Math.sin(a)];
+      const shoulder=[center[0]-u[0]*def.shX*K,center[1]-u[1]*def.shX*K*.3,0];
+      const hand=def.twoHand?[first.hand[0]-Math.cos(first.angle)*4*K,first.hand[1]-Math.sin(first.angle)*4*K,0]:[shoulder[0],shoulder[1]+Math.min(18,def.A1+def.A2-1)*K,0];
+      const [elbow,reached]=ik3(shoulder,hand,def.A1*K,def.A2*K,def.twoHand?[u[1],-u[0],0]:[1,0,0]);
+      result.push({center,shoulder,hand:reached,elbow,depth:def.twoHand?first.depth:-first.depth,weapon:false});
+    }
+    return result;
   }
   function drawR3(B, def, x, yFeet, fl) {
     const K = SPR.SCALE, p = r3Pose(B), f = r3Face(B, p), v = f === 'f' ? 'f' : f === 'b' ? 'b' : 's', mir = f === 'l' ? -1 : 1, P2 = B.phase === 2 ? 1 : 0;
@@ -4045,7 +4059,7 @@
       spr(def.p+'_neck',{v,f:animF},T([0,def.neckY,0]),0,1);
       if(!B.headOut) spr(def.p+'_head',{v,p2:P2},V3.add(hO,[0,8,0]),0,dp(hO)+1.8);
     } else spr(def.p + '_head', { v, p2: P2 }, T([0, def.neckY, 0]), v === 's' ? mir * p.pitch * 0.6 : 0, 1);
-    const orbit = B.type==='demongeneral' && B.sweeps.length && p.sweep && p.sweep.t>=p.sweep.tele ? generalSpinGeometry(B,def,x,yFeet,K) : null;
+    const orbit = def.spinTip && B.sweeps.length && p.sweep && p.sweep.t>=p.sweep.tele ? generalSpinGeometry(B,def,x,yFeet,K) : null;
     if(!orbit) {
     B.r3SpinG=null;
     const pm = sd => v === 's' ? 1 : (v === 'f' ? sd : -sd) * mir;
@@ -4085,10 +4099,14 @@
         const d=g.depth, ghosts=history[i];
         add(d+.8,()=>{pd(P_(def.p+'_pauld',{v,m:i?-1:1},fl),g.shoulder[0],g.shoulder[1],0,mir,1);line(def.upper,g.shoulder,g.elbow,def.A1);line(def.fore,g.elbow,g.hand,def.A2);});
         add(d+1.25,()=>{
+          if(g.weapon) {
           for(let j=0;j<ghosts.length;j++){const h=ghosts[j];pd(P_(def.sword,{p2:P2},false),h[0],h[1],h[2],h[3],1,.18/(j+1));}
           pd(P_(def.sword,{p2:P2},fl),g.hand[0],g.hand[1],g.angle,g.scale,1);
           ghosts.unshift([g.hand[0],g.hand[1],g.angle,g.scale]);if(ghosts.length>2)ghosts.length=2;
+          }
           pd(P_(def.hand,{},fl),g.hand[0],g.hand[1]);
+          if(!g.weapon && def.shield) pd(P_(def.p+'_shield',{v},fl),g.hand[0],g.hand[1],0,mir,1);
+          if(!g.weapon && def.hook){ctx.strokeStyle='#c8ccd4';ctx.lineWidth=2*K;ctx.beginPath();ctx.moveTo(g.hand[0],g.hand[1]);ctx.lineTo(g.hand[0],g.hand[1]+7*K);ctx.lineTo(g.hand[0]-3*K,g.hand[1]+5*K);ctx.stroke();}
         });
       });
     }

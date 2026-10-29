@@ -49,7 +49,7 @@ for (const [move, duration, label] of plan) {
         for (const sw of B.sweeps) { sw.t += 1 / 60; if (sw.t >= sw.tele) { sw.ang += sw.vel / 60; sw.left -= Math.abs(sw.vel / 60); if(sw.grow)sw.len=Math.min(sw.lmax,sw.len+sw.grow/60); } }
         B.sweeps = B.sweeps.filter(sw => sw.left > 0);
       }
-      ctx.save(); ctx.beginPath(); ctx.rect(x0 + 4, y0, 492, 465); ctx.clip(); ctx.translate(x0 + 250, y0 + 322); const zoom=isEnemy?2.2:(move==='whirlblade'||(bossType==='demongeneral'&&['twin','sweep'].includes(move)))?.85:1.2;ctx.scale(zoom,zoom);
+      ctx.save(); ctx.beginPath(); ctx.rect(x0 + 4, y0, 492, 465); ctx.clip(); ctx.translate(x0 + 250, y0 + 322); const zoom=isEnemy?2.2:(move==='whirlblade'||['twin','sweep'].includes(move))?.85:1.2;ctx.scale(zoom,zoom);
       ctx.fillStyle = '#21272b'; ctx.fillRect(-205, -265, 410, 370);
       ctx.strokeStyle = '#293032'; ctx.lineWidth = 1; for (let x = -200; x <= 200; x += 32) { ctx.beginPath(); ctx.moveTo(x, -250); ctx.lineTo(x, 50); ctx.stroke(); }
       for (let y = -250; y <= 50; y += 32) { ctx.beginPath(); ctx.moveTo(-200, y); ctx.lineTo(200, y); ctx.stroke(); }

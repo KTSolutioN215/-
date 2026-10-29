@@ -11,7 +11,7 @@ Object.assign(w,{H:1080,sy:y=>y,q:Math.round,FONT:'sans-serif',shadow(){},zakoAr
 vm.runInContext(section(src,'  function drawSweeps(','  // ===== bosses drawn from parts')+section(src,'  function drawEnemy(','  // pixel sprite of the hero')+section(src,'  function drawBoss()','  function hexA('),w);
 let routes=0;const actual=w.drawR3;w.drawR3=(...args)=>{routes++;return actual(...args);};
 const rawPart=w.SPR.part;let headParts=0;w.SPR.part=(name,p)=>{if(name==='h3_dullahan_head')headParts++;const s=rawPart(name,p);assert(s,'missing part '+name);return s;};
-const bossTypes=['lich','icequeen','pharaoh','archmage','colossus','ghostcaptain','cyclops','shadowhero','demongeneral','fallenangel'],enemyTypes=['dwarf','armor','angel','dullahan','shadowarmor'];
+const bossTypes=['deathknight','goblinking','lich','icequeen','pharaoh','archmage','colossus','ghostcaptain','cyclops','shadowhero','demongeneral','fallenangel'],enemyTypes=['dwarf','armor','angel','dullahan','shadowarmor'];
 const directions=[-Math.PI/2,0,Math.PI,Math.PI/2];let samples=0,moves=0;
 const combat=e=>JSON.stringify(Object.fromEntries(['x','y','vx','vy','r','hp','atk','def','st','t','headOut','face','mod'].map(k=>[k,e[k]])));
 for(const type of enemyTypes)for(const a of directions)for(const [st,t,headOut]of[['idle',1,false],['wind',.45,false],['slash',.1,false],['throw',.15,true]]){
@@ -37,13 +37,14 @@ for(const type of bossTypes)for(const phase of[1,2]){
 }
 // The original accepted rigs must remain pixel-identical after the shared renderer changes.
 if(process.env.BASELINE){
- const old=makeWorld(process.env.BASELINE),now=makeWorld();
+ const old=makeWorld(process.env.BASELINE),now=makeWorld();let comparisons=0;
  for(const type of['deathknight','goblinking'])for(const a of directions)for(const move of['idle','quake','stalk','sweep','charge','darkwave'])for(const t of[.1,.4,.6,1.1,1.7]){
+  if(move==='sweep' && t>=.75)continue; // Deliberate orbit change; all other approved frames remain unchanged.
   const draw=world=>{world.ctx.resetTransform();world.ctx.clearRect(0,0,1000,1080);world.globalT=t;world.hero.x=Math.cos(a)*100;world.hero.y=Math.sin(a)*100;const B={type,phase:1,x:0,y:0,sweeps:[],mv:move==='idle'?null:{name:move,t,a0:a,n:0,acc:0}};if(move==='sweep')B.sweeps=[{ang:a,t,tele:.75,len:170}];world.renderRig(B,world.defs[type],300,500,false);return world.ctx.getImageData(0,0,1000,1080).data;};
-  assert(Buffer.from(draw(old)).equals(Buffer.from(draw(now))),'approved rig changed: '+[type,move,t,a]);
+  assert(Buffer.from(draw(old)).equals(Buffer.from(draw(now))),'approved rig changed: '+[type,move,t,a]);comparisons++;
  }
  const before=fs.readFileSync(process.env.BASELINE,'utf8');
  for(const[a,b]of[['  const EN = {','  // the golden slime:'],['  const DUNGEONS = [','  const SIG = {'],['  const SIG = {','  // ---------------------------------------------------------------\n  //  SAVE'],['  function updateEnemies(dt)','  function updateBullets('],['  function runMove(','  // ---------------------------------------------------------------\n  //  MAIN UPDATE']])assert.equal(section(src,a,b),section(before,a,b),'gameplay change '+a);
- console.log('240 accepted-rig comparisons (480 renders) pixel-identical; enemy/boss data, stages, AI, and move logic unchanged.');
+ console.log(comparisons+' non-spin comparisons pixel-identical; enemy/boss data, stages, AI, and move logic unchanged.');
 }
 console.log(JSON.stringify({routeSamples:samples,bossMoveDirectionPhaseRuns:moves,enemyTypes,bossTypes,allChecks:'passed'}));
