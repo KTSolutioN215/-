@@ -1,7 +1,7 @@
 # 引き継ぎメモ：ぶつかり勇者 ／ ボスの「3方向（正面・左右・後ろ）アニメーション」
 
 このメモは、次に作業する AI（または人）向けの引き継ぎです。
-最初の目的は、**デスナイトで作った3方向リグ（R3）を、ほかの武器持ちボスにも広げること**です。
+現在の目的は、**既存モデルを基に、ザコを登録順で5体ずつ4方向化すること**です。ボスのモーションはオーナーが別AIへ担当を移しました。以下のボスに関する説明は既存実装の記録として残します。
 
 ---
 
@@ -316,3 +316,12 @@ sh tools/build_apk.sh      # 初回は Android SDK（platform 35 / build-tools 3
 - 動画の標準は `tools/anim/capture_play.js`。`game_host.js` は全ゲームソースを実行するCanvas/DOMアダプター。戦闘・背景・カメラ・HUD・弾・予告の実装を作り直したりスタブ化したりしない。検証の無敵・技指定・増援停止だけを録画時に使用。ネイティブCanvasでの検証プレイ収録であり、ブラウザ／実機の画面録画と表現しない。
 - `FONT` を日本語フォント、`NODE_PATH` を `@napi-rs/canvas` の場所へ設定して `node tools/anim/capture_play.js`。`BOSS` で1体だけにも絞れる。続けて `python3 tools/anim/encode_play.py --input out/play_motion --out <納品先>`。通常74.2秒／半速148.4秒、21シーン。フレーム合成後の全編デコードとフレーム数照合を必須にする。
 - `check_batch3.js` で素材80枚・円軌道960サンプル・口と胴の連続変化・時計の全身停止を確認。`check_humanoids.js` と既存の回転・接続検証も実行済み。ゲームバランスの変更は禁止を維持。
+
+## 現在の作業：ザコの4方向化（2026-10-30）
+- 一覧と順番は `ZAKO_MOTION_PLAN.md`。全73体。最初の5体（slime / bat / goblin / archer / skeleton）を実装済み。次は ghost / mage / lizard / golem / knight。
+- `sprites.js` の `zakoView` / `ZAKO4` と `yusha.js` の `zakoFacing` / `ZAKO4` が描画専用の入口。元の正面工場を残し、横と背面だけを追加。左右は反転。派生キャラはリストで順番が来るまで変更しない。
+- 人型は `bodyX/bodyY` を脚の描画後の上半身に適用する。全身の上下移動で足が床へ沈む状態に戻さない。
+- 弓の `pull/release` は実AIの aim 0.55秒と発射直後の0.2秒を使う。敵の描画状態は `e.zakoView`、戦闘状態を書き換えない。
+- `BASE_SPRITES=<変更前sprites.js> BASE_GAME=<変更前yusha.js> node tools/anim/check_zako4.js`。新しい動作の静止比較と戦闘状態の比較を分ける。元の兜・盾・弓・顔・輪郭・体型を変更しない。
+- `FONT=<日本語フォント> NODE_PATH=<canvasの場所> OUT=out/zako_play_final node tools/anim/capture_zako_play.js`。20シーン・1,920フレーム・64秒。自然AI、勇者無敵・位置固定。ゲーム全体をCanvasアダプターで実行し、全画面を合成した検証プレイである。ブラウザや端末の操作録画とは説明しない。
+- ボスのコード・ゲームバランスはこの作業では触らない。日本語README・一覧を更新し、コミットはローカルのみ。通常／半速動画とAPKを渡す。

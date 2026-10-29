@@ -8,7 +8,7 @@ const w=makeWorld();
 const section=(s,a,b)=>{const i=s.indexOf(a),j=s.indexOf(b,i);assert(i>=0&&j>i,a);return s.slice(i,j);};
 vm.runInContext(section(src,'  const SIG = {','  // ---------------------------------------------------------------\n  //  SAVE')+'\nthis.bossData=BOSSES;this.signatureData=SIG;',w);
 Object.assign(w,{H:1080,sy:y=>y,q:Math.round,FONT:'sans-serif',shadow(){},zakoArm(){return null;},beatPulse:0,hexA:()=> 'rgba(200,160,100,.2)'});
-vm.runInContext(section(src,'  function drawSweeps(','  // ===== bosses drawn from parts')+section(src,'  function drawEnemy(','  // pixel sprite of the hero')+section(src,'  function drawBoss()','  function hexA('),w);
+vm.runInContext(section(src,'  function drawSweeps(','  // ===== bosses drawn from parts')+section(src,'  // Draw-only state.','  // pixel sprite of the hero')+section(src,'  function drawBoss()','  function hexA('),w);
 let routes=0;const actual=w.drawR3;w.drawR3=(...args)=>{routes++;return actual(...args);};
 const rawPart=w.SPR.part;let headParts=0;w.SPR.part=(name,p)=>{if(name==='h3_dullahan_head')headParts++;const s=rawPart(name,p);assert(s,'missing part '+name);return s;};
 const bossTypes=['spiderqueen','dragon','thunderbird','kraken','clockmachine','gorgon','hakaishin','maou','kingslime','treant','deathknight','goblinking','lich','icequeen','pharaoh','archmage','colossus','ghostcaptain','cyclops','shadowhero','demongeneral','fallenangel'],enemyTypes=['dwarf','armor','angel','dullahan','shadowarmor'];

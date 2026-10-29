@@ -301,6 +301,7 @@ const SPR = (() => {
       const lift = (k) => (s === k ? 2 : 0);
       R(17, 33 - lift(1), 2, 5, SK.bone); R(16, 37 - lift(1), 4, 1, SK.boneS); R(17, 38 - lift(1), 2, 5, SK.bone); R(15, 43 - lift(1), 4, 1, SK.bone);
       R(22, 33 - lift(-1), 2, 5, SK.bone); R(21, 37 - lift(-1), 4, 1, SK.boneS); R(22, 38 - lift(-1), 2, 5, SK.bone); R(22, 43 - lift(-1), 4, 1, SK.bone);
+      x.translate(pose.bodyX||0,pose.bodyY||0);
       // pelvis
       R(16, 30, 9, 2, SK.bone); R(17, 32, 2, 1, SK.boneS); R(22, 32, 2, 1, SK.boneS); Pp(20, 31, SK.boneD);
       // ribcage
@@ -527,9 +528,9 @@ const SPR = (() => {
     // ----- skeleton swordsman (see skeleton()) -----
     skeleton(P) {
       const A = armQ(P.arm, { ha: 1.25, hr: 0.85, wa: 1.2 });
-      const key = 'skel' + armKey(A) + '|' + (P.step || 0) + '|' + (P.st === 'wind' ? 1 : 0) + '|' + (P.f % 2);
+      const key = 'skel' + armKey(A) + '|body' + (P.bodyX||0) + ',' + (P.bodyY||0) + '|' + (P.step || 0) + '|' + (P.st === 'wind' ? 1 : 0) + '|' + (P.f % 2);
       let s = cache.get(key);
-      if (!s) { s = { c: skeleton({ arm: A, pad: 12, step: P.step || 0, jaw: P.st === 'wind' ? 1 : 0, bob: P.f % 2, flap: P.f % 2 }), ax: 34, ay: 60 }; cache.set(key, s); }
+      if (!s) { s = { c: skeleton({ arm: A, pad: 12, step: P.step || 0, jaw: P.st === 'wind' ? 1 : 0, bob: P.f % 2, flap: P.f % 2, bodyX:P.bodyX||0, bodyY:P.bodyY||0 }), ax: 34, ay: 60 }; cache.set(key, s); }
       return s;
     },
     // ----- ghost: wavy tail -----
@@ -1706,7 +1707,7 @@ const SPR = (() => {
   function goblinish(P, archer) {
     const st = P.st === 'wind' || P.st === 'aim' ? 1 : P.st === 'dash' ? 2 : 0, step = P.step || 0, k = P.f % 2;
     const A = archer ? null : armQ(P.arm, { ha: 1.35, hr: 0.85, wa: -0.8 + k * 0.1 });
-    return mk((archer ? 'arch' : 'gob') + st + step + k + (A ? armKey(A) : ''), 58, 50, 28, 45, (g, x) => {
+    return mk((archer ? 'arch' : 'gob') + st + step + k + (A ? armKey(A) : '') + '|body' + (P.bodyX||0) + ',' + (P.bodyY||0) + (P.view && archer ? '|z4|' + Math.round((P.pull||0)*8) + '|' + Math.round((P.release||0)*8) : ''), 58, 50, 28, 45, (g, x) => {
       x.translate(8, 4);
       const Sk = '#7fb04a', SkS = '#567a2e', SkH = '#a8d070', V = '#6b4a2a', VS = '#4a3018';
       // the club arm: swung from the shoulder; raised high it goes behind the head
@@ -1720,6 +1721,7 @@ const SPR = (() => {
       const behind = A && Math.sin(A.ha) < -0.45;
       g.r(14, 33 - (step > 0 ? 2 : 0), 4, 5, Sk); g.r(22, 33 - (step < 0 ? 2 : 0), 4, 5, SkS);
       g.r(13, 37, 6, 2, VS); g.r(21, 37, 6, 2, VS);
+      x.translate(P.bodyX||0,P.bodyY||0);
       g.ell(20, 27, 7.5, 6, V); g.r(17, 23, 6, 6, SkH); g.r(23, 23, 3, 8, VS);
       g.r(12, 30, 16, 1, '#3a2410'); g.r(16, 31, 8, 3, '#8a6a3a');
       if (archer) { g.r(23, 15, 3, 12, '#6a4020'); for (const ax of [23, 25]) g.poly([[ax, 15], [ax + 1, 11], [ax + 2, 15]], '#e0e0e0'); }
@@ -1735,7 +1737,12 @@ const SPR = (() => {
       if (!archer) { if (!behind) clubArm(); }
       else {
         // bow on the right; drawn when aiming
-        if (st === 1) { g.line(33, 14, 33, 36, 1, '#e8e0c8'); g.line(28, 25, 37, 25, 1, '#c8c8c8'); g.p(38, 25, '#e0e0e0'); g.r(28, 24, 3, 3, Sk); }
+        if (P.view && (st === 1 || P.release > 0)) {
+          const pull = st === 1 ? Math.round((P.pull||0)*8)/8 : 0, ny=25-pull*4;
+          g.line(33,14,31,ny,1,'#e8e0c8');g.line(31,ny,33,36,1,'#e8e0c8');
+          g.line(27,25,31,ny,2.8,Sk);g.r(30,ny-1,3,3,Sk);
+          if(st===1){g.line(32,ny-3,32,ny+6,1,'#c8c8c8');g.poly([[32,ny+8],[30,ny+5],[34,ny+5]],'#e0e0e0');}
+        } else if (st === 1) { g.line(33, 14, 33, 36, 1, '#e8e0c8'); g.line(28, 25, 37, 25, 1, '#c8c8c8'); g.p(38, 25, '#e0e0e0'); g.r(28, 24, 3, 3, Sk); }
         else { g.line(31, 14, 31, 36, 1, '#e8e0c8'); g.r(28, 24, 3, 4, Sk); }
         const bx = st === 1 ? 36 : 34; g.line(bx - 2, 13, bx + 1, 18, 1.6, '#8a5a2a'); g.line(bx + 1, 18, bx + 1, 32, 1.6, '#8a5a2a'); g.line(bx + 1, 32, bx - 2, 37, 1.6, '#8a5a2a');
       }
@@ -3551,7 +3558,100 @@ const SPR = (() => {
     x.putImageData(d, 0, 0);
     return { c, ax: src.ax, ay: src.ay };
   }
+  // Four-direction additions for batch 1. Front factories remain the source of truth.
+  // Original canvas sizes, anchors, palettes, clothing and equipment are retained.
+  const ZAKO4 = new Set(['slime','bat','goblin','archer','skeleton']);
+  function zakoView(type,P) {
+    const v=P.view, side=v==='r'||v==='l', rear=v==='b';
+    if(!side&&!rear)return EN[type](P);
+    const f=P.f||0, step=P.step||0, A=P.arm, aim=P.st==='aim',
+      dims=type==='slime'?[32,28,16,25]:type==='bat'?[40,26,20,22]:type==='skeleton'?[68,68,34,60]:[58,50,28,45];
+    // Quantized parameters bound the cache, as in the original front factories.
+    const pull=Math.round((P.pull||0)*8)/8, release=Math.round((P.release||0)*8)/8;
+    return mk('z4_'+type+'_'+(side?'s':'b')+'_'+(f%6)+'_'+step+'_'+P.st+'_'+(A?armKey(armQ(A,{})):'')+'_'+pull+'_'+release+'_'+(P.bodyX||0)+'_'+(P.bodyY||0),...dims,g=>{
+      if(type==='slime') {
+        const k=P.st==='hop'?2:f%2,sq=[1,1.07,.8][k],rx=12.5/sq,ry=9.5*sq,cy=24-ry*.9;
+        g.ell(16,cy,rx,ry,'#2f9a4a');g.r(Math.round(16-rx+2),22,Math.round(rx*2-4),2,'#2f9a4a');
+        g.ell(15,cy-1,rx-1.6,ry-1.6,'#58d36b');g.ell(11,cy-ry*.5,2.6,1.6,'#c8f8cc');g.p(15,Math.round(cy-ry*.75),'#c8f8cc');
+        if(side){const ey=Math.round(cy-1),ex=Math.min(25,Math.floor(16+rx*.55));g.r(ex,ey-1,2,3,EYE);g.p(ex,ey-1,'#fff');g.r(ex+1,ey+3,2,1,'#1f6a34');g.p(ex-2,ey+2,'#f0a0a0');}
+        return;
+      }
+      if(type==='bat') {
+        const o=[-8,0,6][f%3],wing=(near)=>{
+          if(side){const b=near?0:-2;g.poly([[19+b,11],[10+b,4+o],[3+b,8+o],[6+b,12+o/2],[9+b,11+o/3],[11+b,15+o/4],[17+b,14]],near?'#3a2860':'#24163e');g.line(19+b,11,10+b,4+o,1,'#24163e');g.line(10+b,4+o,6+b,12+o/2,1,'#24163e');g.line(10+b,4+o,11+b,15+o/4,1,'#24163e');}
+          else for(const m of [1,-1]){const X=n=>m>0?n:40-n;g.poly([[X(15),11],[X(6),4+o],[X(0),8+o],[X(3),12+o/2],[X(6),11+o/3],[X(8),15+o/4],[X(13),14]],'#3a2860');g.line(X(15),11,X(6),4+o,1,'#24163e');g.line(X(6),4+o,X(3),12+o/2,1,'#24163e');g.line(X(6),4+o,X(8),15+o/4,1,'#24163e');}
+        };
+        wing(false);g.poly([[15,9],[16,3],[18,8]],'#5b3d8a');g.poly([[25,9],[24,3],[22,8]],'#5b3d8a');
+        g.ell(20,13,side?5:6,5.5,'#5b3d8a');
+        if(side){g.ell(23,15,2.8,3,'#8a6ab8');g.r(23,11,2,2,'#ffe14a');g.p(24,12,'#600');g.p(25,16,'#fff');wing(true);}
+        else {g.p(17,9,'#8a6ab8');g.p(18,18,'#3a2860');g.p(21,18,'#3a2860');}
+        return;
+      }
+      const sk=type==='skeleton', archer=type==='archer', cx=sk?34:28,
+        hip=sk?47:35, shY=sk?39:29, headY=sk?29:19,
+        skin=sk?SK.bone:'#7fb04a',dark=sk?SK.boneS:'#567a2e',hi=sk?SK.bone:'#a8d070',
+        sign=rear?-1:1;
+      const point=(xx,yy,zz)=>side?[cx+zz,yy+xx*.16]:[cx+xx*sign,yy+(rear?-zz:zz)*.18];
+      const legs=()=>{
+        for(const m of [-1,1]) {
+          const z=side?m*step*3:0, xx=side?m*1.8:m*(sk?2.5:4),lift=step===m?2:0,
+            [hx,hy]=point(xx,hip,0),[kx,ky]=point(xx,hip+(sk?5:3)-lift,Math.max(0,z)*.5),[fx,fy]=point(xx,sk?59:42,z);
+          g.line(hx,hy,kx,ky,sk?2:3.5,m===-1?dark:skin);g.line(kx,ky,fx,fy-lift,sk?2:3.5,m===-1?dark:skin);
+          if(sk){g.r(kx-1,ky,3,1,SK.boneS);g.r(fx-1,fy-lift,side?5:4,1,SK.bone);}
+          else g.r(fx-2,fy-lift,side?7:6,2,'#4a3018');
+        }
+      };
+      const swordArm=()=>{
+        const a=armQ(A,sk?{ha:1.25,hr:.85,wa:1.2}:{ha:1.35,hr:.85,wa:-.8}),len=sk?12:10,
+          xx=sk?7:7, shoulder=point(xx,shY,0),hand=point(xx+(side?0:Math.cos(a.ha)*len*.3),shY+Math.sin(a.ha)*len*a.hr,2+Math.max(0,Math.cos(a.ha))*len*a.hr),
+          dx=hand[0]-shoulder[0],dy=hand[1]-shoulder[1],dist=Math.max(.1,Math.hypot(dx,dy)),bend=Math.sqrt(Math.max(0,(len/2)**2-Math.min(len*.495,dist/2)**2)),
+          elbow=[(hand[0]+shoulder[0])/2-dy/dist*bend,(hand[1]+shoulder[1])/2+dx/dist*bend];
+        g.line(...shoulder,...elbow,sk?2.2:3.2,skin);g.line(...elbow,...hand,sk?2:2.8,skin);g.ell(...elbow,sk?1.3:1.5,sk?1.3:1.5,dark);
+        const dxw=(side?Math.cos(a.wa):Math.cos(a.wa)*sign),dyw=Math.sin(a.wa),[hx,hy]=hand;
+        if(sk){const nx=-dyw,ny=dxw;g.line(hx-2*dxw,hy-2*dyw,hx+2*dxw,hy+2*dyw,1.8,SK.grip);g.line(hx+2*dxw-nx*3.5,hy+2*dyw-ny*3.5,hx+2*dxw+nx*3.5,hy+2*dyw+ny*3.5,1.6,SK.rust);g.poly([[hx+3*dxw+nx*1.6,hy+3*dyw+ny*1.6],[hx+16*dxw+nx*1.4,hy+16*dyw+ny*1.4],[hx+19*dxw,hy+19*dyw],[hx+16*dxw-nx*1.4,hy+16*dyw-ny*1.4],[hx+3*dxw-nx*1.6,hy+3*dyw-ny*1.6]],SK.blade);g.line(hx+5*dxw,hy+5*dyw,hx+16*dxw,hy+16*dyw,1,SK.bladeS);}
+        else{g.line(hx-2*dxw,hy-2*dyw,hx+11*dxw,hy+11*dyw,2.6,'#7a5530');g.ell(hx+12*dxw,hy+12*dyw,3.4,3.4,'#8a6040');g.ell(hx+12*dxw-1,hy+12*dyw-1,1.4,1.4,'#a87a50');for(const [d,n]of[[12,-3.5],[12,3.5],[16,0]])g.p(Math.round(hx+d*dxw-n*dyw),Math.round(hy+d*dyw+n*dxw),'#d0d0d0');}
+        g.ell(hx,hy,sk?1.7:2.2,sk?1.7:2.2,skin);
+      };
+      const bowArm=()=>{
+        const [sx,sy]=point(-6,shY,0),[hx,hy]=point(-6,shY-1,aim?12:8),by=hy-11,
+          bx=hx+3,draw=aim?pull*5:release*2;
+        g.line(sx,sy,hx,hy,3,skin);g.line(bx-2,by,bx+1,by+5,1.6,'#8a5a2a');g.line(bx+1,by+5,bx+1,by+19,1.6,'#8a5a2a');g.line(bx+1,by+19,bx-2,by+24,1.6,'#8a5a2a');
+        g.line(bx-2,by,bx-2-draw,hy,1,'#e8e0c8');g.line(bx-2-draw,hy,bx-2,by+24,1,'#e8e0c8');
+        const [rsx,rsy]=point(6,shY,0);g.line(rsx,rsy,bx-3-draw,hy+1,3,skin);g.ell(hx,hy,2,2,skin);
+        if(aim){if(rear){g.line(bx-2,hy+3,bx-2,hy-5,1,'#c8c8c8');g.poly([[bx-2,hy-7],[bx-4,hy-4],[bx,hy-4]],'#e0e0e0');}else{g.line(bx-7-draw,hy,bx+7,hy,1,'#c8c8c8');g.poly([[bx+8,hy],[bx+5,hy-2],[bx+5,hy+2]],'#e0e0e0');}}
+      };
+      const shield=()=>{const [xx,yy]=point(-10,shY+5,4);g.line(...point(-7,shY,0),xx,yy,2,skin);g.ell(xx,yy,side?2:5.6,6.6,SK.ironS);g.ell(xx-.5,yy,side?1:4.4,5.4,SK.iron);g.p(Math.round(xx-1),Math.round(yy-2),SK.ironH);g.p(Math.round(xx+1),Math.round(yy+2),SK.rust);};
+      legs();g.x.translate(P.bodyX||0,P.bodyY||0);
+      // Behind the torso when viewed from the back: equipment stays on its own side.
+      if(rear){if(archer)bowArm();else swordArm();if(sk)shield();}
+      else if(sk)shield();
+      if(sk){
+        g.r(cx-4,hip-1,9,2,SK.bone);g.r(cx-1,shY-3,3,11,SK.boneS);
+        if(side){g.ell(cx+1,shY+2,4.5,5,SK.dark);for(const y of[-3,-1,1,3])g.line(cx-1,shY+y,cx+5,shY+y+1,1,SK.bone);}
+        else{g.r(cx-4,shY-2,9,7,SK.dark);g.r(cx-1,shY-3,3,11,SK.boneS);for(const y of[-3,-1,1,3])g.r(cx-5,shY+y,11,1,SK.bone);}
+        g.r(cx-(side?3:5),shY-6,side?8:11,2,SK.cloth);g.r(cx-3,shY-4,2,5+(f%2),SK.clothS);
+      }else{
+        g.ell(cx,31,side?5.5:7.5,6,'#6b4a2a');if(!rear){g.r(cx,27,3,6,hi);g.r(cx-4,27,2,8,'#4a3018');}else{g.line(cx-4,27,cx+4,34,2,'#4a3018');}
+        g.r(cx-(side?5:8),34,side?10:16,1,'#3a2410');g.r(cx-4,35,8,3,'#8a6a3a');
+        if(archer){g.r(cx-5,19,3,12,'#6a4020');for(const ax of[cx-5,cx-3])g.poly([[ax,19],[ax+1,15],[ax+2,19]],'#e0e0e0');}
+      }
+      if(!rear){if(archer)bowArm();else swordArm();}
+      if(sk){
+        const y=headY;
+        if(side){g.r(cx-4,y-3,10,7,SK.bone);g.r(cx-5,y-2,3,6,SK.boneS);g.r(cx+3,y,3,3,SK.sock);g.p(cx+4,y+1,SK.glow);g.r(cx+4,y+4,3,2,SK.bone);g.r(cx-1,y+5,7,2,SK.bone);g.p(cx+2,y+5,SK.sock);g.p(cx+4,y+5,SK.sock);}
+        else{g.r(cx-6,y-3,13,6,SK.bone);g.r(cx+4,y-3,3,6,SK.boneS);g.r(cx-5,y+3,11,1,SK.bone);g.r(cx-4,y+4,9,2,SK.boneS);}
+        g.r(cx-5,y-7,11,3,SK.iron);g.r(cx-3,y-8,7,1,SK.iron);g.r(cx-5,y-5,11,1,SK.ironS);g.p(cx-2,y-7,SK.ironH);
+        g.r(cx-(side?3:7),y-10,2,3,SK.bone);g.r(cx+(side?1:6),y-11,2,4,SK.bone);g.p(cx+(side?2:7),y-12,SK.bone);
+      }else{
+        const y=headY;
+        if(side){g.poly([[cx-2,y-2],[cx-12,y-7],[cx-10,y-2],[cx-2,y+3]],skin);g.p(cx-9,y-4,'#c87a6a');g.ell(cx+1,y,7.5,7.5,skin);g.ell(cx+5,y+2,4,5,dark);g.r(cx+5,y-2,3,2,'#ffe14a');g.p(cx+6,y-1,'#a01010');g.line(cx+4,y-4,cx+7,y-3,1,'#2a3a10');g.r(cx+5,y+4,4,1,'#3a1a10');g.p(cx+6,y+3,'#fff');}
+        else{g.poly([[cx-8,y-2],[cx-18,y-7],[cx-16,y-2],[cx-8,y+3]],skin);g.poly([[cx+8,y-2],[cx+18,y-7],[cx+16,y-2],[cx+8,y+3]],dark);g.ell(cx,y,9,7.5,skin);g.ell(cx+3,y+2,5,5,dark);}
+        if(archer){g.poly([[cx-10,y],[cx-7,y-9],[cx,y-12],[cx+7,y-9],[cx+10,y],[cx+7,y-5],[cx,y-7],[cx-7,y-5]],'#5a6a2a');g.r(cx-8,y-6,16,2,'#3a4a18');}
+      }
+    });
+  }
   function enemy(type, P) {
+    if(ZAKO4.has(type)&&P.view){let s=zakoView(type,P);if(P.view==='l')s=flipped(s);if(P.flash)s=white(s);return s;}
     const V = VAR[type];
     if (V) {
       const b = EN[V.base](P), key = 'v_' + type;

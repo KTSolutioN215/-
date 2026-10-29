@@ -3487,6 +3487,27 @@
     }
     return null;
   }
+  // Draw-only state. Movement, collision and attack timing are never changed here.
+  const ZAKO4 = new Set(['slime','bat','goblin','archer','skeleton']);
+  function zakoFacing(e) {
+    let dx=hero.x-e.x,dy=hero.y-e.y;
+    const locked=e.st==='wind'||e.st==='dash'||e.st==='slash';
+    if(locked){if(e.ai==='lunge'){dx=e.lx;dy=e.ly;}else{dx=Math.cos(e.face);dy=Math.sin(e.face);}}
+    else if(e.st!=='aim'&&hyp(e.vx,e.vy)>18){dx=e.vx;dy=e.vy;}
+    const angle=Math.atan2(dy,dx),wanted=face4(angle);
+    let s=e.zakoView;
+    if(!s)s=e.zakoView={face:wanted,candidate:wanted,since:globalT,st:e.st,changed:globalT,prev:e.st};
+    if(e.st!==s.st){s.prev=s.st;s.st=e.st;s.changed=globalT;}
+    if(locked||e.st==='aim'){s.face=wanted;s.candidate=wanted;s.since=globalT;}
+    else {
+      // Keep the current facing in a 10 degree margin around the diagonal.
+      const center={r:0,b:Math.PI/2,l:Math.PI,f:-Math.PI/2}[s.face],delta=Math.abs(Math.atan2(Math.sin(angle-center),Math.cos(angle-center)));
+      if(wanted===s.face||delta<Math.PI/4+.17){s.candidate=s.face;s.since=globalT;}
+      else if(s.candidate!==wanted){s.candidate=wanted;s.since=globalT;}
+      else if(globalT-s.since>=.15)s.face=wanted;
+    }
+    return s;
+  }
   function drawEnemy(e) {
     const x = e.x, y = sy(e.y), r = e.r;
     if (y < -70 || y > H + 70) return;
@@ -3518,9 +3539,13 @@
     const f = Math.floor((globalT + e.phase) * (e.ai === 'flutter' || e.ai === 'imp' ? (e.type === 'jelly' ? 5 : 10) : e.type === 'clown' || e.type === 'stormeagle' ? 8 : 4));
     const step = moving ? (Math.sin((globalT + e.phase) * 11) > 0 ? 1 : -1) : 0;
     const arm = zakoArm(e), bx = arm ? x + arm.lean * SPR.SCALE * (hero.x < e.x - 2 ? -1 : 1) : x, byy = arm ? yy + arm.cr * SPR.SCALE : yy;   // the body leans back into the wind-up and steps into the blow
-    const spr = SPR.enemy(e.type, { st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step: arm && arm.sp != null ? Math.round(arm.sp) : step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm });
+    const view = ZAKO4.has(e.type) ? zakoFacing(e) : null;
+    const spr = SPR.enemy(e.type, { view:view&&view.face, bodyX:view&&arm?Math.round(arm.lean*(view.face==='r'?1:view.face==='l'?-1:0)):0, bodyY:view&&arm?Math.round(arm.cr):0, pull:e.st==='aim'?easeIO(clamp(e.t/.55,0,1)):0, release:view&&view.prev==='aim'?Math.max(0,1-(globalT-view.changed)/.2):0, st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step: arm && arm.sp != null ? Math.round(arm.sp) : step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: !view && hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm });
     if(R3[e.type] && R3[e.type].enemy) drawR3Enemy(e,R3[e.type],x,yy+r*.75,hurt);
-    else SPR.draw(ctx, spr, bx, byy + r * 0.75);
+    else {
+      const hop=e.type==='slime'&&e.st==='hop'?Math.sin(clamp(e.t/.38,0,1)*Math.PI)*7:0;
+      SPR.draw(ctx, spr, view?x:bx, (view?yy:byy) + r * .75-hop);
+    }
     if (e.ai === 'swing' && e.st === 'slash') { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(x, yy, (e.mod.reach || 72) - 8, -e.face - 1.25, -e.face + 1.25); ctx.stroke(); }
     if (e.ai === 'assassin' && e.st === 'slash') { ctx.strokeStyle = e.critNext ? 'rgba(255,220,90,.75)' : 'rgba(255,255,255,.55)'; ctx.lineWidth = e.critNext ? 12 : 9; ctx.beginPath(); ctx.arc(x, yy, 60, -e.face - 1.2, -e.face + 1.2); ctx.stroke(); }
     if (telegraph && e.ai !== 'swing') { const top = yy + r * 0.75 - (spr ? spr.ay * SPR.SCALE : r * 2), mk2 = e.critNext ? '!!' : '!'; ctx.fillStyle = e.critNext ? '#ffd23a' : '#ff4040'; ctx.strokeStyle = '#1a1420'; ctx.lineWidth = 3; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'center'; ctx.strokeText(mk2, x, top - 2); ctx.fillText(mk2, x, top - 2); }
