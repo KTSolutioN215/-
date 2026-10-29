@@ -1830,8 +1830,10 @@ const SPR = (() => {
       return mk('gking' + act + k + na, 112, 100, 44, 96, (g, x) => {
         x.translate(0, 4);
         const Sk = '#86b84a', SkS = '#5a7a2e', SkH = '#b0d878', C = '#9a2a2a', CS = '#6a1818', F = '#f0ece0';
-        g.poly([[24, 40], [64, 40], [72, 88], [16, 88]], C); g.poly([[52, 40], [64, 40], [72, 88], [56, 88]], CS);
-        g.r(28, 76 - k, 10, 12, Sk); g.r(50, 76, 10, 12, SkS); g.r(26, 86, 14, 4, '#4a3018'); g.r(48, 86, 14, 4, '#4a3018');
+        if (!na) {   // rigged: the cape and the legs are separate parts (gk_cape, gk_thigh…)
+          g.poly([[24, 40], [64, 40], [72, 88], [16, 88]], C); g.poly([[52, 40], [64, 40], [72, 88], [56, 88]], CS);
+          g.r(28, 76 - k, 10, 12, Sk); g.r(50, 76, 10, 12, SkS); g.r(26, 86, 14, 4, '#4a3018'); g.r(48, 86, 14, 4, '#4a3018');
+        }
         g.ell(44, 64, 20, 16, '#7a5a30'); g.ell(42, 66, 13, 12, SkH); g.r(24, 70, 40, 3, '#3a2410'); g.ell(44, 71, 3, 3, '#f2c14e');
         g.ell(44, 46, 22, 6, F); for (let i = 0; i < 8; i++) g.p(24 + i * 6, 46 + (i % 2), '#a8a090');
         g.r(18, 50, 7, 14, Sk); g.ell(21, 66, 5, 4, Sk);
@@ -1951,8 +1953,10 @@ const SPR = (() => {
       const act = P.act ? 1 : 0, k = P.f % 2, na = P.noArm ? 1 : 0;
       return mk('dknight' + act + k + (P.p2 ? 1 : 0) + na, 96, 108, 46, 104, g => {
         const A = '#2a2a3a', AS = '#1a1a26', AH = '#4a4a62', T = '#c8ccd8', C = '#6a0a14', E = P.p2 ? '#ff2a4a' : '#ff8a3a';
-        g.poly([[28, 36], [60, 36], [70, 96], [62, 90], [54, 98], [44, 90], [34, 98], [26, 90], [18, 96]], C);
-        g.r(32, 78, 10, 18, AS); g.r(50, 78, 10, 18, AS); g.r(30, 94, 14, 4, A); g.r(48, 94, 14, 4, A); g.r(32, 80, 10, 2, T); g.r(50, 80, 10, 2, T);
+        if (!na) {   // rigged: the cape and the legs are separate parts (dk_cape, dk_thigh…)
+          g.poly([[28, 36], [60, 36], [70, 96], [62, 90], [54, 98], [44, 90], [34, 98], [26, 90], [18, 96]], C);
+          g.r(32, 78, 10, 18, AS); g.r(50, 78, 10, 18, AS); g.r(30, 94, 14, 4, A); g.r(48, 94, 14, 4, A); g.r(32, 80, 10, 2, T); g.r(50, 80, 10, 2, T);
+        }
         g.r(28, 42, 36, 38, A); g.r(54, 42, 10, 38, AS); g.r(30, 44, 4, 14, AH); g.r(28, 64, 36, 3, T); g.r(43, 46, 6, 14, '#5a0a14');
         for (const m of [-1, 1]) { const sx = m < 0 ? 16 : 60; g.r(sx, 36, 18, 12, AH); g.r(sx, 46, 18, 2, T); g.poly([[sx + (m < 0 ? 2 : 14), 36], [sx + (m < 0 ? -4 : 20), 26], [sx + (m < 0 ? 8 : 10), 36]], T); }
         g.r(18, 48, 9, 20, A); g.r(18, 66, 9, 6, AH);
@@ -2192,8 +2196,10 @@ const SPR = (() => {
       const k = P.f % 4, act = P.act ? 1 : 0, p2 = P.p2 ? 1 : 0, na = P.noArm ? 1 : 0;
       return mk('gcap' + k + act + p2 + na, 108, 116, 54, 112, g => {
         const GH = { d: '#4aa89a', m: '#8ae8d8', h: '#e0fff8' }, CO = { d: '#141c34', m: '#26385e', h: '#4a6a9a' }, G = '#f2c14e', GS = '#a8782a', R = '#9a2030', RS = '#5a1018', E = p2 ? '#ff4a6a' : '#7affd8';
-        for (let i = 0; i < 6; i++) { const w = Math.sin(k * 1.57 + i * 1.3) * 3; g.ell(36 + i * 7 + w, 100 + (i % 2) * 4, 5, 8, i % 2 ? GH.d : GH.m); g.p(Math.round(35 + i * 7 + w), 96, GH.h); }
-        g.poly([[34, 74], [74, 74], [80, 100], [28, 100]], GH.d); g.poly([[36, 74], [60, 74], [56, 98], [32, 98]], GH.m);
+        if (!na) {   // rigged: the ghostly tail is a separate part (gc_tail) that trails behind the swing
+          for (let i = 0; i < 6; i++) { const w = Math.sin(k * 1.57 + i * 1.3) * 3; g.ell(36 + i * 7 + w, 100 + (i % 2) * 4, 5, 8, i % 2 ? GH.d : GH.m); g.p(Math.round(35 + i * 7 + w), 96, GH.h); }
+          g.poly([[34, 74], [74, 74], [80, 100], [28, 100]], GH.d); g.poly([[36, 74], [60, 74], [56, 98], [32, 98]], GH.m);
+        }
         g.poly([[36, 42], [72, 42], [82, 90], [74, 86], [70, 94], [62, 88], [54, 95], [46, 88], [38, 94], [34, 86], [26, 90]], CO.m);
         g.poly([[58, 42], [72, 42], [82, 90], [74, 86], [70, 94], [62, 88], [60, 60]], CO.d);
         g.poly([[36, 42], [44, 42], [32, 86], [28, 88]], CO.h);
@@ -2732,6 +2738,26 @@ const SPR = (() => {
         g.line(3, 11, 10, 11, 2.6, '#2a1a1a'); g.ell(2.5, 11, 2, 2, '#8a1a24');
       }, '#08080c');
     },
+    // lower bodies: thigh / shin point +x from the hip / knee; the foot hangs from the ankle; capes hang from their top centre
+    gk_thigh() { return mk('gkth', 20, 14, 5, 7, g => tube(g, [[5, 7, 5.5], [13, 7, 5]], { d: '#5a7a2e', m: '#86b84a', h: '#b0d878' }), '#1e2a0e'); },
+    gk_shin() { return mk('gksh', 18, 14, 5, 7, g => tube(g, [[5, 7, 5], [12, 7, 4.6]], { d: '#5a7a2e', m: '#86b84a', h: '#b0d878' }), '#1e2a0e'); },
+    gk_foot(P) { return mk('gkft' + (P.m || 1), 20, 10, 10, 3, g => { const m = P.m || 1; g.r(3, 2, 14, 5, '#4a3018'); g.r(m > 0 ? 3 : 4, 2, 13, 1, '#6a4a28'); g.r(m > 0 ? 14 : 3, 3, 3, 4, '#3a2410'); }, '#1e1208'); },
+    gk_cape() { return mk('gkcp', 60, 52, 28, 2, g => { g.poly([[8, 2], [48, 2], [56, 50], [0, 50]], '#9a2a2a'); g.poly([[36, 2], [48, 2], [56, 50], [40, 50]], '#6a1818'); g.r(4, 46, 50, 3, '#6a1818'); }, '#2a0808'); },
+    dk_thigh() { return mk('dkth', 22, 16, 5, 8, g => { tube(g, [[5, 8, 5.5], [15, 8, 5]], { d: '#1a1a26', m: '#2a2a3a', h: '#4a4a62' }); }, '#08080c'); },
+    dk_shin() { return mk('dksh', 20, 16, 4, 8, g => { tube(g, [[4, 8, 5], [13, 8, 4.6]], { d: '#1a1a26', m: '#2a2a3a', h: '#4a4a62' }); g.r(3, 3, 3, 10, '#c8ccd8'); }, '#08080c'); },
+    dk_foot(P) { return mk('dkft' + (P.m || 1), 20, 10, 10, 3, g => { const m = P.m || 1; g.r(3, 2, 14, 5, '#2a2a3a'); g.r(3, 2, 14, 1, '#4a4a62'); g.r(m > 0 ? 13 : 3, 3, 4, 4, '#c8ccd8'); }, '#08080c'); },
+    dk_cape() { return mk('dkcp', 56, 66, 28, 2, g => g.poly([[12, 2], [44, 2], [54, 62], [46, 56], [38, 64], [28, 56], [18, 64], [10, 56], [2, 62]], '#6a0a14'), '#08080c'); },
+    gc_tail(P) {   // the ghost's wisp below the coat
+      const k = P.f % 4;
+      return mk('gctl' + k, 64, 46, 34, 4, g => {
+        const GH = { d: '#4aa89a', m: '#8ae8d8', h: '#e0fff8' };
+        for (let i = 0; i < 6; i++) { const w = Math.sin(k * 1.57 + i * 1.3) * 3; g.ell(16 + i * 7 + w, 30 + (i % 2) * 4, 5, 8, i % 2 ? GH.d : GH.m); g.p(Math.round(15 + i * 7 + w), 26, GH.h); }
+        g.poly([[14, 4], [54, 4], [60, 30], [8, 30]], GH.d); g.poly([[16, 4], [40, 4], [36, 28], [12, 28]], GH.m);
+      }, '#081418');
+    },
+    cy_thigh() { return mk('cyth', 26, 22, 6, 11, g => tube(g, [[6, 11, 9], [19, 11, 8]], { d: '#8a5a32', m: '#c8945e', h: '#f0c890' }), '#2a1408'); },
+    cy_shin() { return mk('cysh', 24, 20, 5, 10, g => tube(g, [[5, 10, 8], [18, 10, 7.5]], { d: '#8a5a32', m: '#c8945e', h: '#f0c890' }), '#2a1408'); },
+    cy_foot(P) { return mk('cyft' + (P.m || 1), 28, 14, 14, 4, g => { const F = { d: '#3a2410', m: '#6a4a2a' }; g.ell(14, 8, 11, 5, F.d); g.ell(13, 7, 9, 3.5, F.m); for (let i = -8; i <= 8; i += 3) g.p(14 + i, 11, F.d); }, '#2a1408'); },
     gc_upper() { return mk('gcu', 22, 14, 5, 7, g => tube(g, [[5, 7, 5], [15, 7, 4.5]], { d: '#141c34', m: '#26385e', h: '#4a6a9a' }), '#081418'); },
     gc_fore() { return mk('gcf', 22, 14, 4, 7, g => { tube(g, [[4, 7, 4.5], [14, 7, 4]], { d: '#141c34', m: '#26385e', h: '#4a6a9a' }); g.r(12, 3, 3, 8, '#e8e0d0'); }, '#081418'); },
     gc_hand() { return mk('gch', 12, 12, 6, 6, g => blob(g, 6, 6, 3.6, 3.4, { d: '#4aa89a', m: '#8ae8d8', h: '#e0fff8' }), '#081418'); },

@@ -3453,12 +3453,12 @@
   }
   // ---- weapon arms of the humanoid zako (指示: 腕を振って武器を振る). Poses: ha/hr = hand angle/reach from the shoulder, wa = weapon angle ----
   const ZP = {
-    goblin: { rest: { ha: 1.35, hr: 0.85, wa: -0.8 }, up: { ha: -1.2, hr: 1, wa: -2.0 }, hit: { ha: 0.55, hr: 1, wa: 1.0 }, low: { ha: 1.0, hr: 0.95, wa: 1.45 } },
-    skeleton: { rest: { ha: 1.25, hr: 0.85, wa: 1.2 }, up: { ha: -1.9, hr: 1, wa: -2.05 }, hit: { ha: 0.6, hr: 1, wa: 0.55 }, low: { ha: 1.3, hr: 0.95, wa: 1.6 } },
-    knight: { rest: { ha: 1.35, hr: 0.75, wa: -1.57 }, up: { ha: 2.9, hr: 0.45, wa: -0.05 }, hit: { ha: 0.0, hr: 1, wa: 0.0 }, low: { ha: 1.25, hr: 0.95, wa: 1.3 } },
-    fishman: { rest: { ha: 1.35, hr: 0.8, wa: -1.45 }, up: { ha: -2.3, hr: 0.8, wa: 0.15 }, hit: { ha: 0.2, hr: 1, wa: 0.3 }, low: { ha: 0.9, hr: 0.95, wa: 0.85 } },
+    goblin: { rest: { lean: 0, cr: 0, sp: 0, ha: 1.35, hr: 0.85, wa: -0.8 }, up: { lean: -2, cr: -1, sp: -1, ha: -1.2, hr: 1, wa: -2.0 }, hit: { lean: 3, cr: 2, sp: 1, ha: 0.55, hr: 1, wa: 1.0 }, low: { lean: 2, cr: 1.5, sp: 1, ha: 1.0, hr: 0.95, wa: 1.45 } },
+    skeleton: { rest: { lean: 0, cr: 0, sp: 0, ha: 1.25, hr: 0.85, wa: 1.2 }, up: { lean: -2, cr: -1, sp: -1, ha: -1.9, hr: 1, wa: -2.05 }, hit: { lean: 3, cr: 2, sp: 1, ha: 0.6, hr: 1, wa: 0.55 }, low: { lean: 2, cr: 1.5, sp: 1, ha: 1.3, hr: 0.95, wa: 1.6 } },
+    knight: { rest: { lean: 0, cr: 0, sp: 0, ha: 1.35, hr: 0.75, wa: -1.57 }, up: { lean: -2, cr: -1, sp: -1, ha: 2.9, hr: 0.45, wa: -0.05 }, hit: { lean: 3, cr: 2, sp: 1, ha: 0.0, hr: 1, wa: 0.0 }, low: { lean: 2, cr: 1.5, sp: 1, ha: 1.25, hr: 0.95, wa: 1.3 } },
+    fishman: { rest: { lean: 0, cr: 0, sp: 0, ha: 1.35, hr: 0.8, wa: -1.45 }, up: { lean: -2, cr: -1, sp: -1, ha: -2.3, hr: 0.8, wa: 0.15 }, hit: { lean: 3, cr: 2, sp: 1, ha: 0.2, hr: 1, wa: 0.3 }, low: { lean: 2, cr: 1.5, sp: 1, ha: 0.9, hr: 0.95, wa: 0.85 } },
   };
-  const lerpP = (a, b, k) => ({ ha: lerp(a.ha, b.ha, k), hr: lerp(a.hr, b.hr, k), wa: lerp(a.wa, b.wa, k) });
+  const lerpP = (a, b, k) => lerpO(a, b, k);
   const easeOut = k => 1 - (1 - k) ** 3;
   function zakoArm(e) {
     const base = VARIANTS[e.type] ? VARIANTS[e.type][0] : e.type, Z = ZP[base]; if (!Z) return null;
@@ -3466,7 +3466,7 @@
     const since = globalT - e._p0, prev = e._pp, cl = v => clamp(v, 0, 1);
     const idle = () => {   // back to rest after an attack, then a little breathing
       const from = prev === 'slash' ? Z.low : prev === 'dash' ? (e.ai === 'guard' ? Z.hit : Z.low) : prev === 'tired' ? Z.low : null;
-      const r0 = Object.assign({}, Z.rest, { wa: Z.rest.wa + Math.sin(globalT * 2.4 + e.phase * 6) * 0.1 });
+      const r0 = Object.assign({}, Z.rest, { wa: Z.rest.wa + Math.sin(globalT * 2.4 + e.phase * 6) * 0.1, sp: null });
       return from && since < 0.4 ? lerpP(from, r0, easeIO(cl(since / 0.4))) : r0;
     };
     if (e.ai === 'swing') {
@@ -3517,8 +3517,9 @@
     const moving = hyp(e.vx, e.vy) > 12;
     const f = Math.floor((globalT + e.phase) * (e.ai === 'flutter' || e.ai === 'imp' ? (e.type === 'jelly' ? 5 : 10) : e.type === 'clown' || e.type === 'stormeagle' ? 8 : 4));
     const step = moving ? (Math.sin((globalT + e.phase) * 11) > 0 ? 1 : -1) : 0;
-    const spr = SPR.enemy(e.type, { st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm: zakoArm(e) });
-    SPR.draw(ctx, spr, x, yy + r * 0.75);
+    const arm = zakoArm(e), bx = arm ? x + arm.lean * SPR.SCALE * (hero.x < e.x - 2 ? -1 : 1) : x, byy = arm ? yy + arm.cr * SPR.SCALE : yy;   // the body leans back into the wind-up and steps into the blow
+    const spr = SPR.enemy(e.type, { st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step: arm && arm.sp != null ? Math.round(arm.sp) : step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm });
+    SPR.draw(ctx, spr, bx, byy + r * 0.75);
     if (e.ai === 'swing' && e.st === 'slash') { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(x, yy, (e.mod.reach || 72) - 8, -e.face - 1.25, -e.face + 1.25); ctx.stroke(); }
     if (e.ai === 'assassin' && e.st === 'slash') { ctx.strokeStyle = e.critNext ? 'rgba(255,220,90,.75)' : 'rgba(255,255,255,.55)'; ctx.lineWidth = e.critNext ? 12 : 9; ctx.beginPath(); ctx.arc(x, yy, 60, -e.face - 1.2, -e.face + 1.2); ctx.stroke(); }
     if (telegraph && e.ai !== 'swing') { const top = yy + r * 0.75 - (spr ? spr.ay * SPR.SCALE : r * 2), mk2 = e.critNext ? '!!' : '!'; ctx.fillStyle = e.critNext ? '#ffd23a' : '#ff4040'; ctx.strokeStyle = '#1a1420'; ctx.lineWidth = 3; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'center'; ctx.strokeText(mk2, x, top - 2); ctx.fillText(mk2, x, top - 2); }
@@ -3612,47 +3613,111 @@
       if (s.kind === 'club') { ctx.fillStyle = '#8a5a2a'; ctx.beginPath(); ctx.arc(ex, ey, 16, 0, 7); ctx.fill(); }
     }
   }
-  // ---- cyclops: drawn from parts, both arms really swing the club. Poses are keyframes timed to each attack ----
-  const CYP = {   // ht/hr: right hand (angle, distance from the shoulder); ca: club angle; la/lr: left hand; lean/cr: body shift/crouch
-    rest: { ht: 1.2, hr: 28, ca: -1.75, la: 1.75, lr: 28, lean: 0, cr: 0 },       // club resting up against the shoulder
-    up: { ht: -1.6, hr: 32, ca: -2.6, la: -2.3, lr: 30, lean: -2, cr: -2 },       // wound up high, club back over the head
-    slam: { ht: 1.0, hr: 32, ca: 1.25, la: 2.5, lr: 30, lean: 3, cr: 6 },         // smashed into the ground in front
-    low: { ht: 1.9, hr: 30, ca: 2.6, la: -2.6, lr: 30, lean: 4, cr: 4 },          // scooped low and back
-    hi: { ht: -0.6, hr: 32, ca: -1.1, la: 2.3, lr: 30, lean: -4, cr: -1 },        // flung up and forward
-    sideB: { ht: -0.4, hr: 32, ca: -0.2, la: 2.9, lr: 30, lean: 4, cr: 1 },       // cocked out to the right
-    sideF: { ht: 2.0, hr: 30, ca: 3.0, la: 1.3, lr: 28, lean: -4, cr: 2 },        // swung across to the left
-    ready: { ht: -1.0, hr: 30, ca: -1.4, la: 2.0, lr: 28, lean: 0, cr: 2 },       // held up, about to charge
+  // ===== bosses drawn from parts (指示: 腕を振って武器を振る / 下半身も連動). The arm swings the weapon; the hips drop, turn and
+  // shift and the legs bend and step under it, so every swing has the whole body behind it.
+  // Lower-body pose: lean = hips sideways, cr = hips drop (< 0 rises up onto the toes), tilt = torso turn (rad), st = feet wider, fL/fR = lift a foot
+  const LBP = {
+    rest: { lean: 0, cr: 0, tilt: 0, st: 0, fL: 0, fR: 0 },
+    up: { lean: -4, cr: -2, tilt: -0.09, st: 2, fL: 0, fR: 4 },      // wound up: rears back, weight on the back foot, the front foot comes up
+    slam: { lean: 5, cr: 8, tilt: 0.11, st: 6, fL: 0, fR: 0 },       // stamps down into a deep, wide squat behind the blow
+    low: { lean: 4, cr: 7, tilt: 0.12, st: 5, fL: 0, fR: 0 },        // dropped low to scoop
+    hi: { lean: -4, cr: -4, tilt: -0.1, st: 2, fL: 4, fR: 0 },       // drives up off the floor
+    sideB: { lean: 5, cr: 4, tilt: 0.09, st: 4, fL: 4, fR: 0 },      // coiled to the right
+    sideF: { lean: -6, cr: 5, tilt: -0.12, st: 5, fL: 0, fR: 4 },    // the whole body turns through the cut
+    ready: { lean: -1, cr: 5, tilt: 0.03, st: 4, fL: 0, fR: 0 },     // crouched to spring
+    thrust: { lean: 6, cr: 4, tilt: 0.12, st: 4, fL: 3, fR: 0 },     // driving forward
+    point: { lean: 3, cr: 2, tilt: 0.05, st: 3, fL: 0, fR: 0 },
+  };
+  const withLB = (o, n) => Object.assign({}, o, LBP[n]);
+  // ---- cyclops: both arms swing the club ----
+  const CYP = {   // ht/hr: right hand (angle, distance from the shoulder); ca: club angle; la/lr: left hand
+    rest: withLB({ ht: 1.2, hr: 28, ca: -1.75, la: 1.75, lr: 28 }, 'rest'),     // club resting up against the shoulder
+    up: withLB({ ht: -1.6, hr: 32, ca: -2.6, la: -2.3, lr: 30 }, 'up'),         // wound up high, club back over the head
+    slam: withLB({ ht: 1.0, hr: 32, ca: 1.25, la: 2.5, lr: 30 }, 'slam'),       // smashed into the ground in front
+    low: withLB({ ht: 1.9, hr: 30, ca: 2.6, la: -2.6, lr: 30 }, 'low'),         // scooped low and back
+    hi: withLB({ ht: -0.6, hr: 32, ca: -1.1, la: 2.3, lr: 30 }, 'hi'),          // flung up and forward
+    sideB: withLB({ ht: -0.4, hr: 32, ca: -0.2, la: 2.9, lr: 30 }, 'sideB'),    // cocked out to the right
+    sideF: withLB({ ht: 2.0, hr: 30, ca: 3.0, la: 1.3, lr: 28 }, 'sideF'),      // swung across to the left
+    ready: withLB({ ht: -1.0, hr: 30, ca: -1.4, la: 2.0, lr: 28 }, 'ready'),    // held up, about to charge
   };
   const easeIO = k => k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2, easeIn = k => k * k * k;
-  function cyKeys(keys, t) {   // keys: [time, pose, 'in' = a strike (accelerates into the hit)]
-    if (t <= keys[0][0]) return CYP[keys[0][1]];
+  function lerpO(a, b, k) { const o = {}; for (const q in a) o[q] = typeof a[q] === 'number' && typeof b[q] === 'number' ? lerp(a[q], b[q], k) : a[q]; return o; }
+  function keysAt(P, keys, t) {   // keys: [time, pose, 'in' = a strike (accelerates into the hit)]
+    if (t <= keys[0][0]) return P(keys[0][1]);
     for (let i = 1; i < keys.length; i++) {
       const [t1, n1, e] = keys[i]; if (t > t1) continue;
-      const [t0, n0] = keys[i - 1], a = CYP[n0], b = CYP[n1], k0 = (t - t0) / Math.max(0.001, t1 - t0), k = e === 'in' ? easeIn(k0) : easeIO(k0);
-      return { ht: lerp(a.ht, b.ht, k), hr: lerp(a.hr, b.hr, k), ca: lerp(a.ca, b.ca, k), la: lerp(a.la, b.la, k), lr: lerp(a.lr, b.lr, k), lean: lerp(a.lean, b.lean, k), cr: lerp(a.cr, b.cr, k) };
+      const [t0, n0] = keys[i - 1], k0 = (t - t0) / Math.max(0.001, t1 - t0);
+      return lerpO(P(n0), P(n1), e === 'in' ? easeIn(k0) : easeIO(k0));
     }
-    return CYP[keys[keys.length - 1][1]];
+    return P(keys[keys.length - 1][1]);
+  }
+  // the lower body for moves that are not keyframed: sweeping round, running, walking, breathing
+  const sweepLB = (sa, act) => { const c = Math.cos(sa); return { lean: c * 6, cr: act ? 6 : 7, tilt: c * 0.12, st: 6, fL: c > 0.3 ? (c - 0.3) * 6 : 0, fR: c < -0.3 ? (-c - 0.3) * 6 : 0 }; };
+  const runLB = (B, spd) => { const s = Math.sin(globalT * spd), d = Math.sign(B.vx || 0); return { lean: d * 4, cr: 3 + Math.abs(s) * 1.5, tilt: d * 0.08, st: 2, fL: Math.max(0, s) * 5, fR: Math.max(0, -s) * 5 }; };
+  const breathe = () => ({ cr: 0.4 + Math.sin(globalT * 2.2) * 0.4 });
+  function settle(B, p, rest) {   // after a move, ease back to the resting pose instead of snapping
+    if (p) { B.wrLast = p; B.wrEnd = globalT; return p; }
+    if (B.wrLast) { const k = (globalT - B.wrEnd) / 0.45; if (k < 1) return lerpO(B.wrLast, rest, easeIO(k)); B.wrLast = null; }
+    return rest;
   }
   function cyPose(B) {
-    const mv = B.mv, n = mv ? mv.name : '', t = mv ? mv.t : 0, p2 = B.phase === 2;
-    if (n === 'sweep' && B.sweeps.length) { const sw = B.sweeps[0], sa = -sw.ang; return { ht: sa, hr: 32, ca: sa, la: sa + Math.PI, lr: 28, lean: Math.cos(sa) * 4, cr: 3, sweep: sw }; }
-    if (n === 'quake') return cyKeys([[0, 'rest'], [0.33, 'up'], [0.45, 'slam', 'in'], [0.6, 'slam'], [0.88, 'up'], [1.0, 'slam', 'in'], [1.15, 'slam'], [1.43, 'up'], [1.55, 'slam', 'in'], [1.85, 'slam'], [2.3, 'rest']], t);
-    if (n === 'rocks') return cyKeys([[0, 'rest'], [0.3, 'low'], [0.45, 'hi', 'in'], [0.75, 'low'], [0.9, 'hi', 'in'], [1.2, 'low'], [1.35, 'hi', 'in'], [1.75, 'rest']], t);
-    if (n === 'boulders') { const K2 = [[0, 'rest']], c = p2 ? 3 : 2; for (let i = 0; i < c; i++) { const T = 0.6 + i * 0.5; K2.push([T - 0.22, 'sideB'], [T, 'sideF', 'in']); } K2.push([0.6 + c * 0.5 + 0.3, 'rest']); return cyKeys(K2, t); }
-    if (n === 'charge' || n === 'dash3') return cyKeys([[0, 'rest'], [0.35, 'ready']], t);
-    if (n === 'jump') {
-      if (mv.n === 0) return cyKeys([[0, 'rest'], [0.3, 'up']], t);
-      if (mv.n === 1) return cyKeys([[0, 'up'], [0.3, 'slam', 'in']], t - mv.t1);
-      return cyKeys([[0, 'slam'], [0.35, 'slam'], [0.8, 'rest']], t - mv.t1 - 0.3);
+    const mv = B.mv, n = mv ? mv.name : '', t = mv ? mv.t : 0, p2 = B.phase === 2, K = s => keysAt(q => CYP[q], s, t);
+    let p = null;
+    if (n === 'sweep' && B.sweeps.length) { const sw = B.sweeps[0], sa = -sw.ang; p = Object.assign({ ht: sa, hr: 32, ca: sa, la: sa + Math.PI, lr: 28, sweep: sw }, sweepLB(sa, sw.t >= sw.tele)); }
+    else if (n === 'quake') p = K([[0, 'rest'], [0.33, 'up'], [0.45, 'slam', 'in'], [0.6, 'slam'], [0.88, 'up'], [1.0, 'slam', 'in'], [1.15, 'slam'], [1.43, 'up'], [1.55, 'slam', 'in'], [1.85, 'slam'], [2.3, 'rest']]);
+    else if (n === 'rocks') p = K([[0, 'rest'], [0.3, 'low'], [0.45, 'hi', 'in'], [0.75, 'low'], [0.9, 'hi', 'in'], [1.2, 'low'], [1.35, 'hi', 'in'], [1.75, 'rest']]);
+    else if (n === 'boulders') { const K2 = [[0, 'rest']], c = p2 ? 3 : 2; for (let i = 0; i < c; i++) { const T = 0.6 + i * 0.5; K2.push([T - 0.22, 'sideB'], [T, 'sideF', 'in']); } K2.push([0.6 + c * 0.5 + 0.3, 'rest']); p = K(K2); }
+    else if (n === 'charge' || n === 'dash3') p = mv.ph === 'go' ? Object.assign({}, CYP.ready, runLB(B, 16)) : K([[0, 'rest'], [0.35, 'ready']]);
+    else if (n === 'jump') {
+      if (mv.n === 0) p = K([[0, 'rest'], [0.3, 'up']]);
+      else if (mv.n === 1) p = keysAt(q => CYP[q], [[0, 'up'], [0.3, 'slam', 'in']], t - mv.t1);
+      else p = keysAt(q => CYP[q], [[0, 'slam'], [0.35, 'slam'], [0.8, 'rest']], t - mv.t1 - 0.3);
     }
+    else if (mv) p = K([[0, 'rest'], [0.3, 'ready'], [Math.max(0.6, (mv.dur || 1.6) - 0.3), 'ready'], [Math.max(0.9, mv.dur || 1.9), 'rest']]);
     const b = Math.sin(globalT * 2.2);   // idle: the club rocks a little on the shoulder
-    return Object.assign({}, CYP.rest, { ht: CYP.rest.ht + b * 0.05, ca: CYP.rest.ca + b * 0.07, la: CYP.rest.la - b * 0.06 });
+    return settle(B, p, Object.assign({}, CYP.rest, { ht: CYP.rest.ht + b * 0.05, ca: CYP.rest.ca + b * 0.07, la: CYP.rest.la - b * 0.06 }, breathe()));
+  }
+  // ---- lower bodies, in art px from the feet anchor: hip height, hip / foot spread, ankle height, bones, a size factor; capes and tails ----
+  const LBD = {
+    goblinking: { hipY: -18, hips: 11, feet: 12, ank: -4, L1: 8, L2: 7, p: 'gk', cape: [0, -52, 48], m: 1, front: 1 },   // front: the legs come out over the bottom of the body
+    deathknight: { hipY: -28, hips: 9, feet: 10, ank: -9, L1: 10, L2: 9, p: 'dk', cape: [-2, -68, 62], m: 1.15, front: 1 },
+    ghostcaptain: { hipY: -38, tail: [0, -38], p: 'gc', m: 1 },
+    cyclops: { hipY: -34, hips: 13, feet: 15, ank: -8, L1: 13, L2: 13, p: 'cy', m: 1.4 },
+  };
+  // the body frame: the torso pivots on its hips. T(art x, art y) -> screen point on the moved / turned torso
+  function bodyFrame(L, p, x, yFeet) {
+    const K = SPR.SCALE, m = L.m, pv = [x + p.lean * m * K, yFeet + (p.cr * m + L.hipY) * K], c = Math.cos(p.tilt), s = Math.sin(p.tilt);
+    return { K, m, pv, rot: p.tilt, T: (ax, ay) => { const dx = ax * K, dy = (ay - L.hipY) * K; return [pv[0] + dx * c - dy * s, pv[1] + dx * s + dy * c]; } };
+  }
+  function drawTorso(spr, F, L) { ctx.save(); ctx.translate(F.pv[0], F.pv[1]); if (F.rot) ctx.rotate(F.rot); SPR.draw(ctx, spr, 0, -L.hipY * F.K); ctx.restore(); }
+  function drawLower(L, F, p, x, yFeet, fl, legsNow) {
+    const K = F.K, m = F.m;
+    if (legsNow) return drawLegs(L, F, p, x, yFeet, fl);
+    if (L.cape) { const top = F.T(L.cape[0], L.cape[1]); pd(P_(L.p + '_cape', {}, fl), top[0], top[1], F.rot * 0.4 + p.lean * m * 0.012, 1, clamp((yFeet - 3 * K - top[1]) / (L.cape[2] * K), 0.7, 1.4)); }   // hangs from the shoulders down to the floor, swinging behind
+    if (L.tail) { const top = F.T(L.tail[0], L.tail[1]); pd(P_(L.p + '_tail', { f: Math.floor(globalT * 4) }, fl), top[0], top[1], F.rot * 0.7 + p.lean * m * 0.035, 1, clamp(1 - p.cr * 0.03, 0.75, 1.3)); }   // the ghost's wisp trails the swing
+    if (!L.front) drawLegs(L, F, p, x, yFeet, fl);
+  }
+  function drawLegs(L, F, p, x, yFeet, fl) {
+    if (!L.L1) return;
+    const K = F.K, m = F.m, L1 = L.L1 * K, L2 = L.L2 * K;
+    for (const sd of [-1, 1]) {
+      const hip = F.T(sd * L.hips, L.hipY), lift = (sd < 0 ? p.fL : p.fR) * m;
+      let ft = [x + sd * (L.feet + p.st * m) * K, yFeet + (L.ank - lift) * K];
+      const dx = ft[0] - hip[0], dy = ft[1] - hip[1], d0 = Math.hypot(dx, dy) || 1, d = Math.min(d0, L1 + L2 - 0.5), a = Math.atan2(dy, dx);
+      if (d < d0) ft = [hip[0] + Math.cos(a) * d, hip[1] + Math.sin(a) * d];   // fully stretched: the foot leaves the floor
+      const off = Math.acos(clamp((L1 * L1 + d * d - L2 * L2) / (2 * L1 * d), -1, 1));
+      const k1 = [hip[0] + Math.cos(a + off) * L1, hip[1] + Math.sin(a + off) * L1], k2 = [hip[0] + Math.cos(a - off) * L1, hip[1] + Math.sin(a - off) * L1];
+      const kn = (k1[0] - hip[0]) * sd > (k2[0] - hip[0]) * sd ? k1 : k2;   // knees bend outward: a wide, low stance
+      pd(P_(L.p + '_thigh', {}, fl), hip[0], hip[1], Math.atan2(kn[1] - hip[1], kn[0] - hip[0]));
+      pd(P_(L.p + '_shin', {}, fl), kn[0], kn[1], Math.atan2(ft[1] - kn[1], ft[0] - kn[0]), Math.max(0.6, Math.hypot(ft[0] - kn[0], ft[1] - kn[1]) / L2), 1);
+      pd(P_(L.p + '_foot', { m: sd }, fl), ft[0], ft[1]);
+    }
   }
   function drawCyclops(B, x, yFeet, yMid, fl) {
-    const K = SPR.SCALE, p = cyPose(B), p2 = B.phase === 2 ? 1 : 0, mn = B.mv ? B.mv.name : '';
+    const K = SPR.SCALE, L = LBD.cyclops, p = cyPose(B), p2 = B.phase === 2 ? 1 : 0, mn = B.mv ? B.mv.name : '';
     const act = /laser/.test(mn) && B.mv.t < 1.4 ? 1 : 0, bob = !B.mv && Math.sin(globalT * 2.2) > 0.4 ? 1 : 0;
-    const ox = x + p.lean * K, oy = yFeet + p.cr * K * 0.6;
-    const sR = [ox + 24 * K, oy - (63 - bob) * K], sL = [ox - 26 * K, oy - (63 - bob) * K];
+    const F = bodyFrame(L, p, x, yFeet);
+    const sR = F.T(24, -63 + bob), sL = F.T(-26, -63 + bob);
     const hand = [sR[0] + Math.cos(p.ht) * p.hr * K, sR[1] + Math.sin(p.ht) * p.hr * K];
     const lhand = [sL[0] + Math.cos(p.la) * p.lr * K, sL[1] + Math.sin(p.la) * p.lr * K];   // the free hand swings the other way for balance
     const L1 = 18 * K, L2 = 16 * K;
@@ -3672,90 +3737,77 @@
       pd(P_('cy_club', {}, fl), hand[0], hand[1], p.ca, sc, sc > 1 ? 1.2 : 1);
     };
     const fists = () => { pd(P_('cy_fist', {}, fl), hand[0], hand[1]); pd(P_('cy_fist', {}, fl), lhand[0], lhand[1]); };
-    pd(P_('cy_legs', { w: p.cr > 3 ? 1 : 0 }, fl), x, yFeet);
-    const torso = () => pd(P_('cy_torso', { k: bob, act, p2 }, fl), ox, oy);
+    drawLower(L, F, p, x, yFeet, fl);
+    const torso = () => drawTorso(P_('cy_torso', { k: bob, act, p2 }, fl), F, L);
     if (hand[1] < sR[1] - 12 * K) { club(); arm(sR, hand, 1); pd(P_('cy_fist', {}, fl), hand[0], hand[1]); torso(); arm(sL, lhand, -1); pd(P_('cy_fist', {}, fl), lhand[0], lhand[1]); }   // club up behind the head
     else { torso(); arm(sL, lhand, -1); arm(sR, hand, 1); club(); fists(); }
     ghosts.unshift([hand[0], hand[1], p.ca, sc]); if (ghosts.length > 2) ghosts.length = 2;
   }
-  // ---- bosses that hold a weapon in one hand: the arm (shoulder → elbow → hand) swings it. Poses as in CYP, hr = reach 0..1 ----
+  // ---- bosses that hold a weapon in one hand: the arm (shoulder → elbow → hand) swings it. hr = reach 0..1 ----
   const WRP = {
-    up: { ht: -1.55, hr: 0.95, ca: -2.15, lean: -1, cr: -1 },     // wound up overhead, the weapon sticking up behind the head
-    slam: { ht: 0.95, hr: 0.95, ca: 1.25, lean: 2, cr: 3 },       // chopped down in front
-    low: { ht: 1.9, hr: 0.9, ca: 2.6, lean: 2, cr: 2 },           // scooped low
-    hi: { ht: -0.6, hr: 0.95, ca: -1.1, lean: -2, cr: -1 },       // flung up
-    sideB: { ht: -0.3, hr: 0.95, ca: -0.35, lean: 2, cr: 1 },     // cocked out to the right
-    sideF: { ht: 2.15, hr: 0.9, ca: 2.95, lean: -2, cr: 2 },      // cut across to the left
-    ready: { ht: -0.9, hr: 0.85, ca: -1.35, lean: 0, cr: 1 },     // held up, about to rush
-    thrust: { ht: 0.25, hr: 1, ca: 0.3, lean: 2, cr: 1 },         // run through, weapon forward
-    point: { ht: -0.35, hr: 1, ca: -0.5, lean: -1, cr: 0 },       // pointed out: "fire!"
+    up: withLB({ ht: -1.55, hr: 0.95, ca: -2.15 }, 'up'),         // wound up overhead, the weapon sticking up behind the head
+    slam: withLB({ ht: 0.95, hr: 0.95, ca: 1.25 }, 'slam'),       // chopped down in front
+    low: withLB({ ht: 1.9, hr: 0.9, ca: 2.6 }, 'low'),            // scooped low
+    hi: withLB({ ht: -0.6, hr: 0.95, ca: -1.1 }, 'hi'),           // flung up
+    sideB: withLB({ ht: -0.3, hr: 0.95, ca: -0.35 }, 'sideB'),    // cocked out to the right
+    sideF: withLB({ ht: 2.15, hr: 0.9, ca: 2.95 }, 'sideF'),      // cut across to the left
+    ready: withLB({ ht: -0.9, hr: 0.85, ca: -1.35 }, 'ready'),    // held up, about to rush
+    thrust: withLB({ ht: 0.25, hr: 1, ca: 0.3 }, 'thrust'),       // run through, weapon forward
+    point: withLB({ ht: -0.35, hr: 1, ca: -0.5 }, 'point'),       // pointed out: "fire!"
   };
   const WR = {   // sh: shoulder (art px from the feet anchor); L1/L2: bones; reach: weapon length; parts prefix
-    goblinking: { sh: [20, -41], L1: 11, L2: 10, reach: 42, p: 'gk', rest: { ht: 1.15, hr: 0.75, ca: -0.7, lean: 0, cr: 0 } },
-    deathknight: { sh: [22, -58], L1: 12, L2: 12, reach: 47, p: 'dk', rest: { ht: 1.4, hr: 0.75, ca: 1.4, lean: 0, cr: 0 } },
-    ghostcaptain: { sh: [18, -66], L1: 10, L2: 10, reach: 30, p: 'gc', rest: { ht: 0.95, hr: 0.9, ca: -0.75, lean: 0, cr: 0 } },
+    goblinking: { sh: [20, -41], L1: 11, L2: 10, reach: 42, p: 'gk', rest: withLB({ ht: 1.15, hr: 0.75, ca: -0.7 }, 'rest') },
+    deathknight: { sh: [22, -58], L1: 12, L2: 12, reach: 47, p: 'dk', rest: withLB({ ht: 1.4, hr: 0.75, ca: 1.4 }, 'rest') },
+    ghostcaptain: { sh: [18, -66], L1: 10, L2: 10, reach: 30, p: 'gc', rest: withLB({ ht: 0.95, hr: 0.9, ca: -0.75 }, 'rest') },
   };
-  function wrKeys(def, keys, t) {
-    const P = n => n === 'rest' ? def.rest : WRP[n];
-    if (t <= keys[0][0]) return P(keys[0][1]);
-    for (let i = 1; i < keys.length; i++) {
-      const [t1, n1, e] = keys[i]; if (t > t1) continue;
-      const [t0, n0] = keys[i - 1], a = P(n0), b = P(n1), k0 = (t - t0) / Math.max(0.001, t1 - t0), k = e === 'in' ? easeIn(k0) : easeIO(k0);
-      return { ht: lerp(a.ht, b.ht, k), hr: lerp(a.hr, b.hr, k), ca: lerp(a.ca, b.ca, k), lean: lerp(a.lean, b.lean, k), cr: lerp(a.cr, b.cr, k) };
-    }
-    return P(keys[keys.length - 1][1]);
-  }
   const hits = (times, a, b, pre = 0.25) => { const K = [[0, 'rest']]; times.forEach((T, i) => { const [w, s] = i % 2 && a === 'sideB' ? [b, a] : [a, b]; K.push([T - pre, w], [T, s, 'in'], [T + 0.14, s]); }); K.push([times[times.length - 1] + 0.55, 'rest']); return K; };
   const hold = (t0, t1) => [[0, 'rest'], [t0 - 0.22, 'up'], [t0, 'point', 'in'], [t1, 'point'], [t1 + 0.4, 'rest']];
   function wrPose(B, def) {
-    const mv = B.mv, p2 = B.phase === 2;
-    if (!mv) {   // settle back from the last attack, then breathe
-      const b = Math.sin(globalT * 2.2), r0 = Object.assign({}, def.rest, { ht: def.rest.ht + b * 0.04, ca: def.rest.ca + b * 0.06 });
-      if (B.wrLast) { const k = (globalT - B.wrEnd) / 0.4; if (k < 1) { const a = B.wrLast, e = easeIO(k); return { ht: lerp(a.ht, r0.ht, e), hr: lerp(a.hr, r0.hr, e), ca: lerp(a.ca, r0.ca, e), lean: lerp(a.lean, 0, e), cr: lerp(a.cr, 0, e) }; } B.wrLast = null; }
-      return r0;
-    }
-    const n = mv.name.split(':')[0], t = mv.t;
+    const mv = B.mv, p2 = B.phase === 2, b = Math.sin(globalT * 2.2);
+    const rest = Object.assign({}, def.rest, { ht: def.rest.ht + b * 0.04, ca: def.rest.ca + b * 0.06 }, breathe());
+    if (!mv) return settle(B, null, rest);
+    const n = mv.name.split(':')[0], t = mv.t, K = s => keysAt(q => q === 'rest' ? def.rest : WRP[q], s, t);
     let p;
     if ((n === 'sweep' || n === 'twin') && B.sweeps.length) {   // the weapon IS the sweep: it reaches out along it
       const sw = B.sweeps[0], sa = -sw.ang, act = sw.t >= sw.tele, back = act ? 0 : Math.sign(sw.vel) * 0.7 * Math.min(1, sw.t / 0.3);
-      p = { ht: sa + back * 0.6, hr: act ? 1 : 0.85, ca: sa + back, lean: Math.cos(sa) * 3, cr: 2, sweep: sw };
+      p = Object.assign({ ht: sa + back * 0.6, hr: act ? 1 : 0.85, ca: sa + back, sweep: sw }, sweepLB(sa + back, act));
     }
-    else if (n === 'quake') p = wrKeys(def, hits([0.45, 1.0, 1.55], 'up', 'slam'), t);
-    else if (n === 'rocks') p = wrKeys(def, hits([0.45, 0.9, 1.35], 'low', 'hi'), t);
-    else if (n === 'aimed3' || n === 'aimed5') p = wrKeys(def, hits([0.45, 0.9], 'sideB', 'sideF'), t);
-    else if (n === 'darkwave') p = wrKeys(def, hits(p2 ? [0.5, 1.1, 1.7] : [0.5, 1.1], 'sideB', 'sideF'), t);
-    else if (n === 'bombs') p = wrKeys(def, hits(Array.from({ length: p2 ? 5 : 3 }, (_, i) => 0.4 + i * 0.28), 'low', 'hi', 0.14), t);
-    else if (n === 'ring' || n === 'ringaimed') p = wrKeys(def, hits([0.55], 'up', 'slam', 0.3), t);
-    else if (n === 'triple') p = wrKeys(def, hits([0.4, 0.72, 1.04], 'up', 'slam', 0.18), t);
-    else if (n === 'charge' || n === 'dash3' || n === 'firetrail') p = wrKeys(def, mv.ph === 'go' ? [[0, 'ready'], [0.12, 'thrust', 'in']] : mv.ph === 'rest' ? [[0, 'thrust'], [0.5, 'rest']] : [[0, mv.k ? 'thrust' : 'rest'], [0.35, 'ready']], mv.pt || 0);
-    else if (n === 'stalk') { const s = Math.sin(t * 7); p = Object.assign({}, WRP.ready, { ht: WRP.ready.ht + s * 0.15, ca: WRP.ready.ca + s * 0.25 }); }
-    else if (n === 'jump') p = mv.n === 0 ? wrKeys(def, [[0, 'rest'], [0.3, 'up']], t) : mv.n === 1 ? wrKeys(def, [[0, 'up'], [0.3, 'slam', 'in']], t - mv.t1) : wrKeys(def, [[0, 'slam'], [0.35, 'slam'], [0.8, 'rest']], t - mv.t1 - 0.3);
-    else if (n === 'cannons') p = wrKeys(def, p2 ? [[0, 'rest'], [0.15, 'up'], [0.35, 'point', 'in'], [1.3, 'point'], [1.55, 'up'], [1.95, 'point', 'in'], [2.9, 'point'], [3.3, 'rest']] : hold(0.35, 1.3), t);
-    else if (n === 'laser' || n === 'laser3') p = wrKeys(def, hold(0.45, 1.3), t);
-    else if (n === 'cross') p = wrKeys(def, hold(0.6, 3.6), t);
-    else if (n === 'wave') p = wrKeys(def, hold(0.4, 2.2), t);
-    else p = wrKeys(def, [[0, 'rest'], [0.3, 'up'], [0.5, 'slam', 'in'], [0.7, 'slam'], [1.1, 'rest']], t);   // anything else: a commanding swing as it casts
-    B.wrLast = p; B.wrEnd = globalT;
-    return p;
+    else if (n === 'quake') p = K(hits([0.45, 1.0, 1.55], 'up', 'slam'));
+    else if (n === 'rocks') p = K(hits([0.45, 0.9, 1.35], 'low', 'hi'));
+    else if (n === 'aimed3' || n === 'aimed5') p = K(hits([0.45, 0.9], 'sideB', 'sideF'));
+    else if (n === 'darkwave') p = K(hits(p2 ? [0.5, 1.1, 1.7] : [0.5, 1.1], 'sideB', 'sideF'));
+    else if (n === 'bombs') p = K(hits(Array.from({ length: p2 ? 5 : 3 }, (_, i) => 0.4 + i * 0.28), 'low', 'hi', 0.14));
+    else if (n === 'ring' || n === 'ringaimed') p = K(hits([0.55], 'up', 'slam', 0.3));
+    else if (n === 'triple') p = K(hits([0.4, 0.72, 1.04], 'up', 'slam', 0.18));
+    else if (n === 'charge' || n === 'dash3' || n === 'firetrail') p = mv.ph === 'go' ? Object.assign({}, WRP.thrust, runLB(B, 16)) : keysAt(q => q === 'rest' ? def.rest : WRP[q], mv.ph === 'rest' ? [[0, 'thrust'], [0.5, 'rest']] : [[0, mv.k ? 'thrust' : 'rest'], [0.35, 'ready']], mv.pt || 0);
+    else if (n === 'stalk') { const s = Math.sin(t * 7); p = Object.assign({}, WRP.ready, { ht: WRP.ready.ht + s * 0.15, ca: WRP.ready.ca + s * 0.25 }, runLB(B, 9), { cr: 3 }); }
+    else if (n === 'jump') p = mv.n === 0 ? K([[0, 'rest'], [0.3, 'up']]) : mv.n === 1 ? keysAt(q => q === 'rest' ? def.rest : WRP[q], [[0, 'up'], [0.3, 'slam', 'in']], t - mv.t1) : keysAt(q => q === 'rest' ? def.rest : WRP[q], [[0, 'slam'], [0.35, 'slam'], [0.8, 'rest']], t - mv.t1 - 0.3);
+    else if (n === 'cannons') p = K(p2 ? [[0, 'rest'], [0.15, 'up'], [0.35, 'point', 'in'], [1.3, 'point'], [1.55, 'up'], [1.95, 'point', 'in'], [2.9, 'point'], [3.3, 'rest']] : hold(0.35, 1.3));
+    else if (n === 'laser' || n === 'laser3') p = K(hold(0.45, 1.3));
+    else if (n === 'cross') p = K(hold(0.6, 3.6));
+    else if (n === 'wave') p = K(hold(0.4, 2.2));
+    else p = K([[0, 'rest'], [0.3, 'up'], [0.5, 'slam', 'in'], [0.7, 'slam'], [1.1, 'rest']]);   // anything else: a commanding swing as it casts
+    return settle(B, p, rest);
   }
   function drawWeaponBoss(B, def, x, yFeet, yMid, spr, fl) {
-    const K = SPR.SCALE, p = wrPose(B, def), L = (def.L1 + def.L2) * K;
-    const ox = x + p.lean * K * 0.6, oy = yFeet + p.cr * K * 0.5;
-    const sh = [ox + def.sh[0] * K, oy + def.sh[1] * K];
-    const hand = [sh[0] + Math.cos(p.ht) * Math.min(p.hr, 0.99) * L, sh[1] + Math.sin(p.ht) * Math.min(p.hr, 0.99) * L];
+    const L = LBD[B.type], p = wrPose(B, def), F = bodyFrame(L, p, x, yFeet), K = F.K, LL = (def.L1 + def.L2) * K;
+    drawLower(L, F, p, x, yFeet, fl);
+    const sh = F.T(def.sh[0], def.sh[1]);
+    const hand = [sh[0] + Math.cos(p.ht) * Math.min(p.hr, 0.99) * LL, sh[1] + Math.sin(p.ht) * Math.min(p.hr, 0.99) * LL];
     const L1 = def.L1 * K, L2 = def.L2 * K, dx = hand[0] - sh[0], dy = hand[1] - sh[1], d = Math.max(1, Math.hypot(dx, dy)), a = Math.atan2(dy, dx);
     const off = Math.acos(clamp((L1 * L1 + d * d - L2 * L2) / (2 * L1 * d), -1, 1));
     const E = [a + off, a - off].map(ea => [sh[0] + Math.cos(ea) * L1, sh[1] + Math.sin(ea) * L1, ea]);
     const el = (E[0][1] - E[0][0] * 0.3) > (E[1][1] - E[1][0] * 0.3) ? E[0] : E[1];   // the elbow drops down and out
     let sc = 1; if (p.sweep && p.sweep.t >= p.sweep.tele) sc = Math.max(1, (p.sweep.len - Math.hypot(hand[0] - x, hand[1] - yMid)) / (def.reach * K));
-    const ghosts = B.wrG || (B.wrG = []), W = P_(def.p + '_' + (def.p === 'gk' ? 'club' : 'sword'), {}, fl);
+    const wn = def.p + '_' + (def.p === 'gk' ? 'club' : 'sword'), ghosts = B.wrG || (B.wrG = []);
     const weapon = () => {
-      for (let i = 0; i < ghosts.length; i++) { const g0 = ghosts[i]; if (Math.abs(g0[2] - p.ca) > 0.18) pd(P_(def.p + '_' + (def.p === 'gk' ? 'club' : 'sword'), {}, false), g0[0], g0[1], g0[2], g0[3], 1, 0.22 / (i + 1)); }
-      pd(W, hand[0], hand[1], p.ca, sc, 1);
+      for (let i = 0; i < ghosts.length; i++) { const g0 = ghosts[i]; if (Math.abs(g0[2] - p.ca) > 0.18) pd(P_(wn, {}, false), g0[0], g0[1], g0[2], g0[3], 1, 0.22 / (i + 1)); }
+      pd(P_(wn, {}, fl), hand[0], hand[1], p.ca, sc, 1);
     };
     const arm = () => { pd(P_(def.p + '_upper', {}, fl), sh[0], sh[1], el[2]); pd(P_(def.p + '_fore', {}, fl), el[0], el[1], Math.atan2(hand[1] - el[1], hand[0] - el[0]), Math.max(0.6, Math.hypot(hand[0] - el[0], hand[1] - el[1]) / L2), 1); pd(P_(def.p + '_hand', {}, fl), hand[0], hand[1]); };
-    if (hand[1] < sh[1] - 10 * K) { weapon(); arm(); SPR.draw(ctx, spr, ox, oy); }   // raised overhead: behind the head
-    else { SPR.draw(ctx, spr, ox, oy); arm(); weapon(); pd(P_(def.p + '_hand', {}, fl), hand[0], hand[1]); }
+    const torso = () => { drawTorso(spr, F, L); if (L.front) drawLegs(L, F, p, x, yFeet, fl); };
+    if (hand[1] < sh[1] - 10 * K) { weapon(); arm(); torso(); }   // raised overhead: behind the head
+    else { torso(); arm(); weapon(); pd(P_(def.p + '_hand', {}, fl), hand[0], hand[1]); }
     ghosts.unshift([hand[0], hand[1], p.ca, sc]); if (ghosts.length > 2) ghosts.length = 2;
   }
   function drawBoss() {
