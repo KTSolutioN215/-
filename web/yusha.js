@@ -921,6 +921,7 @@
       exp: Math.round(D.xp * 0.3), gold: Math.round(D.gp * 0.25), moves: B.moves, moves2: B.moves2, phase: 1, mv: null, mt: 0, cd: 2.2, last: '', hurt: 0, hitCD: 0, z: 0,
       sweeps: [], intro: 2.6, face: -Math.PI / 2, dead: 0, rage: B.rage, waveT: 9, hx: arena.cx, hy: arena.cy + 20, homeT: 0, alpha: 1 };
     if (RIG[boss.type]) rigInit(boss);
+    if (boss.type === 'archmage') { boss.r0 = boss.r; boss.r1 = Math.round(boss.r * 0.68); boss.r = boss.r1; boss.sizeK = 0.68; boss.grow = -1; }   // small at first; grows when it reaches half HP
     banner = { a: `${B.name} が あらわれた！`, b: 'BOSS BATTLE', t: 2.6, boss: true };
     A.bgm(FARR.boss[D.boss]); A.sfx('bossAppear');
     flash = 0.6; flashCol = '255,255,255'; shake = 14;
@@ -2446,7 +2447,13 @@
     if (B.hurt > 0) B.hurt -= dt; if (B.hitCD > 0) B.hitCD -= dt;
     const dx = h.x - B.x, dy = h.y - B.y, ang = Math.atan2(dy, dx);
     const sp = (B.phase === 2 ? (B.rage || 1.3) : 1) * (B.pers === 'speed' ? 1.18 : B.pers === 'iron' ? 0.88 : 1);
+    if (B.grow != null && B.grow >= 0 && B.phase === 2 && B.grow < 1) {   // archmage: grows to its full size when it gets angry
+      B.grow = Math.min(1, B.grow + dt / 1.3); const k = B.grow, e = 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2;   // ease out with a little overshoot
+      B.sizeK = lerp(0.68, 1, e) * (1 + Math.sin(k * 40) * 0.03 * (1 - k)); B.r = Math.round(lerp(B.r1, B.r0, e));
+      if (Math.random() < 0.4) burst(B.x + rnd(-30, 30), B.y + rnd(-30, 30), 3, '#c8b8ff', 160, 0.5);
+    }
     if (B.phase === 1 && B.hp < B.maxHp * 0.5) {
+      if (B.grow != null) { B.grow = 0; shake = 22; A.sfx('roar'); }
       B.phase = 2; B.pers = pick(Object.keys(PERS));   // its temper this time
       banner = { a: `いかりの オーラ…「${PERS[B.pers][0]}」がた！`, b: 'PHASE 2 ・ ' + PERS[B.pers][1], t: 2.2, boss: true };
       if (B.pers === 'berserk') { B.atk = Math.round(B.atk * 1.2); B.dmgTake = 1.25; B.moves2 = B.moves2.concat(['dash3']); }

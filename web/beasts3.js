@@ -1226,7 +1226,7 @@ const BEAST3 = (() => {
         g.poly([[4 * d, -4], [12 * d, -2], [11 * d, 8], [5 * d, 12]], '#e8b040'); g.p(9 * d, 0, E); g.r(Math.min(8 * d, 10 * d), 10, 2, 6, Bl); return; }
       g.poly([[-15, -8], [15, -8], [17, 20], [-17, 20]], G); stripes(-17, -6, 34, 26); g.ell(0, -9, 13, 7, G); g.p(0, -16, '#e04050');
       g.poly([[-8, -6], [8, -6], [7, 8], [0, 12], [-7, 8]], '#e8b040'); g.r(-8, -6, 16, 2, Bl);
-      for (const m of [-1, 1]) { g.r(m * 4 - 2, -1, 4, 2, '#ffffff'); g.p(m * 4 - (m > 0 ? 1 : 0), -1, E); g.r(m * 4 - 2, -3, 4, 1, Bl); } g.r(-1, 11, 3, 6, Bl); g.r(-1, 11, 3, 1, G);
+      for (const m of [-1, 1]) { g.r(m * 4 - 2, -1, 4, 1, E); g.p(m > 0 ? m * 4 + 2 : m * 4 - 3, -1, E); }   // thin painted eyes, like the mask g.r(-1, 11, 3, 6, Bl); g.r(-1, 11, 3, 1, G);
     },
   };
   // ---- だいまどうし: a starry blue robe and pointed hat, a long white beard, a staff crowned with a crystal ----
@@ -1371,7 +1371,7 @@ const BEAST3 = (() => {
     OPS = []; ANCHS = []; MOUTHS = []; cx.clearRect(0, 0, CW, CH);
     R[1](B, P, E.t, B.phase === 2);
     OPS.sort((a, b) => a[0] - b[0]);
-    const sz = R[2] || 1; cx.setTransform(sz, 0, 0, sz, OX * (1 - sz), OY * (1 - sz));   // drawn bigger about the feet: more pixels, not bigger pixels
+    const sz = (R[2] || 1) * (B.sizeK || 1); cx.setTransform(sz, 0, 0, sz, OX * (1 - sz), OY * (1 - sz));   // drawn bigger about the feet: more pixels, not bigger pixels
     for (const o of OPS) o[1]();
     cx.setTransform(1, 0, 0, 1, 0, 0);
     U.pixelize(cv, '#120a14');
