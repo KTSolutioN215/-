@@ -340,3 +340,11 @@ sh tools/build_apk.sh      # 初回は Android SDK（platform 35 / build-tools 3
 - `BATCH=2 BASE_SPRITES=<前版sprites.js> BASE_GAME=<前版yusha.js> node tools/anim/check_zako4.js`。基準は `e2f47e8`。続けて `node tools/anim/check_zako_batch2.js` とガイコツ上向きの回帰検証。
 - 比較画像は `BATCH=2 BASE_SPRITES=<前版sprites.js> node tools/anim/sheet_zako4.js`。元絵が横向きのサラマンダーだけ比較の基準方向は右。
 - APKのassets更新は `python3 tools/repack_apk.py --base <前版APK> --build-tools <公式build-toolsディレクトリ> --out ButsukariYusha.apk`。Java17が必要。Androidラッパーを変更していない場合だけ使える。
+
+## 現在の進捗：ザコ第3組（2026-10-30）
+- imp / wolf / mushroom / spider / fishman を追加。次は scorpion / mummy / toad / mandrake / wyvern。ボスは別AIの担当を維持。
+- 新しい工場は `ZAKO4C` / `zakoView3`、描画の状態は `zakoMotion3` / `P.motion3`。元の工場は残す。オオカミは右向きの元絵、クモは元の工場そのものを元絵比較の基準にする。
+- クモの横向きは奥4脚を胴の前、手前4脚を胴の後に描く（頭は脚より後）。足先は胴より5 art px床側へ置き、胴が沈む際のcrouchを足先から差し引く。これを省くと横向きの足が胴に埋まる。
+- `fishArm3` は既存の `e.face` を使う。槍の振り幅±0.65radは、上半身の高さと元の槍の長さを保って、既存の広い扇形±1.25rad内に槍先を収めるための描画角。攻撃判定を狭くしない。左は反転前のXを補正する。
+- `BATCH=3 BASE_SPRITES=<前版sprites.js> BASE_GAME=<前版yusha.js> node tools/anim/check_zako4.js`。基準は `2706f4b`。続けて `BASE_GAME=<前版yusha.js> node tools/anim/check_zako_batch3.js`。前組の検証も実施。
+- 比較表は `BATCH=3 ... node tools/anim/sheet_zako4.js`。動画は `ENEMY=imp,wolf,mushroom,spider,fishman` を指定し、各4方向3.6秒、全20シーン2,160フレーム72秒。通常／半速を用意する。

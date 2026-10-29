@@ -647,7 +647,7 @@ const SPR = (() => {
     // ----- imp: little flying devil -----
     imp(P) {
       const k = P.f % 3;
-      return mk('imp' + k, 40, 34, 20, 30, g => {
+      return mk('imp' + k + motionKey3(P), 40, 34, 20, 30, g => {
         const R = '#e0483c', S = '#a3241c', W = '#7a1414';
         const o = [-6, 0, 5][k];
         for (const m of [1, -1]) { const X = v => m > 0 ? v : 40 - v; g.poly([[X(15), 14], [X(5), 6 + o], [X(2), 14 + o], [X(6), 13 + o / 2], [X(8), 18], [X(14), 18]], W); g.line(X(15), 14, X(5), 6 + o, 1, '#4a0808'); }
@@ -658,6 +658,7 @@ const SPR = (() => {
         g.poly([[15, 10], [12, 3], [17, 8]], '#ffd24a'); g.poly([[25, 10], [28, 3], [23, 8]], '#ffd24a');
         g.r(16, 13, 3, 2, '#ffe14a'); g.p(17, 13, '#300'); g.r(21, 13, 3, 2, '#ffe14a'); g.p(22, 13, '#300');
         g.r(17, 17, 6, 1, '#4a0808'); g.p(18, 18, '#fff'); g.p(21, 18, '#fff');
+        if(P.motion3)g.x.translate(0,-2*P.motion3.pulse);
         g.r(10, 14, 1, 14, '#c8c8d8'); g.r(8, 13, 5, 1, '#c8c8d8'); g.p(8, 12, '#c8c8d8'); g.p(10, 11, '#c8c8d8'); g.p(12, 12, '#c8c8d8'); g.r(10, 21, 3, 2, R);
       });
     },
@@ -666,14 +667,14 @@ const SPR = (() => {
     // ----- mushroom: cap swells before the spore burst -----
     mushroom(P) {
       const sw = P.st === 'swell' ? 1 : 0, k = P.f % 2;
-      return mk('mush' + sw + k, 36, 38, 18, 35, g => {
+      return mk('mush' + sw + k + motionKey3(P), 36, 38, 18, 35, g => {
         const C = '#e0503c', CS = '#a8302a', St = '#f0e2c8', SS = '#c8b898';
         g.r(14, 33, 3, 2, SS); g.r(20, 33, 3, 2, SS);
         g.r(12, 20, 13, 14, St); g.r(21, 20, 4, 14, SS);
         g.r(14, 24, 2, 2, EYE); g.r(21, 24, 2, 2, EYE); g.p(14, 24, '#fff'); g.p(21, 24, '#fff');
         g.line(13, 22, 16, 23, 1, '#5a3a2a'); g.line(24, 22, 21, 23, 1, '#5a3a2a');
         g.r(17, 28, 3, 1, '#5a3a2a'); g.p(10, 26 + k, St); g.p(26, 26 - k, SS);
-        const rx = sw ? 16 : 14, ry = sw ? 9 : 7.5, cy = sw ? 12 : 13;
+        const puff=P.motion3?P.motion3.swell:sw,rx=14+2*puff,ry=7.5+1.5*puff,cy=13-puff;
         g.ell(18, cy, rx, ry, CS); g.r(18 - rx + 2, cy + Math.round(ry) - 2, rx * 2 - 4, 2, '#7a2a20');
         g.ell(17, cy - 1.5, rx - 1.5, ry - 2, C);
         for (const [ox, oy, r] of [[-7, -3, 2.6], [1, -6, 2.2], [7, -2, 2], [-2, 0, 1.4], [10, -5, 1.2]]) g.ell(18 + ox * rx / 14, cy + oy * ry / 7.5, r, r, '#fff6ea');
@@ -698,13 +699,13 @@ const SPR = (() => {
     // ----- sahagin with trident -----
     fishman(P) {
       const k = P.f % 2, AR = armQ(P.arm, { ha: 1.35, hr: 0.8, wa: -1.45 + k * 0.05 });
-      return mk('fish' + k + armKey(AR), 72, 60, 26, 55, (g, x) => {
-        x.translate(6, 6);
+      return mk('fish' + k + armKey(AR) + motionKey3(P) + (P.motion3?'|'+(P.bodyX||0)+','+(P.bodyY||0)+'|'+(P.step||0):''), P.motion3?88:72, P.motion3?76:60, P.motion3?34:26, P.motion3?63:55, (g, x) => {
+        x.translate(6,6);if(P.motion3)x.translate(8,8);
         const B = '#3aa8a0', S = '#22706a', H = '#7ad8c8', W = '#e8f8ff';
         // trident arm: the trident is held at the hand and points along wa
         const sx = 27, sy = 26, L = 5.5, reach = Math.min(AR.hr, 0.999) * L * 2, a = AR.ha, off = Math.acos(Math.max(-1, Math.min(1, reach / (2 * L))));
-        const hx = sx + Math.cos(a) * reach, hy = sy + Math.sin(a) * reach, dx = Math.cos(AR.wa), dy = Math.sin(AR.wa);
-        const e1 = [sx + Math.cos(a + off) * L, sy + Math.sin(a + off) * L], e2 = [sx + Math.cos(a - off) * L, sy + Math.sin(a - off) * L], el = (e1[1] - e1[0] * 0.4) > (e2[1] - e2[0] * 0.4) ? e1 : e2;
+        const raw=[sx+Math.cos(a)*reach,sy+Math.sin(a)*reach],pose=fishArm3(P,[sx,sy],raw,[Math.cos(AR.wa),Math.sin(AR.wa)]),hx=pose.hand[0],hy=pose.hand[1],dx=pose.dir[0],dy=pose.dir[1];
+        const ah=Math.atan2(hy-sy,hx-sx),oh=Math.acos(Math.min(.9999,Math.hypot(hx-sx,hy-sy)/(2*L))),e1=[sx+Math.cos(P.motion3?ah+oh:a+off)*L,sy+Math.sin(P.motion3?ah+oh:a+off)*L],e2=[sx+Math.cos(P.motion3?ah-oh:a-off)*L,sy+Math.sin(P.motion3?ah-oh:a-off)*L],el= (e1[1] - e1[0] * 0.4) > (e2[1] - e2[0] * 0.4) ? e1 : e2;
         const trident = () => {
           g.line(hx - dx * 7, hy - dy * 7, hx + dx * 18, hy + dy * 18, 1.6, '#8a6a40');
           const tx = hx + dx * 18, ty = hy + dy * 18, nx = -dy, ny = dx;
@@ -712,9 +713,10 @@ const SPR = (() => {
           for (const o of [-3, 0, 3]) g.line(tx + nx * o, ty + ny * o, tx + nx * o + dx * 5, ty + ny * o + dy * 5, 1.3, '#dfe6f2');
         };
         const arm = () => { g.line(sx, sy, el[0], el[1], 3.4, B); g.line(el[0], el[1], hx, hy, 3, B); g.ell(hx, hy, 2.3, 2, H); };
-        const behind = Math.sin(AR.ha) < -0.45;
+        const behind=P.motion3&&P.motion3.weight?false:Math.sin(AR.ha)<-.45;
         if (behind) { trident(); arm(); }
-        g.r(14, 38, 4, 9, S); g.r(22, 38, 4, 9, S); g.poly([[12, 47], [19, 47], [17, 49], [12, 49]], H); g.poly([[21, 47], [28, 47], [28, 49], [23, 49]], H);
+        const lf=P.motion3&&P.step>0?2:0,rf=P.motion3&&P.step<0?2:0;g.r(14,38,4,9-lf,S);g.r(22,38,4,9-rf,S);g.poly([[12,47-lf],[19,47-lf],[17,49-lf],[12,49-lf]],H);g.poly([[21,47-rf],[28,47-rf],[28,49-rf],[23,49-rf]],H);
+        if(P.motion3)x.translate(P.bodyX||0,P.bodyY||0);
         g.ell(20, 32, 9, 9, B); g.ell(20, 34, 5.5, 6, W); for (let yy = 30; yy < 39; yy += 3) g.r(17, yy, 7, 1, '#c8e0e8');
         g.r(10, 27, 3, 10, B); g.ell(11, 37, 2.4, 2, H);
         // head
@@ -1685,9 +1687,10 @@ const SPR = (() => {
   // wolf / hellhound share the body
   function wolfish(P, key, C) {
       const st = P.st === 'wind' ? 1 : P.st === 'dash' ? 2 : 0, k = P.step ? (P.step > 0 ? 1 : 2) : 0;
-      return mk(key + st + k, 50, 36, 25, 33, g => {
+      return mk(key + st + k + motionKey3(P), P.motion3?66:50, P.motion3?52:36, P.motion3?33:25, P.motion3?41:33, g => {
+        if(P.motion3)g.x.translate(8,8);
         const { B, S, H, L } = C;
-        const cy = st === 1 ? 21 : st === 2 ? 15 : 19;
+        const cy=P.motion3?19+2*P.motion3.crouch-4*P.motion3.dash:st===1?21:st===2?15:19;
         g.poly([[11, cy - 2], [3, cy - 7 + (st === 2 ? 4 : 0)], [1, cy - 3], [8, cy + 3]], S); g.p(2, cy - 4, H);
         const leg = (x, dx, back) => { if (st === 2) { g.line(x, cy + 3, x + (back ? -7 : 7), cy + 9, 2.4, back ? S : B); return; } const ly = st === 1 ? 2 : 0; g.r(x + dx, cy + 3, 3, 9 - ly, back ? S : B); g.r(x + dx - 1, cy + 11 - ly, 4, 1, C.foot); };
         leg(13, k === 1 ? -2 : k === 2 ? 2 : 0, true); leg(31, k === 1 ? 2 : k === 2 ? -2 : 0, true);
@@ -3559,6 +3562,67 @@ const SPR = (() => {
     x.putImageData(d, 0, 0);
     return { c, ax: src.ax, ay: src.ay };
   }
+  const ZAKO4C=new Set(['imp','wolf','mushroom','spider','fishman']);
+  function motionKey3(P){return P.motion3?'|m3|'+JSON.stringify(P.motion3):'';}
+  function fishArm3(P,shoulder,hand,dir){
+    const m=P.motion3;if(!m||!m.weight)return {hand,dir};
+    const local=a=>P.view==='l'?Math.atan2(Math.sin(a),-Math.cos(a)):a,
+      theta=local(m.theta),center=local(m.face),target=[shoulder[0]+Math.cos(center)*7,shoulder[1]+Math.sin(center)*7],
+      from=Math.atan2(dir[1],dir[0]),a=from+Math.atan2(Math.sin(theta-from),Math.cos(theta-from))*m.weight;
+    return {hand:hand.map((v,i)=>v+(target[i]-v)*m.weight),dir:[Math.cos(a),Math.sin(a)]};
+  }
+  function zakoView3(type,P){
+    const side=P.view==='r'||P.view==='l',back=P.view==='b',f=P.f||0,k=f%2,step=P.step||0,m=P.motion3||{},pulse=m.pulse||0,puff=P.motion3?m.swell:(P.st==='swell'?1:0),crouch=m.crouch||0,dash=m.dash||0;
+    if(type==='wolf'&&side)return EN.wolf(P);
+    if(type!=='wolf'&&type!=='spider'&&!side&&!back)return EN[type](P);
+    const dims={imp:[40,34,20,30],wolf:P.motion3?[66,52,33,41]:[50,36,25,33],mushroom:[36,38,18,35],spider:[46,34,23,30],fishman:P.motion3?[88,76,34,63]:[72,60,26,55]}[type];
+    return mk('z4c_'+type+'_'+(side?'s':back?'b':'f')+'_'+(f%6)+'_'+step+'_'+P.st+motionKey3(P)+'_'+(P.arm?armKey(armQ(P.arm,{})):'')+'_'+(P.bodyX||0)+'_'+(P.bodyY||0),...dims,g=>{
+      if(type==='imp'){
+        const R='#e0483c',S='#a3241c',W='#7a1414',o=[-6,0,5][f%3],
+          wing=(near)=>{if(side){const z=near?0:-2;g.poly([[19+z,14],[10+z,6+o],[5+z,14+o],[9+z,13+o/2],[11+z,18],[18+z,18]],near?W:'#4a0808');g.line(19+z,14,10+z,6+o,1,'#4a0808');}else for(const d of[-1,1]){const X=x=>d>0?x:40-x;g.poly([[X(15),14],[X(5),6+o],[X(2),14+o],[X(6),13+o/2],[X(8),18],[X(14),18]],W);g.line(X(15),14,X(5),6+o,1,'#4a0808');}},
+          fork=()=>{const x=side?26:30,y=14-2*pulse;g.r(x,y,1,14,'#c8c8d8');g.r(x-2,y-1,5,1,'#c8c8d8');g.p(x-2,y-2,'#c8c8d8');g.p(x,y-3,'#c8c8d8');g.p(x+2,y-2,'#c8c8d8');g.r(x,y+7,3,2,R);};
+        wing(false);if(back)fork();g.line(side?17:16,24,side?10:10,28,1.4,S);g.poly(side?[[10,26],[6,29],[10,31]]:[[10,26],[6,29],[10,31]],S);
+        g.ell(20,22,side?4:5,5,R);if(side)g.ell(22,23,2,3,'#ff9a7a');g.r(side?18:16,26,2,3,S);g.r(22,26,2,3,S);
+        g.ell(20,14,side?5.5:6.5,6,R);g.ell(side?18:23,15,side?2:3,4,S);
+        g.poly([[15,10],[12,3],[17,8]],'#ffd24a');g.poly([[25,10],[28,3],[23,8]],'#ffd24a');
+        if(side){g.r(23,13,3,2,'#ffe14a');g.p(24,13,'#300');g.r(23,17,3,1,'#4a0808');g.p(24,18,'#fff');wing(true);fork();}return;
+      }
+      if(type==='mushroom'){
+        const C='#e0503c',CS='#a8302a',St='#f0e2c8',SS='#c8b898',rx=14+2*puff,ry=7.5+1.5*puff,cy=13-puff;
+        g.r(side?16:14,33-(step>0?1:0),3,2,SS);g.r(side?20:20,33-(step<0?1:0),3,2,SS);g.r(side?14:12,20,side?10:13,14,St);g.r(side?14:21,20,side?3:4,14,SS);
+        if(side){g.r(21,24,2,2,EYE);g.p(21,24,'#fff');g.line(20,22,23,23,1,'#5a3a2a');g.r(21,28,3,1,'#5a3a2a');g.p(25,26-k,St);}else{g.p(10,26+k,SS);g.p(26,26-k,St);}
+        g.ell(18,cy,rx,ry,CS);g.r(18-rx+2,cy+Math.round(ry)-2,rx*2-4,2,'#7a2a20');g.ell(17,cy-1.5,rx-1.5,ry-2,C);
+        for(const[ox,oy,r]of[[-7,-3,2.6],[1,-6,2.2],[7,-2,2],[-2,0,1.4],[10,-5,1.2]])g.ell(18+(back?-ox:side?ox*.8:ox)*rx/14,cy+oy*ry/7.5,r,r,'#fff6ea');return;
+      }
+      if(type==='wolf'){
+        if(P.motion3)g.x.translate(8,8);
+        const B='#8a98b0',S='#5a6680',H='#c4cede',L='#d8dee8',cx=25,cy=19+2*crouch-4*dash,
+          tail=()=>{if(back)g.poly([[cx-3,cy+1],[cx-6,cy+10],[cx,cy+8],[cx+3,cy+3]],S);else g.poly([[cx-4,cy-3],[cx-8,cy-11],[cx-3,cy-8],[cx+1,cy-2]],S);},
+          feet=(near)=>{for(const d of[-1,1]){const x=cx+d*(near?7:4),lift=step===d?2:0,y=near?32:28;g.line(x,cy+4,x+d*dash*2,y-lift-dash*3,2.4,near?B:S);g.r(x-1+d*dash*2,y-lift-dash*3,4,1,'#3a4258');}},
+          head=()=>{const y=back?cy-7:cy-3;g.ell(cx,y,6.5,5.5,B);g.poly([[cx-6,y-3],[cx-6,y-11],[cx-1,y-4]],B);g.poly([[cx+6,y-3],[cx+6,y-11],[cx+1,y-4]],B);if(!back){g.poly([[cx-5,y-4],[cx-5,y-8],[cx-2,y-4]],'#e8a0a0');g.poly([[cx+5,y-4],[cx+5,y-8],[cx+2,y-4]],'#e8a0a0');g.r(cx-4,y-2,2,2,'#ffe14a');g.p(cx-3,y-1,EYE);g.r(cx+2,y-2,2,2,'#ffe14a');g.p(cx+3,y-1,EYE);g.poly([[cx-3,y+1],[cx+3,y+1],[cx+4,y+7],[cx-4,y+7]],B);g.r(cx-1,y+5,3,2,'#1a1420');if(m.jaw){g.r(cx-3,y+7,6,1+Math.round(m.jaw*2),'#5a1010');g.p(cx-2,y+7,'#fff');g.p(cx+2,y+7,'#fff');}}};
+        if(!back)tail();else head();feet(false);g.ell(cx,cy,8,7,B);g.ell(cx-1,cy-4,6,3,H);if(!back)g.ell(cx,cy+4,5,2.6,L);feet(true);if(!back)head();else tail();return;
+      }
+      if(type==='spider'){
+        const L='#2a3048',LH='#4a5478',cy=21+crouch,point=(x,z)=>side?[23+z,cy+x*.25]:[23+(back?-x:x),cy+(back?-z:z)*.7],
+          head=()=>{const[hx,hy]=point(0,8);g.ell(hx,hy,4.5,4,L);if(!back){if(side){g.p(hx+1,hy-1,'#ff4060');g.p(hx+3,hy,'#ff4060');g.p(hx+4,hy+2,'#e8e8f0');}else{for(const[dx,dy]of[[-2,-1],[2,-1],[-1,1],[1,1]])g.p(hx+dx,hy+dy,'#ff4060');g.p(hx-1,hy+4,'#e8e8f0');g.p(hx+1,hy+4,'#e8e8f0');}}};
+        const legs=far=>{for(let i=0;i<4;i++)for(const d of[-1,1]){if(side&&((d<0)!==far))continue;if(!side&&!far)continue;const lift=step&&((i+(d>0?1:0))%2===(step>0?1:0))?1:0,a=point(d*3,6-i*3),b=point(d*(9+i),9-i*5),c=point(d*(14+i*2),13-i*7);g.line(...a,b[0],b[1]-4,1.6,L);g.line(b[0],b[1]-4,c[0],c[1]+(side?5-crouch:0)-lift,1.4,L);g.p(b[0],b[1]-4,LH);}};
+        legs(true);if(back)head();g.ell(23,cy,side?10:9,7,'#3a4060');g.ell(21,cy-2,5,3,LH);
+        g.poly([[17,cy-4],[19,cy-12],[21,cy-4]],'#7ad8ff');g.poly([[22,cy-5],[25,cy-15],[27,cy-5]],'#c8f4ff');g.poly([[27,cy-3],[30,cy-9],[31,cy-2]],'#7ad8ff');g.p(25,cy-12,'#ffffff');if(side)legs(false);if(!back)head();return;
+      }
+      if(type==='fishman'){
+        if(P.motion3)g.x.translate(8,8);
+        const B='#3aa8a0',S='#22706a',H='#7ad8c8',cx=26,point=(x,y,z)=>side?[cx+z,y+x*.16]:[cx-x,y-z*.18],
+          trident=()=>{const ar=armQ(P.arm,{ha:1.35,hr:.8,wa:-1.45}),sh=point(7,32,0),raw=point(7+Math.cos(ar.ha)*3,32+Math.sin(ar.ha)*11*ar.hr,3+Math.max(0,Math.cos(ar.ha))*7),pose=fishArm3(P,sh,raw,[side?Math.cos(ar.wa):-Math.cos(ar.wa),Math.sin(ar.wa)]),[hx,hy]=pose.hand,[dx,dy]=pose.dir,nx=-dy,ny=dx,
+            ax=hx-sh[0],ay=hy-sh[1],dist=Math.hypot(ax,ay)||1,off=Math.sqrt(Math.max(0,5.5**2-Math.min(5.49,dist/2)**2)),el=[(hx+sh[0])/2-ay/dist*off,(hy+sh[1])/2+ax/dist*off],tx=hx+dx*18,ty=hy+dy*18;
+          g.line(hx-dx*7,hy-dy*7,tx,ty,1.6,'#8a6a40');g.line(tx-nx*3,ty-ny*3,tx+nx*3,ty+ny*3,1.4,'#c8ccd4');for(const o of[-3,0,3])g.line(tx+nx*o,ty+ny*o,tx+nx*o+dx*5,ty+ny*o+dy*5,1.3,'#dfe6f2');g.line(...sh,...el,3.4,B);g.line(...el,hx,hy,3,B);g.ell(hx,hy,2.3,2,H);};
+        for(const d of[-1,1]){const x=side?24+d*step*3:d<0?20:28,lift=step===d?2:0;g.r(x,44,4,9-lift,S);g.poly([[x-2,53-lift],[x+5,53-lift],[x+3,55-lift],[x-2,55-lift]],H);}
+        g.x.translate(P.bodyX||0,P.bodyY||0);if(back)trident();g.ell(cx,38,side?7:9,9,B);g.ell(cx+(side?-3:3),40,side?3:5,6,S);
+        if(side){g.ell(cx+4,40,2,5.5,'#e8f8ff');for(let y=36;y<45;y+=3)g.r(cx+3,y,3,1,'#c8e0e8');g.r(cx-5,33,3,9,B);g.ell(cx-4,42,2.4,2,H);trident();}else{g.r(cx+8,33,3,10,B);g.ell(cx+9,43,2.4,2,H);}
+        g.poly([[cx-7,16],[cx-4,9],[cx-2,15],[cx+1,8],[cx+3,15],[cx+6,10],[cx+7,17]],S);g.ell(cx,22,side?7:9.5,8,B);g.ell(cx+(side?-3:3),23,side?3:5,6,S);
+        if(side){g.ell(cx+5,20,3,3.2,'#ffe14a');g.r(cx+5,20,2,2,EYE);g.p(cx+4,19,'#fff');g.r(cx+2,27,6,2,'#0c3a36');for(const x of[cx+3,cx+5,cx+7])g.p(x,27,'#fff');g.r(cx-4,24,1,3,S);}return;
+      }
+    });
+  }
   const ZAKO4B=new Set(['ghost','mage','lizard','golem','knight']);
   function motionKey2(P){return P.motion?'|m2|'+JSON.stringify(P.motion):'';}
   function knightThrust2(P,shoulder,hand,dir){
@@ -3616,7 +3680,7 @@ const SPR = (() => {
   }
   // Four-direction additions for batch 1. Front factories remain the source of truth.
   // Original canvas sizes, anchors, palettes, clothing and equipment are retained.
-  const ZAKO4 = new Set(['slime','bat','goblin','archer','skeleton','ghost','mage','lizard','golem','knight']);
+  const ZAKO4 = new Set(['slime','bat','goblin','archer','skeleton','ghost','mage','lizard','golem','knight','imp','wolf','mushroom','spider','fishman']);
   // Rear-facing slash: hand stays beyond the shoulder; blade uses the world's attack arc.
   // Keep original arm/blade lengths. The fan is the existing generous gameplay range.
   function skeletonUpArm(P,shoulder,hand) {
@@ -3625,6 +3689,7 @@ const SPR = (() => {
     return {hand:[hand[0],hand[1]-2*Math.max(0,hand[1]-shoulder[1])*w],dir:[Math.cos(a),Math.sin(a)]};
   }
   function zakoView(type,P) {
+    if(ZAKO4C.has(type))return zakoView3(type,P);
     if(ZAKO4B.has(type))return zakoView2(type,P);
     const v=P.view, side=v==='r'||v==='l', rear=v==='b';
     if(!side&&!rear)return EN[type](P);

@@ -2,11 +2,11 @@
 const assert=require('assert'),fs=require('fs'),vm=require('vm'),{createCanvas}=require('@napi-rs/canvas'),{gameHost}=require('./game_host');
 const baseSprite=process.env.BASE_SPRITES,baseGame=process.env.BASE_GAME;assert(baseSprite&&baseGame,'Set BASE_SPRITES and BASE_GAME to the pre-change files');
 function sprites(file){const w={document:{createElement:()=>createCanvas(1,1)}};vm.createContext(w);vm.runInContext(fs.readFileSync(file,'utf8')+';this.SPR=SPR',w);return w.SPR;}
-const before=sprites(baseSprite),now=sprites('web/sprites.js'),types=process.env.BATCH==='2'?['ghost','mage','lizard','golem','knight']:['slime','bat','goblin','archer','skeleton'];
+const before=sprites(baseSprite),now=sprites('web/sprites.js'),types=process.env.BATCH==='3'?['imp','wolf','mushroom','spider','fishman']:process.env.BATCH==='2'?['ghost','mage','lizard','golem','knight']:['slime','bat','goblin','archer','skeleton'];
 const pixels=s=>Buffer.from(s.c.getContext('2d').getImageData(0,0,s.c.width,s.c.height).data);
 let fronts=0,unchanged=0,mirrors=0;
 for(const type of types)for(const st of['idle','hop','wind','dash','aim','slash'])for(let f=0;f<6;f++)for(const step of[-1,0,1]){
- const p={st,f,step},a=before.enemy(type,p),b=now.enemy(type,{...p,view:type==='lizard'?'r':'f'});
+ const p={st,f,step},a=before.enemy(type,p),b=now.enemy(type,{...p,view:type==='lizard'||type==='wolf'?'r':type==='spider'?undefined:'f'});
  if(!(type==='archer'&&(st==='aim'||st==='wind'))){assert.equal(a.ax,b.ax);assert.equal(a.ay,b.ay);assert(pixels(a).equals(pixels(b)),type+' original front '+st);fronts++;}
  const r=now.enemy(type,{...p,view:'r'}),l=now.enemy(type,{...p,view:'l'}),back=now.enemy(type,{...p,view:'b'}),rp=pixels(r),lp=pixels(l),W=r.c.width,H=r.c.height;
  assert.equal(back.ax,a.ax);assert.equal(back.ay,a.ay);assert(rp.some(v=>v),'empty side');

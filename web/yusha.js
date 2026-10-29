@@ -3488,7 +3488,7 @@
     return null;
   }
   // Draw-only state. Movement, collision and attack timing are never changed here.
-  const ZAKO4 = new Set(['slime','bat','goblin','archer','skeleton','ghost','mage','lizard','golem','knight']);
+  const ZAKO4 = new Set(['slime','bat','goblin','archer','skeleton','ghost','mage','lizard','golem','knight','imp','wolf','mushroom','spider','fishman']);
   function zakoFacing(e) {
     let dx=hero.x-e.x,dy=hero.y-e.y;
     const locked=(e.st==='wind'&&e.ai!=='slam')||e.st==='dash'||e.st==='slash'||e.st==='fire';
@@ -3546,6 +3546,27 @@
     }
     for(const k of Object.keys(p))if(k!=='theta')p[k]=q(p[k]);return p;
   }
+  function zakoMotion3(e,view) {
+    if(!['imp','wolf','mushroom','spider','fishman'].includes(e.type))return null;
+    const q=v=>Math.round(v*16)/16,since=globalT-view.changed,state=view.motion3||(view.motion3={cd:e.cd,fireAt:-100});
+    if(e.cd>state.cd+.1)state.fireAt=globalT;state.cd=e.cd;
+    const p={pulse:0,swell:0,crouch:0,dash:0,jaw:0,weight:0,theta:0,face:0};
+    if(e.type==='imp')p.pulse=Math.max(0,1-(globalT-state.fireAt)/.3);
+    if(e.type==='mushroom')p.swell=e.st==='swell'?easeIO(clamp(e.t/.55,0,1)):view.prev==='swell'?1-easeIO(clamp(since/.3,0,1)):0;
+    if(e.type==='spider')p.crouch=e.st==='aim'?easeIO(clamp(e.t/.45,0,1)):view.prev==='aim'?1-easeIO(clamp(since/.25,0,1)):0;
+    if(e.type==='wolf') {
+      p.crouch=e.st==='wind'?easeIO(clamp(e.t/e.windT,0,1)):0;
+      p.dash=e.st==='dash'?easeIO(clamp(e.t/.08,0,1)):view.prev==='dash'?1-easeIO(clamp(since/.2,0,1)):0;p.jaw=Math.max(p.crouch*.6,p.dash);
+    }
+    if(e.type==='fishman') {
+      const center=-e.face,a0=center-.65,a1=center+.65;
+      if(e.st==='wind'){p.weight=easeIO(clamp(e.t/.5,0,1));p.theta=a0;}
+      else if(e.st==='slash'){p.weight=1;p.theta=lerp(a0,a1,easeIO(clamp(e.t/.2,0,1)));}
+      else if(view.prev==='slash'&&since<.4){p.weight=1-easeIO(clamp(since/.4,0,1));p.theta=a1;}
+      if(p.weight>0)p.face=center;
+    }
+    for(const k of Object.keys(p))p[k]=Math.round(p[k]*(k==='theta'||k==='face'?40:16))/(k==='theta'||k==='face'?40:16);return p;
+  }
   function drawEnemy(e) {
     const x = e.x, y = sy(e.y), r = e.r;
     if (y < -70 || y > H + 70) return;
@@ -3578,7 +3599,7 @@
     const step = moving ? (Math.sin((globalT + e.phase) * 11) > 0 ? 1 : -1) : 0;
     const arm = zakoArm(e), bx = arm ? x + arm.lean * SPR.SCALE * (hero.x < e.x - 2 ? -1 : 1) : x, byy = arm ? yy + arm.cr * SPR.SCALE : yy;   // the body leans back into the wind-up and steps into the blow
     const view = ZAKO4.has(e.type) ? zakoFacing(e) : null;
-    const spr = SPR.enemy(e.type, { view:view&&view.face, upSlash:view?skeletonUpSlash(e,view):null, motion:view?zakoMotion2(e,view):null, bodyX:view&&arm?Math.round(arm.lean*(view.face==='r'?1:view.face==='l'?-1:0)):0, bodyY:view&&arm?Math.round(arm.cr):0, pull:e.st==='aim'?easeIO(clamp(e.t/.55,0,1)):0, release:view&&view.prev==='aim'?Math.max(0,1-(globalT-view.changed)/.2):0, st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step: arm && arm.sp != null ? Math.round(arm.sp) : step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: !view && hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm });
+    const spr = SPR.enemy(e.type, { view:view&&view.face, upSlash:view?skeletonUpSlash(e,view):null, motion:view?zakoMotion2(e,view):null, motion3:view?zakoMotion3(e,view):null, bodyX:view&&arm?Math.round(arm.lean*(view.face==='r'?1:view.face==='l'?-1:0)):0, bodyY:view&&arm?Math.round(arm.cr):0, pull:e.st==='aim'?easeIO(clamp(e.t/.55,0,1)):0, release:view&&view.prev==='aim'?Math.max(0,1-(globalT-view.changed)/.2):0, st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step: arm && arm.sp != null ? Math.round(arm.sp) : step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: !view && hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm });
     if(R3[e.type] && R3[e.type].enemy) drawR3Enemy(e,R3[e.type],x,yy+r*.75,hurt);
     else {
       const hop=e.type==='slime'&&e.st==='hop'?Math.sin(clamp(e.t/.38,0,1)*Math.PI)*7:0;
