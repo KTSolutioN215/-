@@ -4223,13 +4223,15 @@
   }
 
   // ---- equipment names / descriptions ----
+  const gearCache = {};
+  const eqIcon = (e, sz = 32) => `<img class="ico" src="${gearCache[e.id] || (gearCache[e.id] = SPR.gearIcon({ id: e.id, slot: e.slot, vis: e.vis, name: e.name, fx: e.fx }).c.toDataURL())}" width="${sz}" height="${sz}" alt="">`;
   const eqName = e => { const R = e.drop && RARITY[e.drop]; return R ? `<span style="color:${R.col}">${R.mark}${e.name}</span>` : e.name; };
   const eqStats = e => [e.atk && `こうげき +${e.atk}`, e.def && `ぼうぎょ +${e.def}`, e.hp && `さいだいHP +${e.hp}`, e.ram && e.ram > 1 && `とっしん力 ×${e.ram}`].filter(Boolean).join('・');
   const eqNote = e => [eqStats(e), e.fx && Object.keys(e.fx).map(k => `<span style="color:#7ad8ff">${FX[k].note}</span>`).join('・'),
     e.drop === 'lo' && 'ショップの ものより すこし よわい', e.drop === 'rare' && '<span class="gold">ショップの ものより つよい</span>'].filter(Boolean).join('<br>') || 'ふつうの そうび';
   function lootHtml() {
     if (!runLoot.length) return '';
-    return `<p style="margin-top:10px">てにいれた そうび</p><p style="font-size:14px;line-height:1.7">${runLoot.map(id => eqName(EQ[id])).join('<br>')}</p>`;
+    return `<p style="margin-top:10px">てにいれた そうび</p><p style="font-size:14px;line-height:1.9">${runLoot.map(id => eqIcon(EQ[id], 24) + ' ' + eqName(EQ[id])).join('<br>')}</p>`;
   }
   function fxHtml(s) {
     const ks = Object.keys(s.fx); if (!ks.length) return '';
@@ -4254,7 +4256,7 @@
         .sort((a, b) => (b.atk || b.def || b.ram || b.hp || 0) - (a.atk || a.def || a.ram || a.hp || 0));
       const rows = list.map(e => {
         const on = save.eq[e.slot] === e.id;
-        return `<div class="row"><span class="nm">${eqName(e)}</span><span class="sub">${eqNote(e)}</span>
+        return `<div class="row"><span class="nm">${eqIcon(e)} ${eqName(e)}</span><span class="sub">${eqNote(e)}</span>
           <span class="act">${on ? '<span class="tag">そうびちゅう</span>' : `<button class="sbtn" data-eq="${e.id}">そうびする</button>`}</span></div>`;
       });
       if (eqTab === 'charm' && save.eq.charm) rows.push(`<div class="row"><span class="nm">はずす</span><span class="sub">そうしょくを つけない</span><span class="act"><button class="sbtn" data-eq="">はずす</button></span></div>`);
@@ -4263,7 +4265,7 @@
         (rows.join('') || '<p style="color:var(--muted)">もっていない</p>') + fxHtml(s),
         [['もどる', back, true]], room);
       panelBody.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { eqTab = b.dataset.tab; A.sfx('select'); render2(); }));
-      panelBody.querySelectorAll('[data-eq]').forEach(b => b.addEventListener('click', () => { equip(b.dataset.eq || null, eqTab); render2(); }));
+      panelBody.querySelectorAll('[data-eq]').forEach(b => b.addEventListener('click', () => { equip(b.dataset.eq || null, eqTab); const sc = panelBody.scrollTop; render2(); panelBody.scrollTop = sc; }));
     };
     render2();
   }
@@ -4280,7 +4282,7 @@
       <dt>ゴールド</dt><dd class="gold">${save.gold} G</dd>
       <dt>たおした数</dt><dd>${save.kills}</dd>
     </dl>
-    <div style="margin-top:10px;font-size:14px;line-height:1.7">${['weapon', 'armor', 'boots', 'charm'].map(sl => `${SLOT_NAME[sl]}：${save.eq[sl] ? eqName(EQ[save.eq[sl]]) : 'なし'}`).join('<br>')}<br>スキル：${save.skill ? SKILLS[save.skill].name : 'なし'}</div>${fxHtml(s)}`;
+    <div style="margin-top:10px;font-size:14px;line-height:1.7">${['weapon', 'armor', 'boots', 'charm'].map(sl => `${SLOT_NAME[sl]}：${save.eq[sl] ? eqIcon(EQ[save.eq[sl]], 24) + ' ' + eqName(EQ[save.eq[sl]]) : 'なし'}`).join('<br>')}<br>スキル：${save.skill ? SKILLS[save.skill].name : 'なし'}</div>${fxHtml(s)}`;
   }
 
   let shopTab = 'item';
@@ -4337,7 +4339,7 @@
         <p style="font-size:14px;color:var(--muted)">こうげき ${s.atk}・ぼうぎょ ${s.def}・<span class="gold">${save.gold} G</span></p>` +
         list.map(e => {
           const own = save.owned.includes(e.id), eq = save.eq[e.slot] === e.id;
-          return `<div class="row"><span class="nm">${e.name}</span><span class="sub">${statOf(e) || 'ふつうの そうび'}</span>
+          return `<div class="row"><span class="nm">${eqIcon(e)} ${e.name}</span><span class="sub">${statOf(e) || 'ふつうの そうび'}</span>
             <span class="act">${eq ? '<span class="tag">そうびちゅう</span>' : own ? `<button class="sbtn" data-eq="${e.id}">そうびする</button>` : `<span class="price">${e.price} G</span><button class="sbtn" data-buy="${e.id}" ${save.gold < e.price ? 'disabled' : ''}>かう</button>`}</span></div>`;
         }).join(''),
         [['みせを でる', closePanel]], 'smith');
@@ -4347,7 +4349,7 @@
         const before = stats().maxHp;
         save.gold -= e.price; save.owned.push(e.id); save.eq[e.slot] = e.id;
         if (save.hp != null) save.hp += Math.max(0, stats().maxHp - before);
-        persist(); A.sfx('buy'); render2();
+        persist(); A.sfx('buy'); const sc = panelBody.scrollTop; render2(); panelBody.scrollTop = sc;
       }));
       panelBody.querySelectorAll('[data-eq]').forEach(b => b.addEventListener('click', () => { const e = EQ[b.dataset.eq]; save.eq[e.slot] = e.id; persist(); A.sfx('equip'); render2(); }));
     };
@@ -4641,5 +4643,5 @@
   requestAnimationFrame(frame);
   // test hooks
   window.__yusha = { get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
-    enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN, ITEMS }, get bag() { return bag; }, openPrep, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt, openOptions };
+    enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN, ITEMS, EQUIP }, get bag() { return bag; }, openPrep, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt, openOptions };
 })();

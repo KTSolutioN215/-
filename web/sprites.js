@@ -2954,6 +2954,74 @@ const SPR = (() => {
       else if (id === 'guard') { flask({ d: '#1a3a7a', m: '#4a7ad8', h: '#a8c0ff' }); g.poly([[6, 9], [12, 9], [12, 12], [9, 15], [6, 12]], '#e8ecf4'); g.r(9, 9, 1, 6, '#a8b4c8'); }
     }, '#1a1420');
   }
+  // equipment icons (20 x 20) drawn from the same look tables the hero uses. e = {id, slot, vis, name, fx}
+  const BOOTS = {
+    b0: { m: '#8a5a2a', d: '#5a3a18', h: '#b88a50' }, b1: { m: '#4aa86a', d: '#2a6a3a', h: '#8ae0a0', lines: 1 }, b2: { m: '#f0f0f8', d: '#a8b0c8', h: '#ffffff', wing: 1 },
+    b3: { m: '#6a8ad0', d: '#3a4a8a', h: '#b0c8ff', lines: 2 }, b4: { m: '#3a3a7a', d: '#20204a', h: '#7a7ad0', star: 1 }, b5: { m: '#7ac8f0', d: '#3a7aa8', h: '#d0f0ff', wing: 1 },
+    b6: { m: '#7a4ab0', d: '#4a2a70', h: '#c0a0f0', clock: 1 }, b7: { m: '#fff8e0', d: '#d0b060', h: '#ffffff', wing: 2 },
+  };
+  const FXCOL = { herbal: '#6ad870', gold: '#f2c14e', exp: '#7ab8ff', double: '#ff7a5a', buff: '#c08aff', recoil: '#ff9a3a', chain: '#5ac8ff' };
+  function gearIcon(e) {
+    return mk('gear_' + e.id, 20, 20, 10, 10, (g, x) => {
+      if (e.slot === 'weapon') {
+        const W = WEAP[e.vis || e.id] || WEAP.w0, w = 2 + (W.wide || 0), L = Math.round(8 + W.bladeLen * 0.33), T = L + 6, top = -T / 2;
+        x.translate(10, 10); x.rotate(Math.PI / 4);
+        g.r(-w / 2, top, w, L, W.blade); g.r(-w / 2, top + 1, 1, L - 1, W.bladeH); g.r(-w / 2 + (w > 2 ? 1 : 0), top - 1, Math.max(1, w - 2), 1, W.blade);
+        const D = W.deco || W.bladeH, P = (u, v, col) => g.r(-w / 2 + v, top + u, 1, 1, col);
+        if (W.shape === 'curve') { for (let u = 0; u < L * 0.6; u++) P(u, w, W.blade); for (let u = 2; u < L * 0.35; u++) P(u, w + 1, W.bladeH); }
+        else if (W.shape === 'branch') for (const [u, v] of [[2, -1], [5, w], [8, -1]]) P(u, v, D);
+        else if (W.shape === 'zig') for (let u = 1; u < L - 2; u += 4) { P(u, -1, W.bladeH); P(u + 2, w, W.bladeH); }
+        else if (W.shape === 'serrated') for (let u = 2; u < L - 1; u += 2) { P(u, -1, W.blade); P(u + 1, w, W.blade); }
+        else if (W.shape === 'star') { const m = Math.floor((w - 1) / 2); for (const [u, v] of [[-2, m], [-3, m], [-2, m - 1], [-2, m + 1]]) P(u, v, D); }
+        if (W.rune) { g.r(-w / 2 + w - 1, top + 3, 1, 1, W.rune); g.r(-w / 2 + w - 1, top + 6, 1, 1, W.rune); }
+        g.r(-w / 2 - 2, top + L, w + 4, 1, '#f2c14e'); g.r(-w / 2, top + L + 1, w, 3, '#5a3a20'); g.r(-w / 2, top + L + 4, w, 1, '#f2c14e');
+        if (W.glow) { x.setTransform(1, 0, 0, 1, 0, 0); const gc = '#' + W.glow.match(/\d+/g).slice(0, 3).map(v => (+v).toString(16).padStart(2, '0')).join(''); for (const [px, py] of [[16, 2], [17, 6], [12, 1]]) { g.p(px, py, '#ffffff'); g.p(px - 1, py, gc); g.p(px + 1, py, gc); g.p(px, py - 1, gc); g.p(px, py + 1, gc); } }   // glowing blades sparkle
+        return;
+      }
+      if (e.slot === 'armor') {
+        const A2 = ARM[e.vis || e.id] || ARM.a0, cloth = !A2.plate, M = cloth ? '#3a6fd8' : A2.plate, S2 = cloth ? '#2648a0' : A2.plateS, H2 = cloth ? '#79a6f5' : A2.plateH;
+        if (A2.wings) for (const m of [-1, 1]) { g.poly([[10 + m * 4, 6], [10 + m * 10, 2], [10 + m * 10, 9], [10 + m * 7, 13]], A2.wings); g.line(10 + m * 6, 5, 10 + m * 9, 4, 1, A2.wingsS); }
+        g.poly([[3, 4], [17, 4], [16, 9], [14, 18], [6, 18], [4, 9]], M);   // the chest piece
+        g.poly([[10, 4], [17, 4], [16, 9], [14, 18], [10, 18]], S2); g.poly([[4, 5], [7, 5], [7, 12], [5, 9]], H2);
+        g.poly([[7, 3], [13, 3], [11, 6], [9, 6]], cloth ? '#f8d0a8' : '#1a1420');   // neck opening
+        if (A2.scale || A2.chain) for (let yy = 8; yy < 17; yy += 2) for (let xx = 6 + (yy % 4 ? 1 : 0); xx < 15; xx += 2) g.p(xx, yy, S2);
+        if (cloth) { g.r(5, 13, 10, 2, '#6a4020'); g.r(9, 13, 2, 2, '#f2c14e'); }
+        else { g.r(8, 9, 4, 4, A2.emblem || '#f2c14e'); g.p(8, 9, '#ffffff'); g.r(5, 15, 10, 1, '#f2c14e'); }
+        if (A2.pauldron) for (const m of [-1, 1]) { g.ell(10 + m * 7, 5, 3.6, 2.8, M); g.ell(10 + m * 7 - 0.6, 4.4, 2, 1.2, H2); g.r(10 + m * 7, 7, 1, 1, A2.emblem); }
+        if (A2.fin) for (const m of [-1, 1]) for (let i = 0; i < 3; i++) g.poly([[10 + m * (5 + i), 4], [10 + m * (6 + i), 0 + i], [10 + m * (7 + i), 4]], i % 2 ? A2.finS : A2.fin);
+        if (A2.horns) for (const m of [-1, 1]) { g.poly([[10 + m * 5, 4], [10 + m * 9, -1], [10 + m * 8, 4]], A2.horns); g.p(10 + m * 7, 3, A2.hornsS); }
+        if (A2.spark) for (const [px, py] of [[1, 3], [18, 7], [2, 15], [17, 17]]) { g.p(px, py, '#ffffff'); g.p(px - 1, py, A2.spark); g.p(px + 1, py, A2.spark); g.p(px, py - 1, A2.spark); g.p(px, py + 1, A2.spark); }
+        return;
+      }
+      if (e.slot === 'boots') {
+        const fxk = e.fx ? Object.keys(e.fx)[0] : null, B = BOOTS[e.id] || (fxk ? { m: FXCOL[fxk] || '#8a5a2a', d: '#3a2a1a', h: '#ffffff', spring: fxk === 'recoil', lines: fxk === 'chain' ? 1 : 0 } : BOOTS.b0);
+        g.r(5, 2, 7, 11, B.m); g.r(10, 2, 2, 11, B.d); g.r(5, 2, 7, 2, B.h); g.r(5, 2, 1, 11, B.h);   // shaft with a turned-down cuff
+        g.poly([[5, 12], [12, 11], [16, 13], [17, 16], [5, 16]], B.m); g.poly([[12, 13], [16, 13], [17, 16], [12, 16]], B.d);
+        g.r(4, 16, 14, 2, B.spring ? '#8a8a90' : '#2a1a10'); g.r(6, 4, 5, 1, B.d);
+        if (B.spring) for (let i = 0; i < 3; i++) g.r(6 + i * 4, 18, 2, 2, '#c8c8d0');
+        if (B.wing) { g.poly([[5, 5], [0, 2], [1, 6], [0, 9], [5, 9]], '#ffffff'); g.line(1, 4, 4, 6, 1, '#c8d0e8'); g.line(1, 7, 4, 8, 1, '#c8d0e8'); if (B.wing > 1) g.p(14, 3, '#f2c14e'); }
+        if (B.lines) for (let i = 0; i < B.lines + 1; i++) g.r(0, 11 + i * 2, 3, 1, '#ffffff');
+        if (B.star) { g.poly([[8, 6], [9, 8], [11, 8], [9, 9], [10, 11], [8, 10], [6, 11], [7, 9], [5, 8], [7, 8]], '#ffe14a'); }
+        if (B.clock) { g.ell(8.5, 8, 2.6, 2.6, '#e8e0ff'); g.r(8, 6, 1, 2, '#2a1a40'); g.r(8, 8, 2, 1, '#2a1a40'); }
+        return;
+      }
+      // charms: c11-c15 are the floating relics; the rest by kind
+      if (/^c1[1-5]$/.test(e.id)) { x.translate(2, 1); const r = relic(e.id, 0); x.drawImage(r.c, 0, 0); return; }
+      const fxk = e.fx ? Object.keys(e.fx)[0] : null, fc = FXCOL[fxk] || '#7ad8ff';
+      const kind = { c1: 'amulet', c2: 'ring', c3: 'bracelet', c4: 'pendant', c5: 'ring', c6: 'bracelet', c7: 'crown', c8: 'medal', c9: 'orb', c10: 'drop' }[e.id]
+        || (/ゆびわ/.test(e.name) ? 'ring' : /うでわ/.test(e.name) ? 'bracelet' : /ペンダント/.test(e.name) ? 'pendant' : 'amulet');
+      const C = { c1: ['#d03a3a', '#ffe080'], c2: ['#c8d0dc', '#4a8ae8'], c3: ['#c08040', '#e8e0c0'], c4: ['#f2c14e', '#e5483c'], c5: ['#f2c14e', '#ffffff'], c6: ['#8a6a20', '#e5483c'], c7: ['#f2c14e', '#4a8ae8'], c8: ['#f2c14e', '#c0303a'], c9: ['#fff6c0', '#ffffff'], c10: ['#4ab05a', '#b0f0a0'] }[e.id] || ['#f2c14e', fc];
+      const [m, gem] = C;
+      if (kind === 'ring') { g.ell(10, 12, 6, 5, m); g.ell(10, 12, 3.6, 2.8, 'rgba(0,0,0,0)'); x.clearRect(7, 10, 6, 4); x.clearRect(8, 9, 4, 6); g.ell(10, 5, 3, 3, gem); g.p(9, 4, '#ffffff'); g.r(8, 7, 4, 1, m); }
+      else if (kind === 'bracelet') { g.ell(10, 11, 8, 6, m); x.clearRect(5, 9, 10, 4); x.clearRect(6, 8, 8, 6); g.ell(10, 15.5, 2.4, 2, gem); g.p(9, 15, '#ffffff'); g.r(3, 10, 1, 2, '#ffffff'); }
+      else if (kind === 'pendant') { g.line(4, 1, 10, 9, 1, '#c8c0a0'); g.line(16, 1, 10, 9, 1, '#c8c0a0'); g.poly([[10, 8], [15, 13], [10, 19], [5, 13]], m); g.poly([[10, 10], [13, 13], [10, 16], [7, 13]], gem); g.p(9, 12, '#ffffff'); }
+      else if (kind === 'crown') { g.poly([[2, 16], [2, 6], [6, 11], [10, 3], [14, 11], [18, 6], [18, 16]], m); g.r(2, 14, 16, 2, '#c8901a'); g.ell(10, 10, 1.6, 1.6, gem); g.p(4, 13, gem); g.p(16, 13, gem); }
+      else if (kind === 'medal') { g.poly([[6, 0], [9, 0], [10, 6], [7, 6]], '#3a6ad8'); g.poly([[11, 0], [14, 0], [13, 6], [10, 6]], '#c0303a'); g.ell(10, 12, 6, 6, m); g.ell(10, 12, 4, 4, '#c8901a'); g.poly([[8, 10], [12, 9], [11, 12], [13, 14], [8, 14]], gem); }
+      else if (kind === 'orb') { g.ell(10, 10, 7, 7, '#e8c860'); g.ell(10, 10, 5.6, 5.6, m); g.ell(8, 8, 2, 1.6, gem); for (const [px, py] of [[2, 2], [17, 4], [3, 17]]) g.p(px, py, '#ffffff'); }
+      else if (kind === 'drop') { g.poly([[10, 1], [4, 10], [5, 16], [10, 18], [15, 16], [16, 10]], m); g.poly([[10, 4], [6, 11], [7, 15], [10, 16]], gem); g.poly([[10, 1], [13, 0], [12, 3]], '#2a8a3a'); }
+      else { g.line(10, 1, 10, 5, 1, '#e8e0c0'); g.poly([[5, 6], [15, 6], [16, 17], [4, 17]], fxk ? fc : m); g.r(5, 6, 10, 2, '#f2c14e'); g.r(8, 10, 4, 4, '#ffffff'); g.r(9, 11, 2, 2, fxk ? fc : m); }   // omamori pouch
+    }, '#1a1420');
+  }
   // draw a sprite with its feet at (x, y) in logical px
   function draw(ctx, s, x, y, alpha) {
     if (!s) return;
@@ -3344,5 +3412,5 @@ const SPR = (() => {
   };
   function x0ring(g) { g.x.strokeStyle = '#e8f0ff'; g.x.lineWidth = 1; g.x.beginPath(); g.x.arc(8, 8, 4, 0, 7); g.x.stroke(); }
 
-  return { SCALE, shadeOf, stoneOf, part, relic, itemIcon, hero: heroS, enemy, boss, draw, skeletonParts, ENV, floorTile, wallTile, dither, tileCanvas, shade: sh, seeded, cacheSize: () => cache.size, types: () => ({ enemies: Object.keys(EN), bosses: Object.keys(BOSS) }) };
+  return { SCALE, shadeOf, stoneOf, part, relic, itemIcon, gearIcon, hero: heroS, enemy, boss, draw, skeletonParts, ENV, floorTile, wallTile, dither, tileCanvas, shade: sh, seeded, cacheSize: () => cache.size, types: () => ({ enemies: Object.keys(EN), bosses: Object.keys(BOSS) }) };
 })();
