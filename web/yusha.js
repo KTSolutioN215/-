@@ -3815,6 +3815,23 @@
   // stride, and a swing travels through depth, so the motion reads properly from every angle instead of squatting bow-legged.
   const R3 = {
     deathknight: { p: 'dk3', hipY: -25, hipX: 7, L1: 11, L2: 11, ank: -3, shY: -29, shX: 17, neckY: -35, A1: 12, A2: 12, reach: 47, sword: 'dk_sword', hand: 'dk_hand', upper: 'dk_upper', fore: 'dk_fore', capeY: -31, capeH: 62 },
+    goblinking: { p: 'gk3', hipY: -20, hipX: 10, L1: 9, L2: 9, ank: -4, shY: -21, shX: 20, neckY: -26, A1: 11, A2: 10, reach: 36, sword: 'gk_club', hand: 'gk_hand', upper: 'gk_upper', fore: 'gk_fore', capeY: -26, capeH: 44,
+      pose: {
+        base: { wid: 10, stride: 6, bomb: 0 },
+        rest: { hd: [4, 14, 8], oh: [-3, 15, 5], sw: [0.2, 0.8, 0.55], drop: 0.5 },
+        ready: { hd: [0, -1, 15], oh: [-3, 8, 10], drop: 2, stride: 9, pitch: 0.06 },
+        up: { hd: [-1, -18, -3], oh: [-3, 5, 12], drop: -1, stride: 10, lf: 2, pitch: -0.09 },
+        slam: { hd: [0, 8, 17], oh: [-4, 12, -7], drop: 4, sz: 2, pitch: 0.18, stride: 12 },
+        low: { hd: [5, 15, -7], oh: [-3, 5, 10], drop: 3, pitch: 0.12, stride: 10 },
+        hi: { hd: [2, -17, 8], oh: [-4, 10, -6], drop: -2, stride: 8, lb: 2, pitch: -0.06 },
+        sideB: { hd: [10, -3, -10], oh: [-4, 6, 10], drop: 2, stride: 10, yaw: 0.45 },
+        sideF: { hd: [-10, 2, 15], oh: [-10, 10, -6], drop: 3, sz: 2, stride: 11, pitch: 0.12, yaw: -0.45 },
+        thrust: { hd: [0, -2, 19], oh: [-4, 10, -8], drop: 2, sz: 3, stride: 12, pitch: 0.16, lb: 2 },
+        point: { hd: [2, -6, 17], oh: [-4, -4, 15], drop: 1, stride: 8 },
+        bombUp: { hd: [4, 14, 5], oh: [-3, -17, -7], sw: [0.2, 0.9, 0.3], yaw: -0.18, pitch: -0.06, drop: -0.5, bomb: 1 },
+        bombThrow: { hd: [4, 14, 5], oh: [-3, -6, 19], sw: [0.2, 0.9, 0.3], yaw: 0.22, pitch: 0.12, drop: 2, sz: 2, stride: 10 },
+      },
+    },
   };
   const P3B = { hd: [3, 19, 5], sw: [0.1, 0.95, 0.3], oh: [-3, 19, 3], drop: 1, sz: 0, pitch: 0.02, yaw: 0, stride: 4, wid: 6, lf: 0, lb: 0, fz: 0, nz: 0 };
   const p3 = o => Object.assign({}, P3B, o);
@@ -3861,21 +3878,29 @@
   }
   function r3Pose(B) {
     const mv = B.mv, p2 = B.phase === 2, b = Math.sin(globalT * 2.2);
-    const rest = p3({ drop: 1 + b * 0.5, sw: [0.1, 0.95, 0.3 + b * 0.05], hd: [3, 19 - b * 0.4, 5] });
+    const custom = R3[B.type].pose, Q = q => Object.assign({}, P3[q] || P3.rest, custom && custom.base, custom && custom[q]);
+    const rest = custom ? Object.assign({}, Q('rest'), { drop: Q('rest').drop + b * 0.4, hd: Q('rest').hd.map((v, i) => i === 1 ? v - b * 0.35 : v) }) : p3({ drop: 1 + b * 0.5, sw: [0.1, 0.95, 0.3 + b * 0.05], hd: [3, 19 - b * 0.4, 5] });
     if (!mv) return settle(B, null, rest);
-    const n = mv.name.split(':')[0], t = mv.t, K = s => keysAt(q => P3[q], s, t);
+    const n = mv.name.split(':')[0], t = mv.t, K = s => keysAt(Q, s, t);
     const walk = (spd, st) => { const ph = globalT * spd; return { stride: 0, fz: Math.sin(ph) * st, nz: -Math.sin(ph) * st, lf: Math.max(0, Math.cos(ph)) * 3, lb: Math.max(0, -Math.cos(ph)) * 3 }; };
     let p;
-    if ((n === 'sweep' || n === 'twin') && B.sweeps.length) { const sw = B.sweeps[0], act = sw.t >= sw.tele; p = Object.assign({}, act ? P3.thrust : P3.sideB, act ? { hd: [6, -2, 21], sw: [0, 0, 1], drop: 6, stride: 16 } : {}, { sweep: sw }); }
+    if ((n === 'sweep' || n === 'twin') && B.sweeps.length) { const sw = B.sweeps[0], act = sw.t >= sw.tele; p = Object.assign({}, Q(act ? 'thrust' : 'sideB'), act ? { hd: [6, -2, custom ? 18 : 21], sw: [0, 0, 1], drop: custom ? 3 : 6, stride: custom ? 11 : 16 } : {}, { sweep: sw }); }
+    else if (n === 'bombs' && B.type === 'goblinking') {
+      // The free hand throws at exactly the three/five existing launch times; the club stays in the other hand.
+      const keys = [[0, 'rest']];
+      for (let i = 0; i < (p2 ? 5 : 3); i++) { const at = 0.4 + i * 0.28; keys.push([at - 0.15, 'bombUp'], [at, 'bombThrow', 'in'], [at + 0.06, 'bombThrow']); }
+      keys.push([p2 ? 2 : 1.45, 'rest']); p = K(keys);
+    }
+    else if (n === 'mines' && B.type === 'goblinking') p = K([[0, 'point'], [0.65, 'point'], [1.25, 'ready'], [2.2, 'rest']]);
     else if (n === 'quake') p = K(hits([0.45, 1.0, 1.55], 'up', 'slam'));
     else if (n === 'rocks') p = K(hits([0.45, 0.9, 1.35], 'low', 'hi'));
     else if (n === 'aimed3' || n === 'aimed5') p = K(hits([0.45, 0.9], 'sideB', 'sideF'));
     else if (n === 'darkwave') p = K(hits(p2 ? [0.5, 1.1, 1.7] : [0.5, 1.1], 'sideB', 'sideF'));
     else if (n === 'ring' || n === 'ringaimed') p = K(hits([0.55], 'up', 'slam', 0.3));
     else if (n === 'triple') p = K(hits([0.4, 0.72, 1.04], 'up', 'slam', 0.18));
-    else if (n === 'charge' || n === 'dash3' || n === 'firetrail') p = mv.ph === 'go' ? Object.assign({}, P3.thrust, walk(22, 9), { pitch: 0.34 }) : keysAt(q => P3[q], mv.ph === 'rest' ? [[0, 'thrust'], [0.5, 'rest']] : [[0, mv.k ? 'thrust' : 'rest'], [0.35, 'ready']], mv.pt || 0);
-    else if (n === 'stalk') p = Object.assign({}, P3.ready, walk(9, 6));
-    else if (n === 'jump') p = mv.n === 0 ? K([[0, 'rest'], [0.3, 'up']]) : mv.n === 1 ? keysAt(q => P3[q], [[0, 'up'], [0.3, 'slam', 'in']], t - mv.t1) : keysAt(q => P3[q], [[0, 'slam'], [0.35, 'slam'], [0.8, 'rest']], t - mv.t1 - 0.3);
+    else if (n === 'charge' || n === 'dash3' || n === 'firetrail') p = mv.ph === 'go' ? Object.assign({}, Q('thrust'), walk(22, custom ? 6 : 9), { pitch: custom ? 0.18 : 0.34 }) : keysAt(Q, mv.ph === 'rest' ? [[0, 'thrust'], [0.5, 'rest']] : [[0, mv.k ? 'thrust' : 'rest'], [0.35, 'ready']], mv.pt || 0);
+    else if (n === 'stalk') p = Object.assign({}, Q('ready'), walk(9, custom ? 4 : 6));
+    else if (n === 'jump') p = mv.n === 0 ? K([[0, 'rest'], [0.3, 'up']]) : mv.n === 1 ? keysAt(Q, [[0, 'up'], [0.3, 'slam', 'in']], t - mv.t1) : keysAt(Q, [[0, 'slam'], [0.35, 'slam'], [0.8, 'rest']], t - mv.t1 - 0.3);
     else if (n === 'laser' || n === 'laser3') p = K(hold(0.45, 1.3));
     else if (n === 'cross') p = K(hold(0.6, 3.6));
     else if (n === 'wave') p = K(hold(0.4, 2.2));
@@ -3912,6 +3937,7 @@
       seg(def.upper, sh, el, def.A1, dp(mid(sh, el)) + 1 + ex); seg(def.fore, el, hd, def.A2, dp(mid(el, hd)) + 1.1 + ex);
       add(dp(hd) + 1.3 + ex, () => { const A = S(hd); pd(P_(def.hand, {}, fl), A[0], A[1]); });
     }
+    if (B.type === 'goblinking' && p.bomb > 0.55) spr('gk3_bomb', {}, V3.add(hO, [0, -4, 0]), 0, dp(hO) + 1.5);
     // the sword: in 3D it foreshortens as it points at you; in a full swing it reaches out along the swing
     const swd = norm3(R(p.sw)), H = S(hS), Tp = S(V3.add(hS, V3.mul(swd, def.reach)));
     let ang = Math.atan2(Tp[1] - H[1], Tp[0] - H[0]), sc = Math.max(0.25, Math.hypot(Tp[0] - H[0], Tp[1] - H[1]) / (def.reach * K));

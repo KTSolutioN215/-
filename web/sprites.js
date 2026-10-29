@@ -2746,6 +2746,93 @@ const SPR = (() => {
     dk_thigh() { return mk('dkth', 22, 16, 5, 8, g => { tube(g, [[5, 8, 5.5], [15, 8, 5]], { d: '#1a1a26', m: '#2a2a3a', h: '#4a4a62' }); }, '#08080c'); },
     dk_shin() { return mk('dksh', 20, 16, 4, 8, g => { tube(g, [[4, 8, 5], [13, 8, 4.6]], { d: '#1a1a26', m: '#2a2a3a', h: '#4a4a62' }); g.r(3, 3, 3, 10, '#c8ccd8'); }, '#08080c'); },
     dk_foot(P) { return mk('dkft' + (P.m || 1), 20, 10, 10, 3, g => { const m = P.m || 1; g.r(3, 2, 14, 5, '#2a2a3a'); g.r(3, 2, 14, 1, '#4a4a62'); g.r(m > 0 ? 13 : 3, 3, 4, 4, '#c8ccd8'); }, '#08080c'); },
+    // ===== goblin king in three views: round belly, crown, fur collar and royal red cape =====
+    gk3_torso(P) {
+      const v = P.v, S = { d: '#5a7a2e', m: '#86b84a', h: '#b0d878' }, F = '#f0ece0';
+      return mk('gk3t_' + v, 58, 44, 29, 32, g => {
+        if (v === 's') {
+          // The forward belly and buckle make the profile readable even with the near arm lowered.
+          blob(g, 29, 22, 18, 16, { d: '#5a4026', m: '#7a5a30', h: '#9a7648' });
+          g.ell(37, 23, 10, 12, S.m); g.ell(40, 20, 5, 7, S.h);
+          g.poly([[13, 4], [32, 2], [40, 8], [34, 11], [16, 10]], F);
+          g.r(16, 29, 29, 3, '#3a2410'); g.ell(44, 30, 2, 3, '#f2c14e');
+          g.line(17, 12, 16, 25, 2, '#a07848');
+        } else {
+          blob(g, 29, 22, 20, 16, { d: '#5a4026', m: '#7a5a30', h: '#9a7648' });
+          if (v === 'f') { g.ell(27, 24, 13, 12, S.h); g.ell(30, 28, 1.5, 1, S.d); }
+          else { g.line(29, 10, 29, 28, 1, '#5a4026'); g.line(16, 16, 20, 27, 1, '#9a7648'); }
+          g.r(9, 28, 40, 3, '#3a2410');
+          if (v === 'f') { g.ell(29, 29, 3, 3, '#f2c14e'); g.p(28, 28, '#fff2c0'); }
+          g.ell(29, 4, 22, 6, F);
+          for (let i = 0; i < 8; i++) g.p(9 + i * 6, 4 + i % 2, '#a8a090');
+        }
+      }, '#1e2a0e');
+    },
+    gk3_head(P) {
+      const v = P.v, S = { d: '#5a7a2e', m: '#86b84a', h: '#b0d878' }, E = P.p2 ? '#ff8a3a' : '#ffe14a', G = '#f2c14e';
+      return mk('gk3h_' + v + (P.p2 ? 1 : 0), 88, 48, 44, 42, g => {
+        if (v === 's') {
+          blob(g, 42, 25, 15, 15, S);
+          g.poly([[34, 24], [15, 13], [20, 26], [36, 31]], S.d); g.line(22, 20, 31, 26, 2, '#c87a6a');
+          g.ell(53, 29, 10, 9, S.m); g.poly([[52, 24], [65, 29], [55, 32]], S.h);
+          g.r(48, 21, 8, 4, E); g.r(53, 22, 2, 3, '#a01010'); g.line(46, 18, 56, 21, 2, '#2a3a10');
+          g.line(49, 35, 61, 35, 2, '#3a1a10'); g.poly([[54, 36], [56, 30], [58, 36]], '#fff');
+          g.r(33, 6, 23, 6, G); g.r(33, 11, 23, 1, '#c08a2a');
+          for (const xx of [35, 43, 51]) g.poly([[xx - 3, 6], [xx, 0], [xx + 3, 6]], G);
+          g.ell(53, 8, 1.5, 2, '#e04050'); return;
+        }
+        g.poly([[26, 23], [4, 13], [8, 23], [26, 31]], S.m);
+        g.poly([[62, 23], [84, 13], [80, 23], [62, 31]], S.d);
+        blob(g, 44, 25, 19, 15, S);
+        if (v === 'f') {
+          g.p(10, 18, '#c87a6a'); g.p(78, 18, '#c87a6a');
+          g.ell(51, 28, 11, 11, S.d); g.ell(38, 19, 8, 5, S.h);
+          g.r(31, 22, 7, 4, E); g.r(50, 22, 7, 4, E); g.r(34, 23, 2, 3, '#a01010'); g.r(53, 23, 2, 3, '#a01010');
+          g.line(29, 18, 38, 21, 2.4, '#2a3a10'); g.line(59, 18, 50, 21, 2.4, '#2a3a10');
+          g.r(41, 28, 6, 4, S.d); g.r(33, 34, 22, 3, '#3a1a10');
+          for (const xx of [35, 49]) g.poly([[xx, 35], [xx + 2, 29], [xx + 4, 35]], '#fff');
+        } else {
+          g.ell(40, 22, 11, 10, S.m); g.line(44, 15, 44, 34, 1, S.d); g.ell(44, 36, 10, 4, S.d);
+        }
+        g.r(32, 6, 24, 6, G); g.r(32, 11, 24, 1, '#c08a2a');
+        for (let i = 0; i < 3; i++) g.poly([[32 + i * 8, 6], [36 + i * 8, 0], [40 + i * 8, 6]], G);
+        if (v === 'f') g.ell(44, 9, 2, 2, '#e04050'); else g.r(34, 8, 20, 1, '#ffe5a0');
+      }, '#1e2a0e');
+    },
+    gk3_pauld(P) {
+      return mk('gk3p_' + P.v, 20, 16, 10, 8, g => {
+        blob(g, 10, 9, P.v === 's' ? 7 : 8, 5, { d: '#5a7a2e', m: '#86b84a', h: '#b0d878' });
+        g.ell(10, 5, 7, 3, '#f0ece0'); g.p(7, 6, '#a8a090'); g.p(13, 5, '#a8a090');
+      }, '#1e2a0e');
+    },
+    gk3_cape(P) {
+      const v = P.v, C = '#9a2a2a', CS = '#6a1818';
+      return mk('gk3c_' + v, 60, 50, 30, 2, g => {
+        if (v === 's') {
+          g.poly([[19, 2], [32, 2], [29, 20], [24, 46], [3, 46], [10, 24]], C);
+          g.poly([[19, 4], [22, 4], [15, 44], [8, 44]], CS); g.r(4, 44, 20, 2, '#c08a2a');
+        } else {
+          g.poly([[10, 2], [50, 2], [58, 46], [2, 46]], C);
+          g.poly([[38, 3], [50, 2], [58, 46], [43, 46]], CS);
+          g.line(19, 10, 14, 43, 2, CS); g.line(31, 12, 32, 43, 2, CS); g.r(4, 44, 52, 2, '#c08a2a');
+          if (v === 'b') { g.ell(30, 3, 20, 3, '#f0ece0'); g.poly([[25, 18], [30, 23], [35, 18], [34, 30], [26, 30]], '#c08a2a'); }
+        }
+      }, '#2a0808');
+    },
+    gk3_foot(P) {
+      return mk('gk3f_' + P.v, 22, 10, P.v === 's' ? 7 : 11, 3, g => {
+        if (P.v === 's') { g.poly([[2, 1], [11, 1], [19, 4], [20, 8], [2, 8]], '#4a3018'); g.r(2, 2, 9, 1, '#6a4a28'); g.r(2, 8, 18, 1, '#2a1a0e'); }
+        else { g.r(4, 1, 14, 7, '#4a3018'); g.r(4, 1, 14, 1, '#6a4a28'); g.r(4, 7, 14, 2, '#2a1a0e'); }
+      }, '#1e1208');
+    },
+    gk3_thigh() { return PARTS.gk_thigh(); },
+    gk3_shin() { return PARTS.gk_shin(); },
+    gk3_bomb() {
+      return mk('gk3bomb', 18, 20, 9, 11, g => {
+        blob(g, 9, 12, 6, 6, { d: '#171824', m: '#353846', h: '#646878' });
+        g.line(9, 6, 11, 2, 2, '#b8905a'); g.r(10, 1, 3, 3, '#ffe14a'); g.p(13, 2, '#ff7040');
+      }, '#101018');
+    },
     // ===== death knight in three views (v: 'f' front, 's' side facing right, 'b' back) — 指示: 正面・左右・後ろ =====
     // the game builds a small 3D skeleton and draws these parts on it, so the knees bend forward, never out to the sides
     dk3_torso(P) {
