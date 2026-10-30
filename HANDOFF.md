@@ -348,3 +348,12 @@ sh tools/build_apk.sh      # 初回は Android SDK（platform 35 / build-tools 3
 - `fishArm3` は既存の `e.face` を使う。槍の振り幅±0.65radは、上半身の高さと元の槍の長さを保って、既存の広い扇形±1.25rad内に槍先を収めるための描画角。攻撃判定を狭くしない。左は反転前のXを補正する。
 - `BATCH=3 BASE_SPRITES=<前版sprites.js> BASE_GAME=<前版yusha.js> node tools/anim/check_zako4.js`。基準は `2706f4b`。続けて `BASE_GAME=<前版yusha.js> node tools/anim/check_zako_batch3.js`。前組の検証も実施。
 - 比較表は `BATCH=3 ... node tools/anim/sheet_zako4.js`。動画は `ENEMY=imp,wolf,mushroom,spider,fishman` を指定し、各4方向3.6秒、全20シーン2,160フレーム72秒。通常／半速を用意する。
+
+## 現在の進捗：ザコ第4組（2026-10-30）
+
+- デススコーピオン／ミイラ男／どくガエル／マンドラゴラ／ワイバーンまで完了（一覧先頭20体）。次はまどうしょ／さまようよろい／ミミック／チョウチンアンコウ／デンキクラゲ。
+- `ZAKO4D` / `zakoView4` / `zakoMotion4` / `P.motion4` が第4組。元の工場は無指定時にそのまま残す。正面の基準はミイラとマンドラゴラ、右横の基準はサソリ・カエル・ワイバーン。動く画像だけ8artpxの透明余白とアンカー補正を入れる。
+- 基準ソースは `0946366`。`BATCH=4` の `check_zako4.js` と `BASE_GAME=<基準> node tools/anim/check_zako_batch4.js`。第1〜3組の個別攻撃検証も実施。
+- 収録アダプターの `putImageData` が座標変換を適用してしまうため、ブラウザの仕様通り無視する `canvas_host.js` を共通で使う。ゲーム本体にはこの補正を入れない。検証プレイ映像をこの補正後に全シーン撮り直す。
+- `ENEMY=scorpion,mummy,toad,mandrake,wyvern FONT=<日本語フォント> OUT=out/zako_batch4_fixed node tools/anim/capture_zako_play.js`。通常72秒・半速144秒。実ゲームの自然AI／勇者無敵・固定、ネイティブCanvasによる検証収録で、ブラウザの画面録画ではない。
+- APKはラッパー未変更のため `tools/repack_apk.py`。固定鍵でv2署名し、旧APKとの証明書一致、全web assets、DEX／Manifest等の一致、ZIP CRCとzipalignを確認する。実機インストールの確認はしていない。

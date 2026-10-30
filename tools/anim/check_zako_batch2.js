@@ -1,5 +1,5 @@
 // Pose timings and actual knight blade polygons, with the unchanged game's attack angles.
-const fs=require('fs'),vm=require('vm'),assert=require('assert'),{createCanvas}=require('@napi-rs/canvas');
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),{createCanvas}=require('./canvas_host');
 const source=fs.readFileSync('web/yusha.js','utf8'),spriteSource=fs.readFileSync('web/sprites.js','utf8'),ease=source.slice(source.indexOf('  const easeIO ='),source.indexOf('  // the lower body for moves')),
  code=source.slice(source.indexOf('  const ZP = {'),source.indexOf('  function drawEnemy(e)'));
 const w={globalT:0,hero:{x:0,y:100},VARIANTS:{},hyp:Math.hypot,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),lerp:(a,b,k)=>a+(b-a)*k,face4:a=>Math.abs(Math.cos(a))>.7?(Math.cos(a)>0?'r':'l'):Math.sin(a)>0?'b':'f'};

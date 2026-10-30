@@ -1,6 +1,6 @@
 // Full-game recording: real update/render, camera, hero, arena, telegraphs and projectiles.
 // Review controls only: invulnerable hero, no reinforcements, specified move order.
-const fs=require('fs'),path=require('path'),{createCanvas,GlobalFonts}=require('@napi-rs/canvas'),{gameHost}=require('./game_host');
+const fs=require('fs'),path=require('path'),{createCanvas,GlobalFonts}=require('./canvas_host'),{gameHost}=require('./game_host');
 const OUT=path.resolve(process.env.OUT||'out/play_motion');fs.mkdirSync(OUT,{recursive:true});
 const font=process.env.FONT;if(font)GlobalFonts.registerFromPath(font,'ReviewJP');
 const plans={spiderqueen:[['f','webnet',2.9,'くものす ばくだん'],['r','webnet',2.9,'くものす ばくだん'],['l','charge',2.5,'突進'],['b','webnet',2.9,'くものす ばくだん']],dragon:[['f','breath',2.8,'ブレス'],['f','tail',3.4,'尾の回転'],['r','tail',3.4,'尾の回転'],['l','breath',2.8,'ブレス'],['b','fireball',2.3,'火球']],thunderbird:[['f','thunderlines',3.5,'いかずちの あみ'],['r','dash3',5.6,'三連突進'],['l','thunderlines',3.5,'いかずちの あみ'],['b','aimed3',2,'三方向弾']],kraken:[['f','tentacles',4.6,'触手'],['r','ink',5.4,'すみの うみ'],['l','tentacles',4.6,'触手'],['b','ink',5.4,'すみの うみ']],clockmachine:[['f','clock',5.4,'時計の針'],['r','timestop',3.3,'タイムストップ'],['l','triple',2.1,'三連の輪'],['b','mines',2.9,'地雷']]};

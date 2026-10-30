@@ -732,12 +732,14 @@ const SPR = (() => {
     // ----- death scorpion (side view) -----
     scorpion(P) {
       const st = P.st === 'wind' ? 1 : P.st === 'dash' ? 2 : 0, k = P.f % 2;
-      return mk('scorp' + st + k, 56, 50, 28, 46, (g, x) => {
+      const pad=P.motion4?8:0;
+      return mk('scorp' + st + k + motionKey4(P), 56+pad*2, 50+pad*2, 28+pad, 46+pad, (g, x) => {
+        x.translate(pad,pad);
         x.translate(0, 8);
         const B = '#c8963a', S = '#8a6420', H = '#f0c870', R = '#e5483c';
         for (let i = 0; i < 3; i++) { const lx = 22 + i * 6; g.line(lx, 30, lx - 3 + ((i + k) % 2) * 2, 37, 1.4, S); g.line(lx + 2, 30, lx + 4 - ((i + k) % 2) * 2, 37, 1.4, S); }
         // tail: segments arcing over the back
-        const up = st === 1 ? 1 : 0;
+        const up = P.motion4 ? P.motion4.ready : st === 1 ? 1 : 0;
         const seg = [[16, 28], [9, 24], [6, 17 - up * 4], [8, 10 - up * 7], [14, 6 - up * 8], [20, 7 - up * 7]];
         for (let i = 1; i < seg.length; i++) g.line(seg[i - 1][0], seg[i - 1][1], seg[i][0], seg[i][1], 4.4 - i * 0.4, S);
         seg.forEach(([x, y], i) => g.ell(x, y, 3.6 - i * 0.3, 3.2 - i * 0.3, i % 2 ? S : B));
@@ -746,7 +748,7 @@ const SPR = (() => {
         g.ell(26, 29, 11, 5, B); for (let i = 0; i < 4; i++) g.r(17 + i * 5, 26, 1, 7, S); g.ell(25, 27, 8, 2, H);
         g.ell(38, 28, 5, 4, B); g.r(40, 26, 2, 1, '#2a0c06'); g.p(43, 27, '#2a0c06');
         // claws
-        const cx = st === 2 ? 52 : 48;
+        const cx = P.motion4?48+4*P.motion4.dash:st === 2 ? 52 : 48;
         g.line(40, 30, cx - 3, 30, 2.4, S); g.ell(cx, 30, 4, 3, B); g.poly([[cx + 2, 28], [cx + 7, 26], [cx + 3, 30]], H); g.poly([[cx + 2, 32], [cx + 7, 34], [cx + 3, 30]], S);
         g.line(39, 25, cx - 5, 22, 2.2, S); g.ell(cx - 2, 22, 3.4, 2.6, B); g.poly([[cx, 20], [cx + 5, 18], [cx + 1, 22]], H);
       });
@@ -754,16 +756,18 @@ const SPR = (() => {
     // ----- mummy: arms forward, loose bandage -----
     mummy(P) {
       const k = P.f % 2, step = P.step || 0;
-      return mk('mummy' + k + step, 40, 50, 20, 47, g => {
+      const pad=P.motion4?8:0;
+      return mk('mummy' + k + step + motionKey4(P), 40+pad*2, 50+pad*2, 20+pad, 47+pad, (g,x) => {
+        x.translate(pad,pad);
         const B = '#d8cfa8', S = '#a89c78', L = '#8a7e5a';
         g.r(13, 36 - (step > 0 ? 2 : 0), 5, 10, B); g.r(22, 36 - (step < 0 ? 2 : 0), 5, 10, S); g.r(12, 45, 7, 2, S); g.r(21, 45, 7, 2, L);
         g.r(11, 20, 18, 17, B); g.r(24, 20, 5, 17, S);
         for (let i = 0; i < 6; i++) g.line(11, 21 + i * 3, 29, 23 + i * 3, 1, L);
         // arms reaching forward (toward the viewer)
-        g.r(6, 21, 6, 5, B); g.r(4, 24, 5, 5, B); g.r(28, 21, 6, 5, S); g.r(31, 24, 5, 5, S);
-        g.line(4, 26, 8, 25, 1, L); g.line(31, 26, 35, 25, 1, L);
+        const throwY=P.motion4?P.motion4.release*2:0;g.r(6,21+throwY,6,5,B);g.r(4,24+throwY,5,5,B);g.r(28,21+throwY,6,5,S);g.r(31,24+throwY,5,5,S);
+        g.line(4,26+throwY,8,25+throwY,1,L);g.line(31,26+throwY,35,25+throwY,1,L);
         // flapping strip
-        g.line(28, 30, 33 + k * 2, 36 - k, 1.6, B);
+        g.line(28, 30, 33 + k * 2 + (P.motion4?P.motion4.release*3:0), 36 - k - (P.motion4?P.motion4.release*5:0), 1.6, B);
         // head
         g.ell(20, 13, 8.5, 8, B); g.ell(23, 14, 5, 6.5, S);
         for (let i = 0; i < 4; i++) g.line(12, 8 + i * 3, 28, 10 + i * 3, 1, L);
@@ -773,9 +777,11 @@ const SPR = (() => {
     // ----- poison toad: crouch, then a long leap with the tongue out -----
     toad(P) {
       const st = P.st === 'wind' ? 1 : P.st === 'dash' ? 2 : 0, k = P.f % 2;
-      return mk('toad' + st + k, 54, 42, 26, 37, g => {
+      const pad=P.motion4?8:0;
+      return mk('toad' + st + k + motionKey4(P), 54+pad*2, 42+pad*2, 26+pad, 37+pad, (g,x) => {
+        x.translate(pad,pad);
         const C = { d: '#3a7a1e', m: '#6ab83a', h: '#b8ec7a' }, SP = { d: '#5a2290', m: '#9a4ad8', h: '#d8a8ff' }, BL = '#e8eeb0', BLS = '#b8c070';
-        const cy = st === 1 ? 27 : st === 2 ? 20 : 25;
+        const cy = P.motion4 ? 25 + 2*P.motion4.ready - 5*P.motion4.dash : st === 1 ? 27 : st === 2 ? 20 : 25;
         if (st === 2) { tube(g, [[16, cy + 4, 4.5], [8, cy + 10, 3.2], [3, cy + 13, 2.2]], C); }
         else { blob(g, 15, cy + 6, 8, 6 - st, C); g.r(9, 36, 11, 1, C.d); for (const x of [10, 13, 16]) g.p(x, 36, BLS); }
         blob(g, 25, cy, 15, 9.5 - st, C);
@@ -792,28 +798,32 @@ const SPR = (() => {
     },
     // ----- mandrake: a root with a face; screams (spores) with its leaves spread -----
     mandrake(P) {
-      const sw = P.st === 'swell' ? 1 : 0, k = P.f % 2;
-      return mk('mand' + sw + k, 42, 50, 21, 47, g => {
+      const sw = P.motion4 ? P.motion4.ready : P.st === 'swell' ? 1 : 0, k = P.f % 2;
+      const pad=P.motion4?8:0;
+      return mk('mand' + sw + k + motionKey4(P), 42+pad*2, 50+pad*2, 21+pad, 47+pad, (g,x) => {
+        x.translate(pad,pad);
         const R = { d: '#8a6034', m: '#d0a26a', h: '#f4d4a0' }, L1 = { m: '#4aa83a', d: '#2a6a1e' }, L2 = { m: '#7ad04a', d: '#3a8a2a' };
         for (const [x0, x1] of [[16, 12 - k], [26, 30 + k], [21, 21]]) tube(g, [[x0, 36, 2.2], [(x0 + x1) / 2, 41, 1.6], [x1, 46, 0.8]], R);
         blob(g, 21, 30, 11 + sw, 11 + sw, R);
         for (const [x, y, l] of [[14, 26, 4], [27, 33, 5], [18, 36, 3]]) g.line(x, y, x + 2, y + l, 1, R.d);
-        const ay = sw ? -6 : 0;
+        const ay = -6*sw;
         tube(g, [[11, 30, 1.8], [7, 27 + ay * 0.5, 1.5], [4, 23 + ay - k, 1.2]], R); tube(g, [[31, 30, 1.8], [35, 27 + ay * 0.5, 1.5], [38, 23 + ay + k, 1.2]], R);
         for (const m of [-1, 1]) { g.ell(21 + m * 4, 28, 2.2, 2.4, '#2a1408'); g.p(21 + m * 4 - 1, 27, '#ffffff'); g.line(21 + m * 2, 25, 21 + m * 6, 24, 1, '#5a3010'); }
-        if (sw) { g.ell(21, 34, 3.6, 3.8, '#2a0808'); g.ell(21, 35, 2.2, 1.8, '#c04050'); } else g.r(19, 33, 4, 1, '#5a3010');
+        if (sw) { g.ell(21, 34, P.motion4?1+2.6*sw:3.6, P.motion4?.8+3*sw:3.8, '#2a0808'); g.ell(21, 35, P.motion4?2.2*sw:2.2, P.motion4?1.8*sw:1.8, '#c04050'); } else g.r(19, 33, 4, 1, '#5a3010');
         g.p(15, 31, '#e8a090'); g.p(27, 31, '#e8a090');
-        const sp = sw ? 0.35 : 0;
+        const sp = sw*0.35;
         feather(g, 21, 21, -Math.PI / 2 - 0.85 - sp, 15, 3.6, L1); feather(g, 21, 21, -Math.PI / 2 + 0.85 + sp, 15, 3.6, L1);
         feather(g, 21, 21, -Math.PI / 2 - 0.35 - sp * 0.5, 17, 3.4, L2); feather(g, 21, 21, -Math.PI / 2 + 0.35 + sp * 0.5, 17, 3.4, L2);
         feather(g, 21, 21, -Math.PI / 2, 19 + sw * 2, 3, L1);
-        if (sw) { g.ell(21, 1.5, 2.6, 2.4, '#ff80c0'); g.p(21, 1, '#ffffff'); }
+        if (sw>.8) { g.ell(21, 1.5, 2.6, 2.4, '#ff80c0'); g.p(21, 1, '#ffffff'); }
       }, '#2a1608');
     },
     // ----- wyvern: flying, wings in three frames, breathes fire -----
     wyvern(P) {
       const k = P.f % 3, fire = P.st === 'wind' || P.st === 'fire' ? 1 : 0;
-      return mk('wyv' + k + fire, 64, 52, 32, 46, g => {
+      const pad=P.motion4?8:0;
+      return mk('wyv' + k + fire + motionKey4(P), 64+pad*2, 52+pad*2, 32+pad, 46+pad, (g,x) => {
+        x.translate(pad,pad);
         const C = { d: '#245a4e', m: '#4a8a7a', h: '#8ad0b8' }, W = { d: '#1a3a5a', m: '#3a6a8a', h: '#6a9ab8' }, BN = '#14283a', BL = '#d8d0a0', HN = { d: '#a89a70', m: '#e8e0c0', h: '#ffffff' };
         const o = [-10, 0, 8][k];
         const wing = (rx, ry, sc, Cw) => {
@@ -3562,6 +3572,75 @@ const SPR = (() => {
     x.putImageData(d, 0, 0);
     return { c, ax: src.ax, ay: src.ay };
   }
+
+  const ZAKO4D=new Set(['scorpion','mummy','toad','mandrake','wyvern']);
+  function motionKey4(P){return P.motion4?'|m4|'+JSON.stringify(P.motion4):'';}
+  function zakoView4(type,P){
+    const side=P.view==='r'||P.view==='l',back=P.view==='b',f=P.f||0,k=f%2,step=P.step||0,m=P.motion4,
+      ready=m?m.ready:(P.st==='wind'||P.st==='swell'?1:0),dash=m?m.dash:(P.st==='dash'?1:0),release=m?m.release:0;
+    if((['scorpion','toad','wyvern'].includes(type)&&side)||(['mummy','mandrake'].includes(type)&&!side&&!back))return EN[type](P);
+    const pad=m?8:0;
+    const dims={scorpion:[56,50,28,46],mummy:[40,50,20,47],toad:[54,42,26,37],mandrake:[42,50,21,47],wyvern:[64,52,32,46]}[type];
+    return mk('z4d_'+type+'_'+(side?'s':back?'b':'f')+'_'+f%6+'_'+step+'_'+P.st+motionKey4(P),...dims.map((v,i)=>v+pad*(i<2?2:1)),(g,x)=>{
+      x.translate(pad,pad);
+      if(type==='scorpion'){
+        const B='#c8963a',S='#8a6420',H='#f0c870',cy=37,front=back?-1:1;
+        const legs=()=>{for(const d of[-1,1])for(let i=0;i<3;i++){const yy=cy-3+i*2,ox=((i+k)%2)*2;g.line(28+d*8,yy,28+d*(15+ox),yy+1,1.4,S);g.line(28+d*(15+ox),yy+1,28+d*(18+ox),yy+5,1.4,S);}};
+        const claws=()=>{for(const d of[-1,1]){const xx=28+d*15,yy=cy+front*(4+dash*3);g.line(28+d*6,cy+front*2,xx,yy,2.4,S);g.ell(xx,yy,4,3,B);g.poly([[xx-3,yy+front],[xx-5,yy+front*6],[xx-1,yy+front*3]],H);g.poly([[xx+3,yy+front],[xx+5,yy+front*6],[xx+1,yy+front*3]],S);}};
+        const tail=()=>{const seg=[[28,cy-front*5],[25,cy-8],[24,cy-15-ready*3],[27,cy-23-ready*4],[32,cy-27-ready*4],[35,cy-24-ready*4]];for(let i=1;i<seg.length;i++)g.line(...seg[i-1],...seg[i],4.4-i*.4,S);seg.forEach(([a,b],i)=>g.ell(a,b,3.6-i*.3,3.2-i*.3,i%2?S:B));const[a,b]=seg[5];g.poly([[a-1,b],[a+3,b+5],[a+4,b]],ready>.5?'#e5483c':'#5a3a10');};
+        legs();if(back){claws();tail();}g.ell(28,cy,11,6,B);for(let i=0;i<4;i++)g.line(20,cy-4+i*2,36,cy-4+i*2,1,S);g.ell(26,cy-3,7,2,H);g.ell(28,cy+front*4,6,4,B);
+        if(!back){for(const d of[-1,1])g.r(28+d*3-1,cy+4,2,1,'#2a0c06');claws();tail();}return;
+      }
+      if(type==='mummy'){
+        const B='#d8cfa8',S='#a89c78',L='#8a7e5a',lift=step>0?2:0,lift2=step<0?2:0;
+        g.r(side?17:13,36-lift,5,10,B);g.r(22,36-lift2,5,10,S);g.r(side?16:12,45-lift,7,2,S);g.r(21,45-lift2,7,2,L);
+        const arm=(far)=>{const sx=side?21:far?28:12,sy=23,ex=side?30:far?30:10,ey=side?25-release*2:25,tx=side?35:far?31:9,ty=side?26-release*3:27;
+          g.line(sx,sy,ex,ey,5,far?S:B);g.line(ex,ey,tx,ty,4,far?S:B);g.line(ex-1,ey-1,ex+2,ey+1,1,L);g.ell(tx,ty,2.3,2.2,far?S:B);};
+        if(back||side)arm(true);if(back)arm(false);
+        g.r(side?15:11,20,side?13:18,17,B);g.r(side?15:24,20,side?4:5,17,S);
+        for(let i=0;i<6;i++)g.line(side?15:11,21+i*3,side?28:29,23+i*3,1,L);
+        g.line(side?16:28,30,side?11-k*2:33+k*2,36-k,1.6,B);
+        g.ell(20,13,side?6.5:8.5,8,B);g.ell(side?17:23,14,side?3:5,6.5,S);
+        for(let i=0;i<4;i++)g.line(side?14:12,8+i*3,side?26:28,10+i*3,1,L);
+        if(side){g.r(23,12,4,3,'#2a2018');g.r(25,13,1,1,'#ff4040');arm(false);}return;
+      }
+      if(type==='toad'){
+        const C={d:'#3a7a1e',m:'#6ab83a',h:'#b8ec7a'},SP={d:'#5a2290',m:'#9a4ad8',h:'#d8a8ff'},BL='#e8eeb0',cy=25+2*ready-5*dash;
+        const leg=(d)=>{const lift=step*d>0?1:0;blob(g,26+d*12,cy+5,6,5-ready,C);tube(g,[[26+d*12,cy+5,2.5],[26+d*(17+dash*2),35-lift-dash*2,2]],C);g.line(26+d*17-3,36-lift-dash*2,26+d*17+3,36-lift-dash*2,1,C.d);};
+        leg(-1);leg(1);for(const d of[-1,1]){tube(g,[[26+d*8,cy+3,2.4],[26+d*(10+dash*3),36-dash*4,2]],C);g.line(24+d*(10+dash*3),36-dash*4,28+d*(10+dash*3),36-dash*4,1,C.d);}
+        blob(g,26,cy,15,9.5-ready,C);if(!back)g.ell(26,cy+4,10,3.6,BL);
+        for(const[a,b,r]of[[-9,-4,2.4],[0,-6,2],[9,-2,1.6],[-12,1,1.6]]){g.ell(26+a,cy+b,r,r,SP.d);g.ell(25.6+a,cy+b-.4,r*.7,r*.7,SP.m);g.p(25+a,cy+b-1,SP.h);}
+        const head=()=>{blob(g,26,cy-4,10,6.5,C);for(const d of[-1,1]){blob(g,26+d*6,cy-10,3.8,3.6,C);if(!back){g.ell(26+d*6,cy-10,2.4,2.4,'#ffe14a');g.r(26+d*6,cy-12,1,3,'#1a0a04');g.p(25+d*6,cy-11,'#fff');}}
+          if(!back){g.line(19,cy-1,33,cy-1,1,C.d);if(dash>0){g.ell(26,cy,4,2.6,'#5a1028');tube(g,[[26,cy+1,1.2],[26,cy+5+dash*5,1.2]],{d:'#a0304a',m:'#e0507a',h:'#ff9ab8'});g.ell(26,cy+6+dash*5,2,2,'#ff80a0');}}};
+        if(back){ // Back-facing head is behind the back, never a face painted on the rump.
+          head();blob(g,26,cy+3,13,6,C);for(const d of[-1,1])g.ell(26+d*7,cy,2,2,SP.m);
+        }else head();return;
+      }
+      if(type==='mandrake'){
+        const R={d:'#8a6034',m:'#d0a26a',h:'#f4d4a0'},L1={m:'#4aa83a',d:'#2a6a1e'},L2={m:'#7ad04a',d:'#3a8a2a'},sw=ready;
+        for(const[a,b]of(side?[[19,15-k],[23,28+k],[21,21]]:[[16,12-k],[26,30+k],[21,21]]))tube(g,[[a,36,2.2],[(a+b)/2,41,1.6],[b,46,0.8]],R);
+        if(side)tube(g,[[19,30,1.8],[23,27-sw*3,1.5],[28,23-sw*6+k,1.2]],R);
+        blob(g,21,30,side?8+sw:11+sw,11+sw,R);
+        for(const[a,b,l]of[[16,26,4],[25,33,5],[19,36,3]])g.line(a,b,a+2,b+l,1,R.d);
+        if(side){tube(g,[[24,30,1.8],[29,27-sw*3,1.5],[33,23-sw*6-k,1.2]],R);g.ell(25,28,2,2.4,'#2a1408');g.p(25,27,'#fff');g.line(23,25,27,24,1,'#5a3010');g.p(27,31,'#e8a090');if(sw>.2)g.ell(27,34,1.8,1+sw*2.8,'#2a0808');else g.r(25,33,3,1,'#5a3010');}
+        else for(const d of[-1,1])tube(g,[[21+d*10,30,1.8],[21+d*14,27-sw*3,1.5],[21+d*17,23-sw*6+d*k,1.2]],R);
+        const spread=.35*sw;for(const[a,len,w,C]of[[-.85-spread,15,3.6,L1],[.85+spread,15,3.6,L1],[-.35-spread*.5,17,3.4,L2],[.35+spread*.5,17,3.4,L2],[0,19+sw*2,3,L1]])feather(g,21,21,-Math.PI/2+a*(side?.6:1),len,w,C);
+        if(sw>.8){g.ell(21,1.5,2.6,2.4,'#ff80c0');g.p(21,1,'#fff');}return;
+      }
+      if(type==='wyvern'){
+        const C={d:'#245a4e',m:'#4a8a7a',h:'#8ad0b8'},W={d:'#1a3a5a',m:'#3a6a8a',h:'#6a9ab8'},HN={d:'#a89a70',m:'#e8e0c0',h:'#fff'},BN='#14283a',o=[-10,0,8][f%3];
+        // Identical membrane and finger layout, spread symmetrically around the two shoulder roots.
+        const wing=d=>{const rx=32+d*5,ry=26,el=[rx+d*8,ry-14+o*.7],tips=[[rx+d*22,ry-16+o],[rx+d*26,ry-4+o*.6],[rx+d*20,ry+6+o*.3],[rx+d*8,ry+8]];g.poly([[rx,ry],el,...tips],W.m);g.poly([[rx,ry],el,tips[1],tips[2],tips[3]],W.d);g.line(rx,ry,...el,2.4,BN);for(const t of tips)g.line(...el,...t,1,BN);g.p(Math.round(el[0]),Math.round(el[1])-1,HN.m);};
+        wing(-1);wing(1);tube(g,[[32,33,4.5],[back?37:27,38,3.2],[back?39:25,42,2.2],[back?38:26,45,1.4]],C);spike(g,back?38:26,45,Math.PI/2+.4,5,2,HN);
+        blob(g,32,30,8,9,C);if(!back)g.ell(32,33,5,5,'#d8d0a0');for(const d of[-1,1]){tube(g,[[32+d*5,35,2.4],[32+d*7,41,1.8]],C);g.r(30+d*7,42,4,1,HN.m);}
+        tube(g,[[32,26,4.5],[32,21,4],[32,18,3.6]],C);blob(g,32,17,6.5,5,C);
+        if(!back){g.poly([[26,18],[38,18],[37,23],[27,23]],C.m);for(const d of[-1,1]){g.r(31+d*4,15,2,2,'#ff4a2a');g.p(31+d*4,15,'#fff2a0');}if(ready>0||P.st==='fire'){g.ell(32,23,4,1+ready*2,'#5a0a0a');if(P.st==='fire')g.ell(32,24,2.4,1.4,'#ffd24a');}else g.line(28,22,36,22,1,C.d);}
+        else g.ell(32,17,5,4,C.d);
+        for(const d of[-1,1])spike(g,32+d*4,13,-Math.PI/2+d*.5,7,1.8,HN);return;
+      }
+    },type==='toad'?'#142a08':type==='mandrake'?'#2a1608':type==='wyvern'?'#081a18':undefined);
+  }
+
   const ZAKO4C=new Set(['imp','wolf','mushroom','spider','fishman']);
   function motionKey3(P){return P.motion3?'|m3|'+JSON.stringify(P.motion3):'';}
   function fishArm3(P,shoulder,hand,dir){
@@ -3680,7 +3759,7 @@ const SPR = (() => {
   }
   // Four-direction additions for batch 1. Front factories remain the source of truth.
   // Original canvas sizes, anchors, palettes, clothing and equipment are retained.
-  const ZAKO4 = new Set(['slime','bat','goblin','archer','skeleton','ghost','mage','lizard','golem','knight','imp','wolf','mushroom','spider','fishman']);
+  const ZAKO4 = new Set(['slime','bat','goblin','archer','skeleton','ghost','mage','lizard','golem','knight','imp','wolf','mushroom','spider','fishman','scorpion','mummy','toad','mandrake','wyvern']);
   // Rear-facing slash: hand stays beyond the shoulder; blade uses the world's attack arc.
   // Keep original arm/blade lengths. The fan is the existing generous gameplay range.
   function skeletonUpArm(P,shoulder,hand) {
@@ -3689,6 +3768,7 @@ const SPR = (() => {
     return {hand:[hand[0],hand[1]-2*Math.max(0,hand[1]-shoulder[1])*w],dir:[Math.cos(a),Math.sin(a)]};
   }
   function zakoView(type,P) {
+    if(ZAKO4D.has(type))return zakoView4(type,P);
     if(ZAKO4C.has(type))return zakoView3(type,P);
     if(ZAKO4B.has(type))return zakoView2(type,P);
     const v=P.view, side=v==='r'||v==='l', rear=v==='b';

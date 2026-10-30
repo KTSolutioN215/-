@@ -1,5 +1,5 @@
 // Uses the real pose controller and captures the actual blade polygon before rasterization.
-const fs=require('fs'),vm=require('vm'),assert=require('assert'),{createCanvas}=require('@napi-rs/canvas');
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),{createCanvas}=require('./canvas_host');
 const source=fs.readFileSync('web/yusha.js','utf8'),spriteSource=fs.readFileSync('web/sprites.js','utf8');
 const start=source.indexOf('  const ZP = {'),end=source.indexOf('  function drawEnemy(e)');
 const ease=source.slice(source.indexOf('  const easeIO ='),source.indexOf('  // the lower body for moves'));

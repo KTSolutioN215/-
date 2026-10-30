@@ -3,7 +3,7 @@
 // NODE_PATH must contain @napi-rs/canvas. FONT points to a Japanese TTF/TTC.
 // BOSS=goblinking OUT=out/gk_canvas node tools/anim/capture_canvas.js
 const fs = require('fs'), path = require('path'), vm = require('vm');
-const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
+const { createCanvas, GlobalFonts } = require('./canvas_host');
 if (process.env.FONT) GlobalFonts.registerFromPath(process.env.FONT, 'ReviewJP');
 const root = path.resolve(__dirname, '../..'), out = path.resolve(process.env.OUT || path.join(root, 'out/gk_canvas'));
 fs.mkdirSync(out, { recursive: true });

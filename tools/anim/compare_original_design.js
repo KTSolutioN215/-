@@ -1,5 +1,5 @@
 // Original front / preserved front / added right / left / rear, all at the same scale.
-const fs=require('fs'),path=require('path'),vm=require('vm'),{createCanvas,GlobalFonts}=require('@napi-rs/canvas');
+const fs=require('fs'),path=require('path'),vm=require('vm'),{createCanvas,GlobalFonts}=require('./canvas_host');
 const root=path.resolve(__dirname,'../..'),out=process.env.OUT||path.join(root,'out/design_restore/original_comparison.png');
 const font=process.env.FONT;if(font)GlobalFonts.registerFromPath(font,'ReviewJP');
 const w={document:{createElement:()=>createCanvas(1,1)}};vm.createContext(w);vm.runInContext(fs.readFileSync(path.join(root,'web/sprites.js'),'utf8')+';this.SPR=SPR;',w);

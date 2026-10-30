@@ -1,6 +1,6 @@
 // Executes the complete, unmodified game update/render code on a native Canvas.
 // DOM nodes are adapters for menus; combat, camera, arena, effects and HUD are real.
-const fs=require('fs'),path=require('path'),vm=require('vm'),{createCanvas,GlobalFonts}=require('@napi-rs/canvas');
+const fs=require('fs'),path=require('path'),vm=require('vm'),{createCanvas,GlobalFonts}=require('./canvas_host');
 function gameHost(options={}){
  const root=path.resolve(__dirname,'../..'),nodes=new Map(),storage=new Map();
  const font=process.env.FONT;if(font){GlobalFonts.registerFromPath(font,'Noto Sans JP');GlobalFonts.registerFromPath(font,'DotGothic16');}
