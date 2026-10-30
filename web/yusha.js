@@ -228,6 +228,7 @@
     sand: { name: 'じかんのすな', ch: '時', cd: 40, price: 1500000, col: '#e8ecff', note: '2びょう てきの 弾が とまる' },
     holy: { name: 'せいなるいちげき', ch: '聖', cd: 24, price: 2000000, col: '#fff2a0', note: '10びょう いない、つぎの たいあたり3かいが いりょく +60%' },
   };
+  const STARTER_SKILL = 'shock';   // known from the start (DEF_SAVE / loadSave)
   const healOf = (id, maxHp, fx) => Math.round((ITEMS[id].pct ? maxHp * ITEMS[id].pct : ITEMS[id].heal) * (1 + ((fx && fx.herbal) || 0)));
   const ITEM_MAX = 99;   // stock kept at home (shop items)
   const itemOpen = id => !ITEMS[id].unlock || !!(save.cleared && save.cleared[ITEMS[id].unlock - 1]);
@@ -519,7 +520,7 @@
   // ---------------------------------------------------------------
   const DEF_SAVE = () => ({ v: 1, lv: 1, exp: 0, gold: 40, hp: null, items: { herb: 5, potion: 0, hipotion: 0, megapotion: 0, lifewater: 0, lifedrop: 0, elixir: 0, power: 0, guard: 0 }, loadout: null, slots: null,
     eq: { weapon: 'w0', armor: 'a0', boots: 'b0', charm: null }, owned: ['w0', 'a0', 'b0'], cleared: Array(35).fill(false), layout10: true, layout15: true, layout25: true,
-    kills: 0, skills: [], skill: null, settings: { bgm: 0.8, sfx: 0.8, fps: 0, pad: 1 } });
+    kills: 0, skills: ['shock'], skill: 'shock', tut: 0, tutTown: 0, settings: { bgm: 0.8, sfx: 0.8, fps: 0, pad: 1 } });
   let save = DEF_SAVE();
   function loadSave() {
     try {
@@ -545,6 +546,12 @@
       }
       // ステップ (skill) became the basic roll: refund it
       if (save.skills && save.skills.includes('dash')) { save.skills = save.skills.filter(k => k !== 'dash'); if (save.skill === 'dash') save.skill = save.skills[0] || null; save.gold += 300; }
+      // 指示: さいしょから つかえる スキル — しょうげきは is known from the start (older saves get it too)
+      if (!Array.isArray(save.skills)) save.skills = [];
+      if (!save.skills.includes('shock')) save.skills.unshift('shock');
+      if (!save.skill) save.skill = save.skills[0];
+      // a save that has already been adventuring skips the tutorial
+      if (s && s.tut == null && (save.lv > 1 || (save.cleared || []).some(Boolean))) { save.tut = 1; save.tutTown = 1; }
     } catch (e) { /* storage blocked: play without saving */ }
   }
   function persist() { try { localStorage.setItem('bumphero_save', JSON.stringify(save)); } catch (e) { } }
@@ -588,6 +595,17 @@
   let t = 0, globalT = 0, beatPulse = 0, beatN = 0;
   let combo = 0, comboT = 0, runExp = 0, runGold = 0, runKills = 0;
   let banner = null, transition = null, hint = 0;
+  // ---- tutorial (指示: チュートリアル): the first time in the first dungeon, seven guided steps; each waits until it is done ----
+  const TUT = [
+    { g: 'move', t: 'いどう', a: 'どこでも 指を おいて スライド', b: '勇者が その ほうこうに うごく' },
+    { g: 'ram', t: 'とっしん', a: 'おおきく たおすと とっしん', b: 'オレンジに 光ったら こうげきの あいず' },
+    { g: 'hit', t: 'たいあたり', a: 'とっしんで スライムに ぶつかろう', b: 'ぶつかると こうげき！ そのあと はねかえる' },
+    { g: 'roll', t: 'かいひ', a: '指を すばやく はじくと ころがる', b: 'ころがって いる あいだは むてき' },
+    { g: 'skill', t: 'スキル', a: 'がめんを すばやく 2かい タップ', b: 'スキル「しょうげきは」で ふきとばす' },
+    { g: 'item', t: 'どうぐ', a: 'みぎしたの「どうぐ」を おしてみよう', b: 'やくそうで HPを かいふく できる' },
+    { g: 'door', t: 'ボスへ', a: 'まものを はんぶん たおすと', b: 'ボスの とびら（みぎうえ）が ひらく' },
+  ];
+  let tut = null;   // { i: step, t: time in step, okT: the 「できた！」 moment, moved, ramT, slime }
   // ---- surprise events: ハテナ箱 / 流れ星 / 魔物の大行進 / ゴールデンスライム / 行商人 ----
   let evs = [], ev = {}, noMerchant = false;
   const QB = {   // what a ハテナ箱 can give (dur = seconds; bomb = 3 hits)
@@ -775,6 +793,7 @@
     A.sfx(kind === 'stone' ? 'block' : 'magic2');
   }
   function hurtHero(dmg, fromX, fromY, power = 300, cause = '?', crit = false) {
+    if (tut && tut.i < TUT.length - 1) return;   // no damage while learning the controls
     if (hero.inv > 0 || hero.hp <= 0 || (hero.pw && hero.pw.kind === 'giant')) return;
     let d = Math.max(1, Math.round(dmg - hero.s.def * 0.5));
     hurtLog[cause] = (hurtLog[cause] || 0) + d;
@@ -903,10 +922,74 @@
     genDungeon(di);
     hero = newHero(VW / 2, 70);
     camY = hero.y; boss = null; arena = null; zones = []; freezeT = 0; darkT = 0; shades = []; twisters = []; combo = 0; runExp = 0; runGold = 0; runKills = 0; runLoot = []; toasts = [];
-    state = 'play'; paused = false; hint = di === 0 ? 6 : 0;
+    state = 'play'; paused = false; hint = di === 0 ? 6 : 0; tut = null;
+    if (di === 0 && !save.tut) tutStart();
     banner = { a: D.name, b: D.en, t: 2.4 };
     A.bgm(FARR.dungeon[di]);
     showHud(true);
+  }
+
+  function tutStart() { tut = { i: 0, t: 0, okT: 0, moved: 0, ramT: 0, slime: null, mark: 0 }; hint = 0; }
+  function tutDone(g) { if (tut && !tut.okT && TUT[tut.i] && TUT[tut.i].g === g) { tut.okT = 1; A.sfx('chest'); } }
+  function tutEnd(skip) { tut = null; save.tut = 1; persist(); if (!skip) { toast('チュートリアル クリア！ ボスを めざそう', '#f2c14e'); A.sfx('levelup'); } }
+  function updateTut(dt) {
+    if (!tut || state !== 'play' || !hero) return;
+    const h = hero, S = TUT[tut.i]; tut.t += dt;
+    if (tut.okT > 0) { if ((tut.okT -= dt) <= 0) { tut.okT = 0; tut.i++; tut.t = 0; if (tut.i >= TUT.length) tutEnd(); } return; }
+    if (S.g === 'move') { if (drag.down) tut.moved += heroSpeed() * dt; if (tut.moved > 170) tutDone('move'); }
+    else if (S.g === 'ram') { tut.ramT = heroSpeed() > RAM_MIN ? tut.ramT + dt : 0; if (tut.ramT > 0.2) tutDone('ram'); }
+    else if (S.g === 'hit') {
+      if (tut.slime && tut.slime.dead) tutDone('hit');
+      else if (!tut.slime || !enemies.includes(tut.slime)) {   // a slime to practise on, a little ahead
+        const y2 = h.y + 150, tn = tunnelAt(y2), e = spawnEnemy('slime', tn.cx + rnd(-30, 30), y2); e.atk = 0; e.cd = 3; tut.slime = e; burst(e.x, e.y, 14, '#9ff0a8', 160, 0.4);
+      } else if ((tut.mark -= dt) <= 0) { tut.mark = 0.9; popText(tut.slime.x, tut.slime.y + 40, '▼', '#f2c14e', 18, 0.8); }
+    }
+    else if (S.g === 'door' && tut.t > 6) tutDone('door');
+  }
+  function drawTut() {
+    const st = TUT[tut.i]; if (!st) return;
+    const bw = Math.min(W - 20, 350), bx = W / 2 - bw / 2, bh = 76, ok = tut.okT > 0, T2 = tut.t;
+    // the card sits between the door counter (top right) and the hero (just below the middle)
+    const by = Math.round(Math.max(H * 0.4, safeTop() + 272));
+    ctx.fillStyle = 'rgba(12,10,30,.88)'; roundRect(bx, by, bw, bh, 10); ctx.fill();
+    ctx.strokeStyle = ok ? '#6fd38a' : '#f2c14e'; ctx.lineWidth = 2; roundRect(bx, by, bw, bh, 10); ctx.stroke();
+    const tx0 = bx + 70 + (bw - 78) / 2;   // text to the right of the little gesture picture
+    txt(`チュートリアル ${tut.i + 1}/${TUT.length}　${st.t}`, tx0, by + 19, 12, ok ? '#6fd38a' : '#f2c14e', 'center');
+    txt(st.a, tx0, by + 43, 13, '#fff', 'center');
+    txt(st.b, tx0, by + 63, 11, '#d8d0e8', 'center');
+    if (ok) { ctx.globalAlpha = Math.min(1, tut.okT * 3); txt('できた！', W / 2, by - 12, 22, '#6fd38a', 'center'); ctx.globalAlpha = 1; }
+    // the gesture, drawn small at the left of the card
+    const gx = bx + 38, gy = by + bh / 2;
+    const pad = (dx, dy, hot) => { ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(gx, gy, 22, 0, 7); ctx.stroke();
+      ctx.fillStyle = hot ? '#ff9a3a' : '#fff'; ctx.beginPath(); ctx.arc(gx + dx, gy + dy, 8, 0, 7); ctx.fill(); };
+    if (ok) { ctx.strokeStyle = '#6fd38a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(gx - 12, gy); ctx.lineTo(gx - 3, gy + 10); ctx.lineTo(gx + 14, gy - 10); ctx.stroke(); return; }
+    if (st.g === 'move') pad(Math.sin(T2 * 2.4) * 11, Math.cos(T2 * 1.7) * 6, false);
+    else if (st.g === 'ram') { const k = (T2 % 1.4) / 1.4, r = Math.min(1, k * 2.2) * 25; pad(r * 0.7, -r * 0.7, r > 19); }
+    else if (st.g === 'hit') { const k = (T2 % 1.2) / 1.2; ctx.fillStyle = '#58d36b'; ctx.beginPath(); ctx.ellipse(gx + 14, gy + 4, 9, 7, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#ff9a3a'; ctx.beginPath(); ctx.arc(gx - 16 + Math.min(1, k * 1.8) * 20, gy + 2, 7, 0, 7); ctx.fill(); }
+    else if (st.g === 'roll') { const k = (T2 % 1.1) / 1.1; ctx.strokeStyle = `rgba(255,255,255,${1 - k})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(gx - 22, gy); ctx.lineTo(gx - 22 + k * 48, gy); ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(gx - 22 + Math.min(1, k * 1.6) * 42, gy, 7, 0, 7); ctx.fill(); }
+    else if (st.g === 'skill') { for (let i = 0; i < 2; i++) { const k = ((T2 + i * 0.25) % 1.2) / 1.2; ctx.strokeStyle = `rgba(255,210,122,${1 - k})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(gx, gy, 6 + k * 20, 0, 7); ctx.stroke(); }
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(gx, gy, 6, 0, 7); ctx.fill(); }
+    else {   // どうぐ / とびら: an arrow from the card to the button / the counter
+      let tx, ty;
+      if (st.g === 'item') { const r = $('itemBtn').getBoundingClientRect(), c = cv.getBoundingClientRect(); tx = (r.left + r.width / 2 - c.left) / S; ty = (r.top - c.top) / S - 6; }
+      else { tx = W - 56; ty = safeTop() + 260; }
+      const bob = Math.sin(T2 * 6) * 5, down = ty > by, fx0 = tx - 26, fy0 = down ? ty - 46 : ty + 46, ex = tx, ey = ty + (down ? bob : -bob);
+      ctx.strokeStyle = '#f2c14e'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(fx0, fy0 + (down ? bob : -bob)); ctx.lineTo(ex, ey); ctx.stroke();
+      const a = Math.atan2(ty - fy0, tx - fx0);
+      ctx.fillStyle = '#f2c14e'; ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ex - Math.cos(a - 0.5) * 13, ey - Math.sin(a - 0.5) * 13); ctx.lineTo(ex - Math.cos(a + 0.5) * 13, ey - Math.sin(a + 0.5) * 13); ctx.fill();
+      txt(st.g === 'item' ? 'どうぐ' : 'とびら', gx, gy + 5, 13, '#f2c14e', 'center');
+    }
+  }
+  // the town: a short guide the first time (指示: チュートリアル)
+  function townGuide() {
+    if (save.tutTown) return;
+    save.tutTown = 1; persist();
+    openPanel('ようこそ！', `<p>・街は 左右に <b class="gold">スワイプ</b>して たてものを えらび、タップで 中に はいる。</p>
+      <p>・<b class="gold">ダンジョンの門</b>：ぼうけんに でかける。はじめは 1ばんめの ダンジョンから。さいしょの ぼうけんでは <b class="gold">チュートリアル</b>で うごかしかたを おしえるよ。</p>
+      <p>・<b class="gold">勇者の家</b>：そうび・スキルの セット・あそびかた。スキル「しょうげきは」は <b class="gold">はじめから つかえる</b>。</p>
+      <p>・<b class="gold">どうぐや</b>：やくそうなどの どうぐと、あたらしい スキル（スキルのしょ）。　<b class="gold">かじや</b>：ぶき・ぼうぐ。</p>
+      <p>・街に もどると HPは ぜんかいふく。</p>`, [['わかった', closePanel, true]]);
   }
 
   function enterBossRoom() {
@@ -1032,7 +1115,7 @@
     const h = hero; if (!h || h.hp <= 0 || h.stun > 0 || (h.rollCD || 0) > 0 || paused || (state !== 'play' && state !== 'boss')) return false;
     const flip = h.pw && h.pw.kind === 'mirror' ? -1 : 1;
     h.rollA = Math.atan2(-dy * flip, dx * flip); h.roll = ROLL_T; h.rollCD = ROLL_CD * (h.s.fx.roller ? 0.5 : 1); h.recoil = 0; h.inv = Math.max(h.inv, ROLL_T + 0.06);
-    burst(h.x, h.y - 6, 10, '#d8ccb0', 140, 0.35); A.sfx('roll');
+    burst(h.x, h.y - 6, 10, '#d8ccb0', 140, 0.35); A.sfx('roll'); tutDone('roll');
     return true;
   }
   function updateHero(dt) {
@@ -2227,7 +2310,7 @@
     const h = hero, id = save.skill, S = SKILLS[id];
     if (!S || !h || h.hp <= 0 || paused || (state !== 'play' && state !== 'boss') || transition) return;
     if (h.skCD > 0) { popText(h.x, h.y + 30, `${S.name} あと ${Math.ceil(h.skCD)}びょう`, '#ff9a8a', 13, 0.8); A.sfx('block'); return; }
-    h.skCD = S.cd * (1 - (h.s.fx.skillcd || 0)); h.skFlash = 0.5;
+    h.skCD = S.cd * (1 - (h.s.fx.skillcd || 0)); h.skFlash = 0.5; tutDone('skill');
     popText(h.x, h.y + 46, S.name + '！', S.col, 17, 1);
     switch (id) {
       case 'shock':
@@ -3141,6 +3224,7 @@
     t += dt;
     if (comboT > 0) { comboT -= dt; if (comboT <= 0) combo = 0; }
     if (hint > 0) hint -= dt;
+    updateTut(dt);
     if (deathT > 0) { deathT -= dt / Math.max(0.3, slowMo > 0 ? 0.3 : 1); if (deathT <= 0) { showDefeat(); return; } }
     if (hero.hp > 0) updateHero(dt);
     updateEnemies(dt);
@@ -4861,7 +4945,8 @@
       ctx.globalAlpha = k; const cy2 = top + (state === 'boss' ? 112 : 240); txt(`${combo} HIT!`, W - 16, cy2, 18 + Math.min(combo, 20) * 0.6, combo >= 10 ? '#ff6ad0' : '#f2c14e', 'right');
       const cb = comboBonus(combo); if (cb > 0) txt(`いりょく +${Math.round(cb * 100)}%`, W - 16, cy2 + 20, 12, '#fff', 'right'); ctx.globalAlpha = 1;
     }
-    if (hint > 0 && state === 'play') {
+    if (tut && state === 'play') drawTut();
+    else if (hint > 0 && state === 'play') {
       ctx.globalAlpha = Math.min(1, hint);
       txt('どこでも指をおいて スライドで移動', W / 2, H * 0.78, 16, '#fff', 'center');
       txt('おおきく たおして とっしん → こうげき！', W / 2, H * 0.78 + 24, 14, '#f2c14e', 'center');
@@ -5234,7 +5319,7 @@
   function openTray() {
     if (!hero || hero.hp <= 0 || (state !== 'play' && state !== 'boss')) return;
     if (hero.itemCD > 0) { popText(hero.x, hero.y + 26, `どうぐは あと ${Math.ceil(hero.itemCD)}びょう`, '#ff9a8a', 13, 0.8); A.sfx('block'); return; }
-    trayOpen = true; paused = true;
+    trayOpen = true; paused = true; tutDone('item');
     const s = hero.s;
     const ids = Object.keys(ITEMS).filter(id => id in bag);
     $('tray').innerHTML = (ids.length ? '' : `<p style="padding:6px 8px;font-size:13px;color:var(--muted)">どうぐを もってきていない</p>`) + ids.map(id => {
@@ -5247,6 +5332,7 @@
   function closeTray() { trayOpen = false; $('tray').hidden = true; if (!panelOpen) paused = false; }
 
   function goTown() {
+    tut = null;
     closePanel(); state = 'town'; D = null; arena = null; boss = null; enemies = []; bullets = []; hero = null; paused = false;
     save.hp = null;   // back in town = fully healed
     townPage = 1; townX = 1;
@@ -5344,7 +5430,7 @@
   function openSkillShop() {
     openPanel('どうぐや', `<div class="tabs"><button data-st="item" aria-pressed="false">どうぐ</button><button data-st="skill" aria-pressed="true">スキルのしょ</button></div>
       <p style="font-size:14px;color:var(--muted);margin-bottom:4px">もちもの：<span class="gold">${save.gold} G</span>・おぼえた スキルは 勇者の家で セットする。ダンジョンで 画面を すばやく 2かい タップすると つかえる。</p>` +
-      Object.keys(SKILLS).map(id => skillRow(id, save.skills.includes(id) ? `<span class="tag">${save.skill === id ? 'セットちゅう' : 'おぼえた'}</span>` : `<span class="price">${SKILLS[id].price} G</span><button class="sbtn" data-sk="${id}" ${save.gold < SKILLS[id].price ? 'disabled' : ''}>かう</button>`)).join(''),
+      Object.keys(SKILLS).map(id => skillRow(id, save.skills.includes(id) ? `<span class="tag">${save.skill === id ? 'セットちゅう' : STARTER_SKILL === id ? 'はじめから' : 'おぼえた'}</span>` : `<span class="price">${SKILLS[id].price} G</span><button class="sbtn" data-sk="${id}" ${save.gold < SKILLS[id].price ? 'disabled' : ''}>かう</button>`)).join(''),
       [['みせを でる', closePanel]], 'item');
     panelBody.querySelectorAll('[data-st]').forEach(b => b.addEventListener('click', () => { shopTab = b.dataset.st; A.sfx('select'); openItemShop(); }));
     panelBody.querySelectorAll('[data-sk]').forEach(b => b.addEventListener('click', () => {
@@ -5524,14 +5610,15 @@
       <p>・おなじ てきに つづけて あてると ヒットすうが ふえる。5ヒットめから 1ヒットごとに いりょくが 2%ずつ あがる（さいだい+50%）。こうげきを うけたり、しばらく あてないと 0に もどる。</p>
       <p>・てきは ときどき そうびを おとす。<span style="color:#c8c0b0">さびた・ぼろぼろの</span>（ショップより すこし よわい）、<span style="color:#7ad8ff">◆とくしゅこうか つき</span>、<span class="gold">★名工の</span>（ショップより つよい・まれ）。ボスも たまに ★を おとす。もっている ものは ゴールドに かわる。</p>
       <p>・そうびは 勇者の家と ポーズがめんの「そうび」で かえられる。</p>
-      <p>・<b class="gold">スキル</b>：どうぐやの「スキルのしょ」で おぼえ、勇者の家で 1つ セットする。ダンジョンで 画面を すばやく 2かい タップすると つかえる。つかったあとは スキルごとの クールタイムを まつ。</p>
+      <p>・<b class="gold">スキル</b>：「しょうげきは」は はじめから つかえる。ほかの スキルは どうぐやの「スキルのしょ」で おぼえ、勇者の家で 1つ セットする。ダンジョンで 画面を すばやく 2かい タップすると つかえる。つかったあとは スキルごとの クールタイムを まつ。</p>
       <p>・街に もどると HPは ぜんかいふく。やられると その ぼうけんで ひろった ゴールドの はんぶんを おとす。</p>
-      <p>・街は 左右に スワイプして たてものを えらび、タップで 中に はいる。</p>`, [['もどる', openHouse, true]], 'house');
+      <p>・街は 左右に スワイプして たてものを えらび、タップで 中に はいる。</p>`, [['もどる', openHouse, true], ['チュートリアルを もういちど', () => { save.tut = 0; persist(); toast('つぎに 1ばんめの ダンジョンに はいると チュートリアル', '#f2c14e'); openHouse(); }]], 'house');
   }
 
   function openPause() {
     paused = true;
-    openPanel('ポーズ', statusHtml() + '<p style="font-size:13px;color:var(--muted);margin-top:8px">街へ かえっても ひろった ゴールドは なくならない。</p>', [['つづける', () => { paused = false; closePanel(); }, true], ['そうび', () => openEquip(openPause)], ['街へかえる', () => { paused = false; retreat(); }]]);
+    openPanel('ポーズ', statusHtml() + '<p style="font-size:13px;color:var(--muted);margin-top:8px">街へ かえっても ひろった ゴールドは なくならない。</p>', [['つづける', () => { paused = false; closePanel(); }, true], ['そうび', () => openEquip(openPause)],
+      ...(tut ? [['チュートリアルを とばす', () => { tutEnd(true); paused = false; closePanel(); }]] : []), ['街へかえる', () => { paused = false; retreat(); }]]);
   }
 
   $('navL').addEventListener('click', () => { if (state === 'town' && !panelOpen) townSwipeTo(townPage - 1); });
@@ -5540,7 +5627,7 @@
   $('itemBtn').addEventListener('click', e => { e.stopPropagation(); if (trayOpen) closeTray(); else openTray(); });
   $('startBtn').addEventListener('click', () => {
     try { audioOn = FMusic.init(); FMusic.resume(); FMusic.setVolume(save.settings.bgm, save.settings.sfx); } catch (e) { audioOn = false; }
-    $('title').hidden = true; goTown();
+    $('title').hidden = true; goTown(); townGuide();
   });
   document.addEventListener('keydown', e => {
     if ((state === 'play' || state === 'boss') && (e.key === ' ' || e.key === 'Shift')) { e.preventDefault(); useSkill(); return; }
@@ -5685,6 +5772,6 @@
   window.claude?.hot?.snapshot?.(() => save);
   requestAnimationFrame(frame);
   // test hooks
-  window.__yusha = { get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
+  window.__yusha = { get tut() { return tut; }, get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
     enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN, ITEMS, EQUIP }, get bag() { return bag; }, openPrep, charmHit, stats, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, get gate() { return [gateKills, gateNeed]; }, killE: e => killEnemy(e), drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt, openOptions };
 })();

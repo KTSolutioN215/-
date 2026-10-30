@@ -443,3 +443,9 @@ sh tools/build_apk.sh      # 初回は Android SDK（platform 35 / build-tools 3
 - 回転攻撃（sweep / twin / whirlblade / tentacles など）の武器・触手は beasts3.js が描き、描いたものに `sw.own = true` を付ける。`drawSweeps` は beasts3 のボスなら `sw.own` だけを見て重ね描きしない（関数 `B3HAS`）。
 - `SPR` の書き出しは `util`（beasts3.js が使う）と `creatureParts`（ザコ用）の両方を残すこと。
 - ザコの作業は `sprites.js` / `yusha.js` のザコ部分で続けてよい。ボスの絵や動きは beasts3.js 側の担当なので触らない。
+
+## はじめから使えるスキルとチュートリアル（2026-10-30）
+- スキル「しょうげきは」（`shock`）は新しいセーブで おぼえて セット済み。古いセーブにも読み込み時に追加（`STARTER_SKILL`）。スキルのしょでは「はじめから」と表示。
+- チュートリアル（`TUT` / `tutStart` / `updateTut` / `drawTut`）：はじめて 1ばんめのダンジョンに入ると 7ステップ（いどう→とっしん→たいあたり→かいひ→スキル→どうぐ→ボスへ）。各ステップは実際に操作するまで進まない。最後の1つ以外は ダメージを うけない。ポーズで とばせる。勇者の家の あそびかたから もう一度できる。
+- 街：タイトルから はじめて 街に来たとき「ようこそ！」の案内を1回だけ表示（`townGuide`）。
+- セーブの `tut` / `tutTown`：レベル2以上か クリア済みの 古いセーブは 1（済み）にする。
