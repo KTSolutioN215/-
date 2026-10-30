@@ -437,3 +437,9 @@ sh tools/build_apk.sh      # 初回は Android SDK（platform 35 / build-tools 3
 - `BASE_GAME=<基準yusha.js> node tools/anim/check_zako_batch910.js`。鎌先2,688点は既存の扇形±1.25rad・射程84内、短剣先1,344点は±1.2rad・射程70内。刃21／13artpxの長さも確認。3,960姿勢の画像端、17段階の予備動作、叩きつけの瞬間、突進と跳躍の向き、AI／データの一致も確認する。
 - 動画は実ゲームの `update/render`、自然AI、勇者無敵・位置固定。背景・勇者・弾・予告・UI込み。元の出現プールを持つステージから4方向で開始し、40シーン4,608フレームを収録。通常153.6秒／半速307.2秒。ミノタウロスとサメだけ各方向4.8秒、他は3.6秒。ネイティブCanvasのアダプターによる収録で、ブラウザ・端末の操作画面録画ではない。
 - ボス・派生キャラ・数値・AI・攻撃範囲・発動時刻・報酬・ステージは変更しない。50／73体完了、残り23体。次はバジリスクから。
+
+## 統合メモ（2026-10-30）：ボス＝web/beasts3.js、ザコ＝web/sprites.js / web/yusha.js
+- ボス30体（試練の5体を除く）は `web/beasts3.js` の3D骨格で描かれる。`yusha.js` の `drawBoss` は `BEAST3.has(type)` を最優先し、`R3` / `WR` / `drawCyclops` はそれらのボスでは使われない（残してあるだけ）。
+- 回転攻撃（sweep / twin / whirlblade / tentacles など）の武器・触手は beasts3.js が描き、描いたものに `sw.own = true` を付ける。`drawSweeps` は beasts3 のボスなら `sw.own` だけを見て重ね描きしない（関数 `B3HAS`）。
+- `SPR` の書き出しは `util`（beasts3.js が使う）と `creatureParts`（ザコ用）の両方を残すこと。
+- ザコの作業は `sprites.js` / `yusha.js` のザコ部分で続けてよい。ボスの絵や動きは beasts3.js 側の担当なので触らない。
