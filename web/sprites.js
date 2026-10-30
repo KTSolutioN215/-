@@ -1727,9 +1727,11 @@ const SPR = (() => {
     // ----- basilisk: the crowned lizard. Rears up and spreads its frill; its stare turns you to stone -----
     basilisk(P) {
       const st = P.st === 'wind' ? 1 : P.st === 'gaze' ? 2 : 0, k = P.f % 2, step = P.step || 0;
-      return mk('basl' + st + k + (st ? 0 : step), 70, 52, 34, 46, g => {
+      const pad=P.motion8?12:0,ready=P.motion8?P.motion8.ready:st?1:0;
+      return mk('basl' + st + k + (st ? 0 : step)+motionKey8(P),70+pad*2,52+pad*2,34+pad,46+pad,(g,x)=>{
+        x.translate(pad,pad);
         const G = { d: '#3a4a1a', m: '#6a8a3a', h: '#a8c868' }, Bel = '#e0d8a0', Sp = '#6a3a8a', Cr = { d: '#8a2a1a', m: '#d84a2a', h: '#ffb060' }, Fr = { d: '#5a1a5a', m: '#a03aa0', h: '#e07ae0' };
-        const rear = st ? 5 : 0;
+        const rear = 5*ready;
         // tail
         tube(g, [[24, 36, 6], [14, 38, 4.6], [6, 34 + k, 3], [2, 29 + k * 2, 1.6]], G, { scale: 1 });
         // legs
@@ -1739,7 +1741,7 @@ const SPR = (() => {
         for (const [px, py] of [[28, 30], [34, 29], [40, 27 - rear]]) { g.ell(px, py, 2, 1.4, Sp); }
         // frill: spread wide like a fan when it means to stare
         const hx = 52, hy = 26 - rear * 1.6;
-        if (st) { for (let i = 0; i < 7; i++) { const a = -Math.PI / 2 - 1.2 + i * 0.4; g.poly([[hx - 4, hy], [hx - 4 + Math.cos(a) * 15, hy + Math.sin(a) * 15], [hx - 4 + Math.cos(a + 0.3) * 13, hy + Math.sin(a + 0.3) * 13]], i % 2 ? Fr.m : Fr.d); } g.ell(hx - 4, hy, 6, 6, Fr.h); }
+        if (ready) { for (let i = 0; i < 7; i++) { const a = -Math.PI / 2 - 1.2 + i * 0.4; g.poly([[hx - 4, hy], [hx - 4 + Math.cos(a) * 15*ready, hy + Math.sin(a) * 15*ready], [hx - 4 + Math.cos(a + 0.3) * 13*ready, hy + Math.sin(a + 0.3) * 13*ready]], i % 2 ? Fr.m : Fr.d); } g.ell(hx - 4, hy, 6, 6, Fr.h); }
         // head
         tube(g, [[44, 32 - rear, 6], [hx, hy, 6]], G);
         g.poly([[hx - 2, hy - 4], [hx + 12, hy - 1], [hx + 12, hy + 3], [hx - 2, hy + 5]], G.m); g.r(hx, hy + 3, 12, 1, G.d);
@@ -1754,8 +1756,9 @@ const SPR = (() => {
     // ----- nightmare clown: never stops juggling. Juggles faster and faster, then throws three bouncing balls -----
     clown(P) {
       const st = P.st === 'aim' ? 1 : P.st === 'throw' ? 2 : 0, f = st === 1 ? P.f % 3 : Math.floor(P.f / 2) % 3, step = P.step || 0;
-      return mk('clwn' + st + f + (st ? 0 : step), 54, 70, 26, 66, (g, x) => {
-        x.translate(0, 6);
+      const pad=P.motion8?12:0;
+      return mk('clwn' + st + f + (st ? 0 : step)+motionKey8(P),54+pad*2,70+pad*2,26+pad,66+pad,(g,x)=>{
+        x.translate(pad,6+pad);
         const Pu = { d: '#4a1a7a', m: '#8a3ad8', h: '#c08aff' }, Ye = { d: '#a87a10', m: '#ffd23a', h: '#fff2a0' }, Wh = '#f4f0f8', Rd = '#e02a3a', BC = ['#ff4a5a', '#4ad0ff', '#ffe14a'];
         // legs + shoes
         for (const [x, o, C] of [[20, step > 0 ? -2 : 0, Pu], [28, step < 0 ? -2 : 0, Ye]]) { bevel(g, x, 47 + o, 5, 8, C); g.ell(x + 3, 56 + o, 5, 2.4, Rd); }
@@ -1765,7 +1768,7 @@ const SPR = (() => {
         // ruffled collar
         for (let i = 0; i < 6; i++) g.ell(17 + i * 3.6, 31 + (i % 2), 2.6, 2, i % 2 ? '#d8d0e8' : Wh);
         // arms: alternate up and down with the juggling, or one flung forward in the throw
-        const juggle = st !== 2, up = f % 2;
+        const juggle = st !== 2, up = P.motion8?(1+Math.sin(P.motion8.loop))/2:f % 2;
         if (st === 2) { tube(g, [[34, 34, 2.4], [42, 30, 2], [48, 28, 1.8]], Ye); blob(g, 49, 28, 2.4, 2.4, { d: '#c8c0d8', m: Wh, h: '#ffffff' }); tube(g, [[17, 34, 2.4], [12, 40, 2]], Pu); }
         else { tube(g, [[17, 34, 2.4], [12, up ? 24 : 30, 2], [14, up ? 18 : 25, 1.8]], Pu); tube(g, [[35, 34, 2.4], [40, up ? 30 : 24, 2], [38, up ? 25 : 18, 1.8]], Ye); for (const [x, y] of [[14, up ? 17 : 24], [38, up ? 24 : 17]]) blob(g, x, y, 2.4, 2.4, { d: '#c8c0d8', m: Wh, h: '#ffffff' }); }
         // face: white, red nose, an unsettling grin
@@ -1779,7 +1782,7 @@ const SPR = (() => {
         // the three balls on their loop
         if (juggle) {
           const pts = [[13, 12], [26, 2], [39, 12], [32, 14], [20, 14]];
-          for (let i = 0; i < 3; i++) { const [bx, by] = pts[(f + i * 2) % 5]; blob(g, bx, by - 6 + (st === 1 ? -2 : 0), 3, 3, { d: '#3a1020', m: BC[i], h: '#ffffff' }); }
+          for (let i = 0; i < 3; i++) { const a=(P.motion8?P.motion8.loop:0)+i*Math.PI*2/3,[bx,by]=P.motion8?[26+Math.cos(a)*13,7+Math.sin(a)*8]:pts[(f+i*2)%5]; blob(g, bx, by - 6 + (st === 1 ? -2 : 0), 3, 3, { d: '#3a1020', m: BC[i], h: '#ffffff' }); }
           if (st === 1) for (let i = 0; i < 3; i++) g.r(10 + i * 14, -2 + (i % 2) * 6, 3, 1, '#ffffff');
         }
       }, '#10061a');
@@ -3665,6 +3668,40 @@ const SPR = (() => {
     return { c, ax: src.ax, ay: src.ay };
   }
 
+  function motionKey8(P){return P.motion8?'|m8|'+JSON.stringify(P.motion8):'';}
+  function zakoView8(type,P){
+    const side=P.view==='r'||P.view==='l',back=P.view==='b',m=P.motion8||{},ready=m.ready!=null?m.ready:(P.st==='wind'||P.st==='gaze'||P.st==='aim'?1:0),k=(P.f||0)%2,step=P.step||0;
+    if(type==='basilisk'&&side||type==='clown'&&!side&&!back)return EN[type](P);
+    const pad=P.motion8?12:0,dims=type==='basilisk'?[70,52,34,46]:[54,70,26,66];
+    return mk('z4h_'+type+'_'+(side?'s':back?'b':'f')+'_'+P.st+'_'+(P.f||0)%6+'_'+step+motionKey8(P),...dims.map((v,i)=>v+pad*(i<2?2:1)),(g,x)=>{
+      x.translate(pad,pad);
+      if(type==='basilisk'){
+        const G={d:'#3a4a1a',m:'#6a8a3a',h:'#a8c868'},Cr={d:'#8a2a1a',m:'#d84a2a',h:'#ffb060'},cx=34,hy=26-ready*8;
+        tube(g,[[cx,36,5],[cx-2,back?24:22,3.5],[cx-6,back?12:15+k,1.6]],G);
+        for(const d of[-1,1])for(const z of[-1,1]){const xx=cx+d*(z<0?7:10),yy=z<0?34:39,lift=step*d*z>0?2:0;tube(g,[[xx,yy,3],[xx+d*2,43-lift,2.4]],z<0?{d:'#26300e',m:'#4a5e28',h:'#6a8a3a'}:G);g.r(xx-2,43-lift,6,2,G.d);}
+        blob(g,cx,34,10,9,G);if(!back){g.ell(cx,38,7,4,'#e0d8a0');g.line(cx-5,39,cx+5,39,1,'#b8a870');}
+        for(const d of[-1,0,1])g.ell(cx+d*4,back?30:28,1.4,2,'#6a3a8a');
+        const frill=()=>{if(!ready)return;for(let i=0;i<7;i++){const a=-Math.PI+ i*Math.PI/7,b=a+Math.PI/7*.85;g.poly([[cx,hy],[cx+Math.cos(a)*16*ready,hy+Math.sin(a)*15*ready],[cx+Math.cos(b)*16*ready,hy+Math.sin(b)*15*ready]],i%2?'#a03aa0':'#5a1a5a');}g.ell(cx,hy,6,6,'#e07ae0');};
+        if(!back)frill();tube(g,[[cx,32-ready*3,6],[cx,hy,6]],G);blob(g,cx,hy,7,5.5,G);
+        if(!back){g.ell(cx,hy+4,7,3,G.m);g.r(cx-5,hy+5,10,1,G.d);for(const d of[-1,1]){g.ell(cx+d*4,hy-1,ready?2.2:1.6,1.8,ready?'#e8ff7a':'#e0c040');g.r(cx+d*4,hy-2,1,3,'#2a0a2a');g.p(cx+d*3,hy+3,G.d);}if(P.st==='gaze'){g.r(cx-4,hy+5,8,3,'#4a0a1a');g.p(cx-2,hy+5,'#fff');g.p(cx+2,hy+5,'#fff');}}
+        for(let i=0;i<3;i++)spike(g,cx-3+i*3,hy-4,-Math.PI/2-.3+i*.3,6+(i===1?2:0),1.4,Cr);
+        if(back)frill();return;
+      }
+      const Pu={d:'#4a1a7a',m:'#8a3ad8',h:'#c08aff'},Ye={d:'#a87a10',m:'#ffd23a',h:'#fff2a0'},Wh='#f4f0f8',Rd='#e02a3a',cx=26,loop=m.loop!=null?m.loop:(P.f||0)%6*Math.PI/3,up=Math.sin(loop),throwing=P.st==='throw';x.translate(0,6);
+      const arm=far=>{const sx=side?cx+(far?-2:1):cx+(far?8:-8),sy=34,ex=side?cx+4:sx+(far?5:-5),ey=throwing?30:27+(far?-1:1)*up*3,hx=side?cx+(throwing?17:7):sx+(far?4:-4),hy=throwing?28:21+(far?-1:1)*up*3,C=far?Ye:Pu;tube(g,[[sx,sy,2.4],[ex,ey,2],[hx,hy,1.8]],C);blob(g,hx,hy,2.4,2.4,{d:'#c8c0d8',m:Wh,h:'#fff'});};
+      if(!side)arm(true);
+      for(const d of[-1,1]){const xx=side?cx-3+d*step*2:cx+d*4-2,lift=step*d>0?2:0;bevel(g,xx,47-lift,5,8,d<0?Ye:Pu);g.ell(xx+(side?4:3),56-lift,5,2.4,Rd);}
+      if(side){g.poly([[cx-7,32],[cx+6,32],[cx+8,49],[cx-8,49]],Pu.m);g.poly([[cx+3,32],[cx+6,32],[cx+8,49],[cx+4,49]],Ye.m);}else{g.poly([[16,32],[26,32],[26,49],[15,49]],Ye.m);g.poly([[26,32],[36,32],[37,49],[26,49]],Pu.m);}g.r(side?cx-8:15,47,side?16:22,2,Pu.d);
+      if(side)for(const yy of[36,42])g.ell(cx+6,yy,1,1.8,Wh);
+      for(let i=0;i<(side?4:6);i++)g.ell((side?cx-5:17)+i*(side?3.3:3.6),31+i%2,2.6,2,i%2?'#d8d0e8':Wh);
+      blob(g,cx,23,side?6.5:7.5,7,{d:'#c8c0d8',m:Wh,h:'#fff'});
+      if(side){g.r(cx+3,20,2,2,'#1a1020');g.r(cx+3,17,2,2,'#4a7ad8');g.ell(cx+6,24,2,2,Rd);g.p(cx+6,23,'#ffb0b0');g.poly([[cx+2,26],[cx+6,26],[cx+4,29],[cx+2,28]],throwing?'#6a0a1a':Rd);g.r(cx+3,26,3,1,'#fff');}
+      g.poly([[cx-8,17],[cx,12],[cx+8,17]],Pu.m);g.poly([[cx-7,15],[cx-(side?10:16),6+up],[cx-2,13]],back?Ye.m:Pu.m);g.poly([[cx+7,15],[cx+(side?10:16),6-up],[cx+2,13]],back?Pu.m:Ye.m);g.ell(cx-(side?10:16),6+up,2,2,Ye.m);g.ell(cx+(side?10:16),6-up,2,2,Pu.h);g.r(cx-(side?7:8),16,side?14:16,2,Ye.d);
+      arm(false);
+      if(!throwing)for(let i=0;i<3;i++){const a=loop+i*Math.PI*2/3;blob(g,cx+Math.cos(a)*(side?8:13),1+Math.sin(a)*8-ready*2,3,3,{d:'#3a1020',m:['#ff4a5a','#4ad0ff','#ffe14a'][i],h:'#fff'});}
+    },type==='basilisk'?'#0e1404':'#10061a');
+  }
+
   const ZAKO4G=new Set(['darkpriest','archdemon','bomber','minotaur','mantis','snowman','assassin','stormeagle','dullahan','shark','sharkfin']);
   function motionKey7(P){return P.motion7?'|m7|'+JSON.stringify(P.motion7):'';}
   const local7=(P,a)=>P.view==='l'?Math.atan2(Math.sin(a),-Math.cos(a)):a;
@@ -4204,7 +4241,7 @@ const SPR = (() => {
   }
   // Four-direction additions for batch 1. Front factories remain the source of truth.
   // Original canvas sizes, anchors, palettes, clothing and equipment are retained.
-  const ZAKO4 = new Set(['sharkfin','darkpriest','archdemon','bomber','minotaur','mantis','snowman','assassin','stormeagle','dullahan','shark','chaosbeast','harpy','crossbow','clockwork','starspirit','fireelem','ghostpirate','dwarf','magicmirror','bonewyvern','book','armor','mimic','angler','jelly','hellhound','fairy','baku','gargoyle','angel','slime','bat','goblin','archer','skeleton','ghost','mage','lizard','golem','knight','imp','wolf','mushroom','spider','fishman','scorpion','mummy','toad','mandrake','wyvern']);
+  const ZAKO4 = new Set(['basilisk','clown','fireslime','iceslime','vampbat','hobgoblin','firearcher','generalskel','wraith','frostmage','sharkfin','darkpriest','archdemon','bomber','minotaur','mantis','snowman','assassin','stormeagle','dullahan','shark','chaosbeast','harpy','crossbow','clockwork','starspirit','fireelem','ghostpirate','dwarf','magicmirror','bonewyvern','book','armor','mimic','angler','jelly','hellhound','fairy','baku','gargoyle','angel','slime','bat','goblin','archer','skeleton','ghost','mage','lizard','golem','knight','imp','wolf','mushroom','spider','fishman','scorpion','mummy','toad','mandrake','wyvern']);
   // Rear-facing slash: hand stays beyond the shoulder; blade uses the world's attack arc.
   // Keep original arm/blade lengths. The fan is the existing generous gameplay range.
   function skeletonUpArm(P,shoulder,hand) {
@@ -4213,6 +4250,7 @@ const SPR = (() => {
     return {hand:[hand[0],hand[1]-2*Math.max(0,hand[1]-shoulder[1])*w],dir:[Math.cos(a),Math.sin(a)]};
   }
   function zakoView(type,P) {
+    if(type==='basilisk'||type==='clown')return zakoView8(type,P);
     if(ZAKO4G.has(type))return zakoView7(type,P);
     if(ZAKO4F.has(type))return zakoView6(type,P);
     if(ZAKO4E.has(type))return zakoView5(type,P);
@@ -4309,7 +4347,7 @@ const SPR = (() => {
     });
   }
   function enemy(type, P) {
-    if(ZAKO4.has(type)&&P.view){let s=zakoView(type,P);if(P.view==='l')s=flipped(s);if(P.flash)s=white(s);return s;}
+    if(ZAKO4.has(type)&&P.view){const V=VAR[type];let s=zakoView(V?V.base:type,P);if(V){const key='v_'+type;if(!s[key])s[key]=recolor(s,V);s=s[key];}if(P.view==='l')s=flipped(s);if(P.flash)s=white(s);return s;}
     const V = VAR[type];
     if (V) {
       const b = EN[V.base](P), key = 'v_' + type;
