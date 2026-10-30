@@ -981,17 +981,6 @@
       txt(st.g === 'item' ? 'どうぐ' : 'とびら', gx, gy + 5, 13, '#f2c14e', 'center');
     }
   }
-  // the town: a short guide the first time (指示: チュートリアル)
-  function townGuide() {
-    if (save.tutTown) return;
-    save.tutTown = 1; persist();
-    openPanel('ようこそ！', `<p>・街は 左右に <b class="gold">スワイプ</b>して たてものを えらび、タップで 中に はいる。</p>
-      <p>・<b class="gold">ダンジョンの門</b>：ぼうけんに でかける。はじめは 1ばんめの ダンジョンから。さいしょの ぼうけんでは <b class="gold">チュートリアル</b>で うごかしかたを おしえるよ。</p>
-      <p>・<b class="gold">勇者の家</b>：そうび・スキルの セット・あそびかた。スキル「しょうげきは」は <b class="gold">はじめから つかえる</b>。</p>
-      <p>・<b class="gold">どうぐや</b>：やくそうなどの どうぐと、あたらしい スキル（スキルのしょ）。　<b class="gold">かじや</b>：ぶき・ぼうぐ。</p>
-      <p>・街に もどると HPは ぜんかいふく。</p>`, [['わかった', closePanel, true]]);
-  }
-
   function enterBossRoom() {
     const B = BOSSES[D.boss];
     state = 'boss';
@@ -5298,12 +5287,13 @@
     g.r(18, Y + 61, 3, 17, C.shE); g.r(13, Y + 67, 13, 3, C.shE); g.ell(19.5, Y + 68.5, 2.4, 2.4, '#e04050');
     // the sword arm raised high (screen right)
     g.line(50, Y + 49, 56, Y + 36, 6.5, C.tun); g.line(56, Y + 36, 54, Y + 24, 5.5, C.tunS); g.ell(51, Y + 47, 5, 4, C.tun);
-    g.ell(54, Y + 21, 4, 4.4, C.skin); g.r(51, Y + 19, 6, 2, C.skinS);
-    // the sword, pointing straight up
-    g.r(52, Y + 12, 4, 10, C.grip); g.ell(54, Y + 24, 2.6, 2.6, C.gold);
+    // the sword, pointing straight up; the fist closes round the grip (drawn over it, so the blade doesn't run through the hand)
+    g.r(52, Y + 12, 4, 13, C.grip); g.ell(54, Y + 26.5, 2.6, 2.6, C.gold);
     g.r(46, Y + 10, 16, 3, C.gold); g.r(46, Y + 12, 16, 1, C.goldS); g.ell(54, Y + 11, 3, 3, '#e04050');
     g.poly([[51, Y + 10], [57, Y + 10], [57, Y - 22], [54, Y - 28], [51, Y - 22]], C.blade); g.poly([[54, Y + 10], [57, Y + 10], [57, Y - 22], [54, Y - 28]], C.bladeS);
     g.r(52, Y - 20, 1, 28, C.bladeH); g.r(54, Y - 24, 1, 32, '#c0c8dc');
+    g.ell(54, Y + 19.5, 4.6, 4.4, C.skin); g.ell(55.5, Y + 21, 3, 2.6, C.skinS);
+    g.r(50, Y + 17, 8, 1, C.skinS); g.r(50, Y + 19.5, 8, 1, C.skinS); g.r(50, Y + 22, 7, 1, C.skinS); g.ell(49.5, Y + 19.5, 1.6, 2.4, C.skin);
     // the head: a big chibi head with the helmet and its red crest
     g.ell(38, Y + 34, 13, 12, C.skin); g.ell(44, Y + 36, 6, 8, C.skinS); g.ell(37, Y + 33, 11, 10.5, C.skin);
     g.r(25, Y + 28, 6, 12, C.hair); g.r(45, Y + 28, 6, 12, C.hairS); g.poly([[26, Y + 30], [50, Y + 30], [47, Y + 34], [41, Y + 31], [35, Y + 34], [29, Y + 31]], C.hair);
@@ -5723,9 +5713,14 @@
   $('navR').addEventListener('click', () => { if (state === 'town' && !panelOpen) townSwipeTo(townPage + 1); });
   $('pauseBtn').addEventListener('click', () => { if (state === 'play' || state === 'boss') { if (trayOpen) closeTray(); A.sfx('select'); openPause(); } });
   $('itemBtn').addEventListener('click', e => { e.stopPropagation(); if (trayOpen) closeTray(); else openTray(); });
+  // audio: made at load (the app's WebView may play at once); a browser lets it sound from the first touch on
+  function startAudio() {
+    try { if (!audioOn) { audioOn = FMusic.init(); FMusic.setVolume(save.settings.bgm, save.settings.sfx); } FMusic.resume(); } catch (e) { audioOn = false; }
+  }
+  document.addEventListener('pointerdown', () => { if (state === 'title') startAudio(); }, true);
   $('startBtn').addEventListener('click', () => {
-    try { audioOn = FMusic.init(); FMusic.resume(); FMusic.setVolume(save.settings.bgm, save.settings.sfx); } catch (e) { audioOn = false; }
-    $('title').hidden = true; goTown(); townGuide();
+    startAudio();
+    $('title').hidden = true; goTown();
   });
   document.addEventListener('keydown', e => {
     if ((state === 'play' || state === 'boss') && (e.key === ' ' || e.key === 'Shift')) { e.preventDefault(); useSkill(); return; }
@@ -5867,6 +5862,7 @@
   }
   let manual = false;
   loadSave(); resize();
+  startAudio(); A.bgm(FARR.title);   // 勇者のテーマ on the title screen
   window.claude?.hot?.snapshot?.(() => save);
   requestAnimationFrame(frame);
   // test hooks

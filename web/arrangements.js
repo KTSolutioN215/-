@@ -355,6 +355,16 @@ const FARR = {
       rage: { key: 1, tempo: 1.05, dbl: ['choir', 12, 0.45] } },
   },
 
+  // ---------------- 勇者のテーマ (title) ----------------
+  title: { name: '勇者のテーマ', mood: 'そうだいに', theme: 'title', mode: 'ionian', key: 62, bpm: 78, room: 3.6, wet: 0.44,
+    lead: { intro: 'horn', A: 'horn', B: 'strings', A2: 'trumpet' }, leadOct: { B: 12, A2: -12 },
+    dbl: { A: ['strings', 12, 0.4], B: ['choir', 0, 0.45], A2: ['strings', 0, 0.5] },
+    harm: { def: [{ p: 'pad', i: 'strings', o: -12, v: 0.5 }, { p: 'arp16', i: 'harp', v: 0.3 }],
+      intro: [{ p: 'trem', i: 'trem', o: -12, v: 0.42 }],
+      B: [{ p: 'pad', i: 'choir', o: -12, v: 0.42 }, { p: 'trem', i: 'trem', v: 0.32 }, { p: 'stab', i: 'brass', o: -12, v: 0.36 }],
+      A2: [{ p: 'pad', i: 'strings', o: -12, v: 0.5 }, { p: 'stab', i: 'brass', o: -12, v: 0.4 }, { p: 'arp16', i: 'harp', v: 0.3 }] },
+    bass: { p: 'half', i: 'contrabass', v: 0.85 }, drums: { intro: 'epicintro', A: 'epic', B: 'epic2', A2: 'epic2' }, crash: true, gain: 1.05 },
+
   // ---------------- 村のワルツ (town) ----------------
   town: {
     name: '村のワルツ', mood: 'のどかに', theme: 'town', mode: 'ionian', key: 65, bpm: 104, room: 2.0, wet: 0.32,
