@@ -11,13 +11,18 @@
 // =============================================================
 const BEAST3 = (() => {
   const U = SPR.util, K = SPR.SCALE;
-  const CW = 330, CH = 270, OX = 165, OY = 244;        // the art canvas; (OX, OY) = the floor under the body
-  const [cv, cx] = U.canvas(CW, CH), g = U.api(cx);
-  // every colour drawn is recorded, so the finished frame can be snapped back onto exactly those colours (crisp pixel art:
-  // no in-between shades from the anti-aliased edges of overlapping shapes)
-  const USED = new Set();
-  for (const k of ['r', 'p', 'poly', 'ell', 'line']) { const f = g[k]; g[k] = function (...a) { const c = a[a.length - 1]; if (typeof c === 'string' && c[0] === '#') USED.add(c); return f.apply(this, a); }; }
-  const [fc, fx] = U.canvas(CW, CH);                   // mirrored / whitened copy
+  // the art canvas; (OX, OY) = the floor under the body. A bigger one is used while a held weapon sweeps the room, so the
+  // long blade isn't cut off at the canvas edge
+  const USED = new Set();   // every colour drawn, so the frame can be snapped back onto exactly those colours (crisp pixel art)
+  function mkCanvas(w, h, ox, oy) {
+    const [c, x] = U.canvas(w, h), a = U.api(x), [f, fxx] = U.canvas(w, h);
+    for (const k of ['r', 'p', 'poly', 'ell', 'line']) { const fn = a[k]; a[k] = function (...q) { const col = q[q.length - 1]; if (typeof col === 'string' && col[0] === '#') USED.add(col); return fn.apply(this, q); }; }
+    return { w, h, ox, oy, c, x, a, f, fx: fxx };
+  }
+  const CVS = [mkCanvas(330, 270, 165, 244), mkCanvas(390, 430, 195, 250)];
+  let CW, CH, OX, OY, cv, cx, g, fc, fx;
+  const useCanvas = i => { const C = CVS[i]; CW = C.w; CH = C.h; OX = C.ox; OY = C.oy; cv = C.c; cx = C.x; g = C.a; fc = C.f; fx = C.fx; };
+  useCanvas(0);
   const PI = Math.PI, TAU = PI * 2;
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v, lerp = (a, b, k) => a + (b - a) * k;
   const sstep = k => { k = clamp(k, 0, 1); return k * k * (3 - 2 * k); };
@@ -40,7 +45,8 @@ const BEAST3 = (() => {
   // ---- facing and projection ----
   const face4 = a => { const c = Math.cos(a), s = Math.sin(a); return Math.abs(c) > 0.7 ? (c > 0 ? 'r' : 'l') : s > 0 ? 'b' : 'f'; };   // world angle (y up)
   function groundDir(f, a) { const c = Math.cos(a), s = Math.sin(a); return f === 'f' ? [c, -s] : f === 'b' ? [-c, s] : f === 'r' ? [-s, c] : [-s, -c]; }   // world angle -> model [x, z]
-  let VIEW = 'f', PSI = -Math.PI / 2, DIRX = 1; const SL = 0.45;   // PSI: the way the body faces in the world (rad, y up); VIEW: which hand-drawn head to use; DIRX: +1 if it faces screen-right
+  let VIEW = 'f', PSI = -Math.PI / 2, DIRX = 1; const SL = 0.45;
+  const phiOf = a => Math.atan2(Math.sin(a), SL * Math.cos(a));   // world angle a model direction must face so that, seen through the camera (depth squashed by SL), it points at world angle a on the top-down arena   // PSI: the way the body faces in the world (rad, y up); VIEW: which hand-drawn head to use; DIRX: +1 if it faces screen-right
   // world angle -> model [x, z] (x = the beast's right side, z = forward)
   function gdir(E, a) { return [-Math.sin(a - PSI), Math.cos(a - PSI)]; }
   // model -> [canvas x, canvas y, depth]. One fixed camera looking down a little (nearer = lower); the model is turned to PSI,
@@ -1601,7 +1607,7 @@ const BEAST3 = (() => {
     });
   }
   function armedBuild(D) {
-    return function (B, P, T, p2) {
+    return function (B, P, T, p2, E) {
       const R = q => pitch(yaw(q, P.yaw), -P.pitch), hip = [0, D.hipY + P.drop, P.sz], up = q => V.add(hip, R(q));
       const shS = up([D.shX, D.shY, 0]), shO = up([-D.shX, D.shY, 0]);
       const [elS, hS] = ik(shS, V.add(shS, R(P.hd)), D.A1, D.A2, R([0.7, 0.6, -0.4])), [elO, hO] = ik(shO, V.add(shO, R(P.oh)), D.A1, D.A2, R([-0.7, 0.6, -0.4]));
@@ -1650,7 +1656,21 @@ const BEAST3 = (() => {
       const hidO = arm(shO, elO, hO, -1, dp(elO) + 1), hidS = arm(shS, elS, hS, 1, dp(elS) + 1.1);
       const wd = (hid, d, H, dir, len) => { if (!hid) return d; const mid = (dp(V.add(H, V.mul(dir, 3))) + dp(V.add(H, V.mul(dir, len)))) / 2, nat = mid + d; return capeD(nat, true) - mid; };
       const swd = norm(R(P.sw));
-      if (!P.sweeping) {
+      if (P.sweeping && B.sweeps && E && E.fy != null) {
+        // spinning attacks (指示: 剣は手に持ったまま、体ごと回る): each blade is held fixed in the body's frame — the body turns
+        // (spinPsi) so the blade lies along its sweep; it reaches out to the sweep's length, its tip on the hit circle
+        const kz = K * E.sz, hc = (E.cy - E.fy) / kz, used = {};
+        B.sweeps.forEach((sw, i) => {
+          const W = i && D.weapon2 ? D.weapon2 : D.weapon, ph = phiOf(sw.ang), d = gdir(null, ph), pf = Math.hypot(Math.cos(ph), SL * Math.sin(ph));
+          const Lm = sw.len / kz / pf, tip = [d[0] * Lm, hc, d[1] * Lm];
+          // the hand on that side holds it; any extra blade (the demon general's third) hangs in the air beside the body
+          let H = null, hid = false;
+          if (!used.S && d[0] > 0.5) { H = hS; hid = hidS; used.S = 1; } else if (!used.O && d[0] < -0.5) { H = hO; hid = hidO; used.O = 1; }
+          if (!H) H = V.add(hip, [d[0] * 20, D.shY * 0.5, d[1] * 20]);
+          const v = V.sub(tip, H), L = V.len(v) || 1, dir = V.mul(v, 1 / L), Wl = Object.assign({}, W, { len: Math.max(W.len * 0.6, L) });
+          drawWeapon(Wl, H, dir, wd(hid, 1.25, H, dir, Wl.len), p2, T);
+        });
+      } else if (!P.sweeping) {
         drawWeapon(D.weapon, hS, swd, wd(hidS, 1.25, hS, swd, D.weapon.len), p2, T);
         if (D.off === 'sword') { const d2 = norm(R([-P.sw[0], P.sw[1], P.sw[2]])); drawWeapon(D.weapon2 || D.weapon, hO, d2, wd(hidO, 1.2, hO, d2, (D.weapon2 || D.weapon).len), p2, T); }
       }
@@ -1859,16 +1879,7 @@ const BEAST3 = (() => {
       }
       const r0 = spec.rim || 26, A = spec.from != null && anchors[spec.from] ? [anchors[spec.from][0] / K, anchors[spec.from][1] / K] : [cxA + cth * r0, cyA + sth * r0 * 0.75];   // from the body's edge, so nothing passes through it
       if (spec.actOnly && !act) return;
-      if (spec.armed) {   // the boss's own weapon, reaching out along the swing
-        if (!A) return;
-        const W = spec.armed.weapon, tip = [cxA + cth * len, cyA + sth * len], p2 = B.phase === 2;
-        if (W.kind === 'club') {
-          const pts = [], rs = []; for (let i = 0; i <= 8; i++) { const k = i / 8; pts.push([lerp(A[0], tip[0], k), lerp(A[1], tip[1], k)]); rs.push(lerp(W.w * 0.45, W.w * 1.1, k * k)); }
-          limbTube(gc, pts, rs, { d: '#5a3818', m: '#8a5a2a', h: '#b88a50' });
-          if (W.spikes) for (let i = 0; i < 7; i++) { const a = i / 7 * TAU; gc.r(Math.round(tip[0] + Math.cos(a) * W.w * 1.2) - 1, Math.round(tip[1] + Math.sin(a) * W.w * 1.2) - 1, 3, 3, '#d0d0d8'); }
-        } else energyBlade(gc, A, tip, W.w + 1, (p2 && W.col2) || W.col);
-        return;
-      }
+      if (spec.armed) return;   // the boss's own weapon: drawn by its rig, held in the hand (armedBuild)
       if (spec.blade) { if (A) energyBlade(gc, A, [cxA + cth * len, cyA + sth * len], spec.w || 5, spec.col); return; }
       if (spec.scythe) {   // the lich's staff grown into a scythe as long as the sweep: pole from its hand, a curved blade at the end
         const tip = [cxA + cth * len, cyA + sth * len], bl = -sg;
@@ -1919,6 +1930,12 @@ const BEAST3 = (() => {
     const sw = B.sweeps[0];
     if (!sw) return st.psiLast != null && mv === st.psiMv ? st.psiLast : null;
     const sg = Math.sign(sw.vel || 1);
+    if (armed) {   // the blade is fixed in the hand, so the body's turn IS the swing: right side (+x) along sweep 0, as projected on screen
+      const tgt = phiOf(sw.ang) + PI / 2;
+      if (mv !== st.psiMv) { st.psiMv = mv; st.psi0 = tgt + sg * 0.35; }
+      const psi = sw.t < sw.tele ? st.psi0 - sg * 0.35 * sstep(sw.t / sw.tele) : (st.psiLast != null ? st.psiLast : tgt) + wrapPI(tgt - (st.psiLast != null ? st.psiLast : tgt));   // winds up against the spin, then turns with it
+      return (st.psiLast = psi);
+    }
     const align = n === 'twin' || armed || (n === 'tentacles' && B.type === 'hakaishin');   // arms out along the blades: the right arm points down sweep 0
     if (mv !== st.psiMv) { st.psiMv = mv; st.psi0 = n === 'tail' ? sw.ang + PI : align ? sw.ang + PI / 2 + sg * 0.35 : st.psi != null ? st.psi : E.look; st.ang0 = null; }
     let psi;
@@ -1965,7 +1982,9 @@ const BEAST3 = (() => {
     E = Object.assign({}, E); E.look = Math.atan2(E.hero.y - B.y, E.hero.x - B.x);
     const f = faceOf(B, E); E.face = f;
     const P = R[0](B, E.t, E);
+    useCanvas(P.sweeping && ARMED[B.type] ? 1 : 0);
     OPS = []; ANCHS = []; MOUTHS = []; cx.clearRect(0, 0, CW, CH);
+    E.fy = yFeet; E.sz = (R[2] || 1) * (B.sizeK || 1); if (E.cy == null) E.cy = yFeet;
     R[1](B, P, E.t, B.phase === 2, E);
     OPS.sort((a, b) => a[0] - b[0]);
     const sz = (R[2] || 1) * (B.sizeK || 1); cx.setTransform(sz, 0, 0, sz, OX * (1 - sz), OY * (1 - sz));   // drawn bigger about the feet: more pixels, not bigger pixels
