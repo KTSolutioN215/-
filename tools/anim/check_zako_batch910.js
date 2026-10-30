@@ -1,0 +1,27 @@
+// Authored scythe/dagger geometry, directional release poses and original combat isolation.
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),{createCanvas}=require('./canvas_host');
+const src=fs.readFileSync('web/yusha.js','utf8'),ss=fs.readFileSync('web/sprites.js','utf8'),ease=src.slice(src.indexOf('  const easeIO ='),src.indexOf('  // the lower body for moves')),code=src.slice(src.indexOf('  const ZP = {'),src.indexOf('  function drawEnemy(e)'));
+const w={globalT:0,hero:{x:100,y:0},VARIANTS:{},hyp:Math.hypot,clamp:(v,a,b)=>Math.max(a,Math.min(b,v)),lerp:(a,b,k)=>a+(b-a)*k,face4:a=>Math.abs(Math.cos(a))>.7?(Math.cos(a)>0?'r':'l'):Math.sin(a)>0?'b':'f'};
+vm.createContext(w);vm.runInContext(ease+code+';this.pose=e=>{const v=zakoFacing(e);return {view:v.face,st:e.st,motion7:zakoMotion7(e,v),f:0,step:0};};',w);
+let polys=[];const v={document:{createElement:()=>createCanvas(1,1)},cap:(pts,c,m)=>{if(['#7a8a60','#e0f4c0','#d0d8e4','#ffd84a'].includes(c))polys.push({c,pts:pts.map(([x,y])=>[m.a*x+m.c*y+m.e,m.b*x+m.d*y+m.f])});}};
+vm.createContext(v);vm.runInContext(ss.replace('poly(pts, c) {','poly(pts, c) { cap(pts,c,x.getTransform());')+';this.SPR=SPR;',v);
+let scythes=0,daggers=0,maxAngle=0,maxRadius=0;const crossed={};
+for(const type of['mantis','assassin'])for(let dir=0;dir<64;dir++)for(let n=0;n<=20;n++){
+ const face=dir/64*Math.PI*2,e={type,ai:type==='mantis'?'swing':'assassin',st:'slash',t:n/20*(type==='mantis'?.2:.18),cd:1,face,x:0,y:0,vx:0,vy:0,phase:0};w.globalT=10+e.t;const p=w.pose(e);p.crit=type==='assassin'&&dir%2===0;p.motion7.sample=n;polys=[];const s=v.SPR.enemy(type,p);assert.equal(polys.length,type==='mantis'?2:1,'weapon count');
+ for(const b of polys){let tip;if(type==='mantis'){tip=b.pts[2];const base=[0,1].map(i=>(b.pts[0][i]*1.8+b.pts[3][i]*2.2)/4);assert(Math.abs(Math.hypot(tip[0]-base[0],tip[1]-base[1])-21)<1e-8,'scythe blade stretched');if(dir===0&&(n===0||n===20))(crossed[b.c]||=[]).push(Math.atan2(tip[1]-base[1],tip[0]-base[0]));scythes++;}else{tip=b.pts[1];const base=[0,1].map(i=>(b.pts[0][i]+b.pts[2][i])/2);assert(Math.abs(Math.hypot(tip[0]-base[0],tip[1]-base[1])-13)<1e-8,'dagger stretched');daggers++;}
+ const [xx,yy]=tip,tx=p.view==='l'?s.c.width-xx:xx,dx=tx-s.ax,dy=yy-(s.ay-(type==='mantis'?14:13)*.75/1.5),delta=Math.abs(Math.atan2(Math.sin(Math.atan2(dy,dx)+face),Math.cos(Math.atan2(dy,dx)+face))),r=Math.hypot(dx,dy)*1.5;
+ assert(delta<(type==='mantis'?1.25:1.2),'tip outside fan '+JSON.stringify({type,dir,n,view:p.view,dx,dy,delta}));assert(r<=(type==='mantis'?84:70),'tip outside reach');assert(xx>=0&&xx<s.c.width&&yy>=0&&yy<s.c.height,'tip clipped');maxAngle=Math.max(maxAngle,delta);maxRadius=Math.max(maxRadius,r);
+ }
+}
+const turns=Object.values(crossed).map(a=>Math.atan2(Math.sin(a[1]-a[0]),Math.cos(a[1]-a[0])));assert.equal(turns.length,2);assert(turns.every(a=>Math.abs(a)>.9)&&turns[0]*turns[1]<0,'both scythes must cut in opposing directions');
+const types=['darkpriest','archdemon','bomber','minotaur','mantis','snowman','assassin','stormeagle','dullahan','shark','sharkfin'];let bounds=0;
+for(const type of types)for(const view of['f','r','l','b'])for(const st of['idle','wind','aim','throw','dash','stun','leap','flop','recover','vanish'])for(let n=0;n<=8;n++){
+ const s=v.SPR.enemy(type,{view,st,f:n%6,k:n/8,w:n/8,step:n%2?1:-1,head:st!=='throw',crit:n%2,motion7:{ready:n/8,release:st==='throw'?1:0,dash:st==='dash'?n/8:0,raise:n/8,hit:0,drop:n/8*3,tired:0,weight:0,face:0,theta:0,cross:0}}),W=s.c.width,H=s.c.height,a=s.c.getContext('2d').getImageData(0,0,W,H).data;
+ for(let x=0;x<W;x++){assert.equal(a[x*4+3],0,type+' top clipped '+view+' '+st);assert.equal(a[((H-1)*W+x)*4+3],0,type+' bottom clipped '+view+' '+st);}for(let y=0;y<H;y++){assert.equal(a[(y*W)*4+3],0,type+' left clipped');assert.equal(a[(y*W+W-1)*4+3],0,type+' right clipped');}bounds++;
+}
+for(const[type,ai,st,time]of[['darkpriest','caster','cast',.6],['bomber','lob','aim',.75],['minotaur','charge','wind',.9],['snowman','roll','aim',.9],['stormeagle','thunder','cast',.7],['dullahan','dullahan','wind',.65]]){const e={type,ai,st,t:0,cd:0,lx:1,ly:0,face:0,x:0,y:0,vx:0,vy:0,phase:0},values=new Set();for(let n=0;n<=60;n++){e.t=n/60*time;w.globalT+=1/60;values.add(w.pose(e).motion7.ready);}assert.equal(values.size,17,type+' anticipation');}
+const e={type:'archdemon',ai:'slam',st:'wind',t:.5,cd:0,face:0,x:0,y:0,vx:0,vy:0,phase:0};assert.equal(w.pose(e).motion7.raise,1);e.t=.7;assert.equal(w.pose(e).motion7.raise,0);assert.equal(w.pose(e).motion7.hit,1);assert.equal(w.pose(e).motion7.drop,3);
+for(const[view,dx,dy]of[['r',1,0],['l',-1,0],['f',0,-1],['b',0,1]]){const e={type:'minotaur',ai:'charge',st:'dash',t:.2,cd:1,lx:dx,ly:dy,face:0,x:0,y:0,vx:0,vy:0,phase:0};assert.equal(w.pose(e).view,view);e.type='shark';e.ai='shark';e.st='leap';e.vx=dx*470;e.vy=dy*470;assert.equal(w.pose(e).view,view);}
+const old=fs.readFileSync(process.env.BASE_GAME,'utf8'),section=(s,a,b)=>s.slice(s.indexOf(a),s.indexOf(b,s.indexOf(a)));
+for(const[a,b]of[['  const EN = {','  const SIG = {'],['  function updateEnemies(dt)','  function updateBullets('],['  function runMove(','  // ---------------------------------------------------------------\n  //  MAIN UPDATE']])assert.equal(section(src,a,b),section(old,a,b),'combat/data changed');
+console.log(JSON.stringify({scytheTips:scythes,daggerTips:daggers,maxAngle,maxRadius,unclippedPoses:bounds,anticipationSteps:17,chargeAndLeapDirections:'passed',slamTiming:'aligned',combatAndData:'unchanged'}));
