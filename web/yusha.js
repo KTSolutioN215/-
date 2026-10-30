@@ -5268,13 +5268,111 @@
     if (paused) { ctx.fillStyle = trayOpen ? 'rgba(0,0,0,.3)' : 'rgba(0,0,0,.45)'; ctx.fillRect(0, 0, W, H); }
   }
   function drawFade() { if (transition) { const k = transition.t < transition.mid ? transition.t / transition.mid : 2 - transition.t / transition.mid; ctx.fillStyle = `rgba(0,0,0,${clamp(k, 0, 1)})`; ctx.fillRect(0, 0, W, H); } }
-  function drawTitleBg() {
-    const bands = ['#120f22', '#161226', '#1b142a', '#20162c', '#25172e', '#2a1830'];
-    bands.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(0, q(i * H / bands.length), W, q(H / bands.length) + 3); });
-    for (let i = 0; i < 30; i++) {
-      const x = q((i * 71 + globalT * 30 * (1 + i % 3)) % (W + 40) - 20), y = q(H * 0.12 + (i * 137) % (H * 0.8));
-      ctx.fillStyle = `rgba(242,193,78,${0.25 + (i % 4) * 0.12})`; const s = i % 3 ? 1.5 : 3; ctx.fillRect(x, y, s, s);
+  // ---- title (指示: ロゴが主役、中央に剣を掲げる勇者を大きく、奥にボスのシルエット) ----
+  // the hero: hand-drawn at half the art resolution and shown at 2x, so it reads big and bold
+  const TH = {};   // cached hero frames (cape wave)
+  function titleHero(f, SC) {   // SC: drawing scale — the shapes are vectors, so a bigger screen gets a finer hero, not bigger pixels
+    const key = f + '|' + SC; if (TH[key]) return TH[key];
+    const U = SPR.util, [c, x] = U.canvas(Math.ceil(76 * SC), Math.ceil(133 * SC)), g = U.api(x), wv = [0, 1, 2, 1][f]; x.scale(SC, SC);
+    const C = { cape: '#c0303a', capeS: '#80182a', capeL: '#e0524a', tun: '#3a6fd8', tunS: '#2648a0', tunH: '#79a6f5', belt: '#6a4020', gold: '#f2c14e', goldS: '#c08a2a', pants: '#2c2c4a', pantsH: '#44446a',
+      boot: '#6a4022', bootS: '#40250f', skin: '#f8d0a8', skinS: '#e0a078', hair: '#7a4a22', hairS: '#4e2c12', helm: '#b58a5a', helmS: '#7d5a36', helmH: '#e0c090', crest: '#c0303a', eye: '#1e1830',
+      blade: '#dfe6f4', bladeS: '#9aa6c0', bladeH: '#ffffff', grip: '#5a3a20', sh: '#8a5a2a', shS: '#5a3618', shE: '#f2c14e' };
+    const Y = 30;   // the sword rises above the body
+    // cape, flaring out behind the legs
+    g.poly([[24, Y + 46], [52, Y + 46], [66 + wv, Y + 100], [58, Y + 97], [50 - wv, Y + 102], [38, Y + 98], [26 + wv, Y + 102], [17, Y + 97], [9 - wv, Y + 100]], C.capeS);
+    g.poly([[26, Y + 46], [50, Y + 46], [61 + wv, Y + 96], [12 - wv, Y + 96]], C.cape);
+    for (const xx of [20, 31, 45, 56]) g.line(38 + (xx - 38) * 0.35, Y + 52, xx + (xx < 38 ? -wv : wv), Y + 95, 1.2, C.capeS);
+    // legs, feet apart
+    for (const [hx, fx, d] of [[33, 25, -1], [43, 51, 1]]) {
+      g.poly([[hx - 4, Y + 70], [hx + 4, Y + 70], [fx + 4, Y + 90], [fx - 4, Y + 90]], C.pants); g.line(hx - 2 * d, Y + 72, fx - 2 * d, Y + 88, 1, d < 0 ? C.pantsH : '#1c1c34');
+      g.poly([[fx - 5, Y + 88], [fx + 5, Y + 88], [fx + 5 + d * 2, Y + 100], [fx - 5 + d * 2, Y + 100]], C.boot); g.r(fx - 6 + d * 2, Y + 98, 12, 3, C.bootS); g.r(fx - 5, Y + 88, 10, 2, C.bootS);
     }
+    // the tunic, belt and skirt
+    g.poly([[25, Y + 46], [51, Y + 46], [48, Y + 66], [28, Y + 66]], C.tun); g.poly([[42, Y + 46], [51, Y + 46], [48, Y + 66], [42, Y + 66]], C.tunS); g.r(29, Y + 48, 2, 12, C.tunH);
+    g.poly([[27, Y + 66], [49, Y + 66], [53, Y + 76], [23, Y + 76]], C.tun); g.poly([[42, Y + 66], [49, Y + 66], [53, Y + 76], [43, Y + 76]], C.tunS);
+    g.r(27, Y + 63, 22, 4, C.belt); g.r(35, Y + 62, 6, 6, C.gold); g.r(37, Y + 64, 2, 2, C.belt);
+    g.poly([[33, Y + 46], [43, Y + 46], [38, Y + 53]], C.tunS); g.line(31, Y + 46, 45, Y + 46, 2, C.gold);   // collar
+    // the shield arm (screen left), shield held in front
+    g.line(26, Y + 49, 20, Y + 60, 6, C.tun); g.line(20, Y + 60, 23, Y + 69, 5, C.tunS);
+    g.ell(20, Y + 70, 11, 13, C.shS); g.ell(19, Y + 69, 9.5, 11.5, C.sh); g.ell(17, Y + 66, 4, 5, '#a8784a');
+    g.r(18, Y + 61, 3, 17, C.shE); g.r(13, Y + 67, 13, 3, C.shE); g.ell(19.5, Y + 68.5, 2.4, 2.4, '#e04050');
+    // the sword arm raised high (screen right)
+    g.line(50, Y + 49, 56, Y + 36, 6.5, C.tun); g.line(56, Y + 36, 54, Y + 24, 5.5, C.tunS); g.ell(51, Y + 47, 5, 4, C.tun);
+    g.ell(54, Y + 21, 4, 4.4, C.skin); g.r(51, Y + 19, 6, 2, C.skinS);
+    // the sword, pointing straight up
+    g.r(52, Y + 12, 4, 10, C.grip); g.ell(54, Y + 24, 2.6, 2.6, C.gold);
+    g.r(46, Y + 10, 16, 3, C.gold); g.r(46, Y + 12, 16, 1, C.goldS); g.ell(54, Y + 11, 3, 3, '#e04050');
+    g.poly([[51, Y + 10], [57, Y + 10], [57, Y - 22], [54, Y - 28], [51, Y - 22]], C.blade); g.poly([[54, Y + 10], [57, Y + 10], [57, Y - 22], [54, Y - 28]], C.bladeS);
+    g.r(52, Y - 20, 1, 28, C.bladeH); g.r(54, Y - 24, 1, 32, '#c0c8dc');
+    // the head: a big chibi head with the helmet and its red crest
+    g.ell(38, Y + 34, 13, 12, C.skin); g.ell(44, Y + 36, 6, 8, C.skinS); g.ell(37, Y + 33, 11, 10.5, C.skin);
+    g.r(25, Y + 28, 6, 12, C.hair); g.r(45, Y + 28, 6, 12, C.hairS); g.poly([[26, Y + 30], [50, Y + 30], [47, Y + 34], [41, Y + 31], [35, Y + 34], [29, Y + 31]], C.hair);
+    g.ell(38, Y + 26, 14, 9, C.helm); g.poly([[24, Y + 26], [52, Y + 26], [52, Y + 31], [24, Y + 31]], C.helm); g.ell(44, Y + 25, 7, 6, C.helmS); g.ell(32, Y + 22, 5, 3, C.helmH);
+    g.r(24, Y + 29, 28, 3, C.gold); g.r(46, Y + 29, 6, 3, C.goldS); g.r(36, Y + 28, 4, 4, '#e04050');
+    g.poly([[36, Y + 18], [40, Y + 18], [44, Y + 8], [41, Y + 9], [38, Y + 4], [35, Y + 9], [32, Y + 8]], C.crest);
+    // a determined face
+    for (const ex of [32, 42]) { g.r(ex, Y + 35, 3, 5, C.eye); g.p(ex, Y + 35, '#ffffff'); g.p(ex + 1, Y + 35, '#ffffff'); }
+    g.line(30, Y + 33, 35, Y + 34, 1.4, C.hairS); g.line(41, Y + 34, 46, Y + 33, 1.4, C.hairS);
+    g.r(36, Y + 42, 4, 1, '#b0504a'); g.p(29, Y + 40, '#f4a090'); g.p(47, Y + 40, '#f4a090');
+    x.setTransform(1, 0, 0, 1, 0, 0); U.pixelize(c, '#140c1c');
+    return (TH[key] = c);
+  }
+  // the boss behind: a beast drawn by beasts3.js, turned into a black silhouette with burning eyes
+  let TS = null;
+  function titleBoss(T) {
+    if (typeof BEAST3 === 'undefined' || !BEAST3.has('dragon')) return null;
+    if (!TS) { const [c, x] = SPR.util.canvas(640, 560); TS = { c, x, B: { type: 'dragon', x: 0, y: 0, r: 46, phase: 2, mv: null, sweeps: [], hp: 1, maxHp: 1, sizeK: 1 } }; }
+    const { c, x, B } = TS;
+    x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, 640, 560);
+    BEAST3.draw(x, B, 320, 520, false, { t: T, hero: { x: 0, y: -200 }, cy: 470 });
+    x.globalCompositeOperation = 'source-in'; x.fillStyle = '#0d0716'; x.fillRect(0, 0, 640, 560); x.globalCompositeOperation = 'source-over';
+    return c;
+  }
+  function drawTitleBg() {
+    const T = globalT, cx2 = W / 2;
+    // a night sky reddening toward the horizon, where the beast rises
+    const bands = ['#0d0a1c', '#120c22', '#180e28', '#20102c', '#2a122e', '#38142e', '#4a182c', '#5e1e2a', '#742a28', '#8a3a26'];
+    bands.forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(0, q(i * H * 0.8 / bands.length), W, q(H * 0.8 / bands.length) + 3); });
+    ctx.fillStyle = '#8a3a26'; ctx.fillRect(0, q(H * 0.79), W, H);
+    for (let i = 0; i < 44; i++) {   // stars, twinkling
+      const x = q((i * 83.7) % W), y = q((i * 151.3) % (H * 0.5)), tw = 0.35 + 0.65 * Math.abs(Math.sin(T * (0.8 + i % 5 * 0.3) + i));
+      ctx.fillStyle = `rgba(255,240,200,${(0.25 + (i % 3) * 0.2) * tw})`; const sz = i % 7 ? 1.5 : 3; ctx.fillRect(x, y, sz, sz);
+    }
+    // a huge moon behind the beast, so its shape stands out
+    const my = H * 0.53, mr = Math.min(W * 0.44, H * 0.23);
+    ctx.fillStyle = 'rgba(255,170,90,.12)'; ctx.beginPath(); ctx.arc(cx2, my, mr * 1.35, 0, 7); ctx.fill();
+    ctx.fillStyle = '#e8865a'; ctx.beginPath(); ctx.arc(cx2, my, mr, 0, 7); ctx.fill();
+    ctx.fillStyle = '#f2a070'; ctx.beginPath(); ctx.arc(cx2 - mr * 0.08, my - mr * 0.08, mr * 0.9, 0, 7); ctx.fill();
+    ctx.fillStyle = 'rgba(200,100,70,.5)'; for (const [dx, dy, r] of [[-0.35, -0.2, 0.16], [0.3, 0.25, 0.12], [0.1, -0.45, 0.08], [-0.15, 0.4, 0.1]]) { ctx.beginPath(); ctx.arc(cx2 + dx * mr, my + dy * mr, r * mr, 0, 7); ctx.fill(); }
+    // the beast's silhouette, wings spread over the whole sky, slowly breathing
+    const sil = titleBoss(T * 0.6);
+    if (sil) {   // crop: the dragon fills [185..455] x [365..535] of its canvas; its head rises just under the logo
+      const k = Math.min(W * 1.02 / 270, H * 0.44 / 155), top = H * 0.335 - 15 * k + Math.sin(T * 0.9) * 3;
+      const dx0 = cx2 - 22 * k;   // a little to the left, so the raised sword doesn't cover its head
+      ctx.drawImage(sil, 185, 360, 270, 175, q(dx0 - 135 * k), q(top - 5 * k), 270 * k, 175 * k);
+      const ey = top + 33 * k, gl = 0.7 + 0.3 * Math.sin(T * 3);   // burning eyes
+      for (const m of [-1, 1]) { const ex = dx0 + m * 9 * k; ctx.fillStyle = `rgba(255,60,40,${0.4 * gl})`; ctx.fillRect(q(ex - 3 * k), q(ey - 1.6 * k), 6 * k, 3.4 * k); ctx.fillStyle = `rgb(255,${120 + 80 * gl | 0},60)`; ctx.fillRect(q(ex - 1.8 * k), q(ey - 0.6 * k), 3.6 * k, 1.6 * k); }
+    }
+    // far crags on the horizon, then the cliff the hero stands on
+    ctx.fillStyle = '#1a0e1e'; ctx.beginPath(); ctx.moveTo(0, H * 0.84); for (let i = 0; i <= 12; i++) ctx.lineTo(W * i / 12, H * (0.8 - ((i * 37) % 7) * 0.008)); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.fill();
+    const gy = H * 0.86;
+    ctx.fillStyle = '#100a14'; ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(0, gy + 24); ctx.lineTo(cx2 - 95, gy + 6); ctx.lineTo(cx2 - 40, gy - 4); ctx.lineTo(cx2 + 45, gy - 4); ctx.lineTo(cx2 + 100, gy + 8); ctx.lineTo(W, gy + 26); ctx.lineTo(W, H); ctx.fill();
+    ctx.fillStyle = '#3a2430'; ctx.fillRect(q(cx2 - 40), q(gy - 4), 85, 3);
+    // the hero, big, sword raised — light pours from the blade
+    const SC = Math.round(Math.min(H * 0.56, W * 1.15) / 138 / PXS * 4) / 4, hs = PXS * SC, hc = titleHero(Math.floor(T * 5) % 4, SC), hw = hc.width * PXS, hh = hc.height * PXS, hx = q(cx2 - hw / 2 - 1.5 * hs), hy = q(gy + 2 - hh);
+    const tipX = hx + 54 * hs, tipY = hy + 2 * hs;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const pulse = 0.6 + 0.4 * Math.sin(T * 2.2);
+    for (const [r, a] of [[46, 0.08], [30, 0.14], [17, 0.3]]) { ctx.fillStyle = `rgba(255,230,160,${a * (0.7 + 0.5 * pulse)})`; ctx.beginPath(); ctx.arc(tipX, tipY, r * (0.9 + 0.1 * pulse), 0, 7); ctx.fill(); }
+    ctx.restore();
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.beginPath(); ctx.ellipse(cx2, gy, 42, 7, 0, 0, 7); ctx.fill();
+    ctx.drawImage(hc, hx, hy, hw, hh);
+    const sp = 8 + 6 * pulse;   // the twinkle at the tip
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(q(tipX - 1.5), q(tipY - sp), 3, sp * 2); ctx.fillRect(q(tipX - sp), q(tipY - 1.5), sp * 2, 3);
+    ctx.fillStyle = '#fff6c8'; ctx.fillRect(q(tipX - 3), q(tipY - 3), 6, 6);
+    // embers drifting up
+    for (let i = 0; i < 24; i++) { const k = (T * (0.08 + (i % 5) * 0.02) + i * 0.137) % 1, x = q((i * 67.3 + Math.sin(T + i) * 14) % W), y = q(H * (1 - k));
+      ctx.fillStyle = `rgba(255,${150 + (i % 3) * 40},80,${0.8 * (1 - k)})`; ctx.fillRect(x, y, 1.5, 1.5); }
   }
   // ---------------------------------------------------------------
   //  DOM UI — town commands, shops, panels
