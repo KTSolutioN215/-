@@ -16,7 +16,7 @@ const BOSS = process.env.BOSS || 'deathknight', MODE = process.env.MODE || 'shee
 const TEST = process.env.TEST || path.join(ROOT, 'web/_test.html');
 fs.mkdirSync(OUT, { recursive: true });
 (async () => {
-  const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 390, height: 640 }, deviceScaleFactor: 2 });
+  const b = await chromium.launch({ ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}) }); const p = await b.newPage({ viewport: { width: 390, height: 640 }, deviceScaleFactor: 2 });
   const errs = []; p.on('pageerror', e => errs.push(e.message + ' ' + (e.stack || '').split('\n')[1]));
   await p.goto('file://' + TEST); await p.waitForTimeout(300);
   const ok = await p.evaluate((boss) => { document.getElementById('startBtn').click(); const Y = __yusha; Y.audio = false; Y.manual = true; Y.noMerchant = true; Y.save.lv = 70;
@@ -41,4 +41,5 @@ fs.mkdirSync(OUT, { recursive: true });
   }
   fs.writeFileSync(OUT + '/labels.json', JSON.stringify(labels));
   console.log(f, 'frames', errs.length ? errs.slice(0, 3) : 'no page errors'); await b.close();
+  if (errs.length) process.exitCode = 1;
 })();
