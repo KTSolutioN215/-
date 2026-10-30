@@ -1494,13 +1494,10 @@ const BEAST3 = (() => {
     staff: [30, 16], staffCol: '#2a1a1a', capeArms: true,
     staffHead(st, sd, P, p2, T) { piece(st, 0.8, (x, y) => { g.ell(x, y, 5, 3, '#f2c14e'); for (const m of [-1, 1]) g.line(x + m * 4, y, x + m * 5, y - 6, 1.6, '#f2c14e'); g.ell(x, y - 6, 4.4, 4.4, p2 ? '#ff3a3a' : '#c04cff'); const h = 6 + Math.sin(T * 14) * 2; g.poly([[x - 3, y - 7], [x, y - 7 - h], [x + 3, y - 7]], p2 ? '#ffb040' : '#e090ff'); }); },
     extra(B, P, T, p2, up, chest) {
-      const top = up([0, -16, -7]), bot = V.add([P.sway * 1.4, -2, -14 - P.lean * 10], [0, 0, 0]);
-      op(VIEW === 'b' ? 0.55 : -20, () => {   // the cape (behind the robe, or over it seen from behind): dark outside, red lining showing at its edges
-        const a = pr(top), b = pr(bot), back = VIEW === 'b';
-        g.poly([[a[0] - 16, a[1]], [a[0] + 16, a[1]], [b[0] + 31, b[1]], [b[0] - 31, b[1]]], back ? '#1a1024' : '#8a0a1e');
-        if (back) { g.poly([[a[0] - 15, a[1]], [a[0] + 15, a[1]], [b[0] + 29, b[1] - 1], [b[0] - 29, b[1] - 1]], '#241632'); for (const f of [-0.4, 0, 0.4]) g.line(a[0] + 15 * f, a[1] + 2, b[0] + 29 * f, b[1], 1, '#120a1a'); }
-        for (let i = -3; i <= 3; i++) g.poly([[b[0] + i * 9 - 4, b[1]], [b[0] + i * 9 + 4, b[1]], [b[0] + i * 9, b[1] + 4 + Math.sin(T * 4 + i) * 1.5]], back ? '#241632' : '#8a0a1e');
-      });
+      // the cape over the shoulders and round the back: dark outside, red lining (seen from the front and inside the far side)
+      drawCape(us => us.map(u => up([u * 20, -20 - 3 * u * u, -12 * (1 - u * u) + 1.5 * u * u])),
+        us => us.map(u => [P.sway * 1.4 + u * 31 + Math.sin(T * 2 + u * 2) * 1.2, -2, (-16 - P.lean * 10) * (1 - 0.45 * u * u)]),
+        { out: '#241632', inn: '#8a0a1e', line: '#0a0610', fold: '#120a1a' }, VIEW === 'b', T, 0.3);
       if (p2) for (const s of [-1, 1]) {   // bat wings
         const root = up([s * 6, -16, -8]), f = Math.sin(T * 4) * 0.2;
         const W = q => V.add(root, roll(yaw([s * q[0], q[1], q[2] - q[0] * 0.35], -s * 0.3), s * f));
@@ -1598,6 +1595,26 @@ const BEAST3 = (() => {
       g.line(A[0] + nx * (w + 3), A[1] + ny * (w + 3), A[0] - nx * (w + 3), A[1] - ny * (w + 3), 2.4, W.guard || '#c9a24a');
     });
   }
+  // a cape (指示: 背中や腕のつけねがマントにめり込まない): a curved sheet over the shoulders and round the back, drawn as vertical
+  // strips each sorted by its own depth — the near side drapes over the body's back and shoulder, the far side hangs behind
+  // it; seen from behind the whole cape is over the back. top(us) / bot(us): the top / hem points for u in -1..1 (left..right)
+  function drawCape(top, bot, C, back, T, maxD) {
+    const N = 8, us = Array.from({ length: N + 1 }, (_, i) => -1 + 2 * i / N), TP = top(us), BT = bot(us);
+    for (let i = 0; i < N; i++) {
+      const um = (us[i] + us[i + 1]) / 2, c = V.mix(V.mix(TP[i], TP[i + 1], 0.5), V.mix(BT[i], BT[i + 1], 0.5), 0.5);
+      const outside = dp(V.add(c, [um, 0, -(1 - um * um) * 1.5 - 0.2])) > dp(c), edgeL = i === 0, edgeR = i === N - 1, d = dp(c) - 2;
+      op(back ? 0.55 + i * 0.001 : d > maxD ? maxD + d * 0.001 : d, () => {
+        const a0 = pr(TP[i]), a1 = pr(TP[i + 1]), b1 = pr(BT[i + 1]), b0 = pr(BT[i]), col = outside ? C.out : C.inn;
+        g.poly([[a0[0], a0[1]], [a1[0], a1[1]], [b1[0], b1[1]], [b0[0], b0[1]]], col);
+        g.line(a0[0], a0[1], a1[0], a1[1], 1.4, C.line);   // the edge over the shoulders
+        if (edgeL) g.line(a0[0], a0[1], b0[0], b0[1], 1.4, C.line);
+        if (edgeR) g.line(a1[0], a1[1], b1[0], b1[1], 1.4, C.line);
+        if (outside && i % 2) g.line((a0[0] + a1[0]) / 2, (a0[1] + a1[1]) / 2 + 2, (b0[0] + b1[0]) / 2, (b0[1] + b1[1]) / 2, 1, C.fold || C.inn);   // folds
+        const hx = (b0[0] + b1[0]) / 2, hy = (b0[1] + b1[1]) / 2;   // the ragged hem
+        g.poly([[b0[0], b0[1]], [b1[0], b1[1]], [hx, hy + 3.5 + Math.sin(T * 4 + i) * 1.3]], col);
+      });
+    }
+  }
   function drawShield(S, at, nrm, d0) {
     op(dp(at) + d0, () => {
       const pts = discPts(at, nrm, S.r, 1, 1.15, 16).map(p => { const q = pr(p); return [q[0], q[1]]; }), c = pr(at), face = Math.abs(nrm[2] * Math.sin(PSI) - nrm[0] * Math.cos(PSI));
@@ -1612,11 +1629,16 @@ const BEAST3 = (() => {
       const shS = up([D.shX, D.shY, 0]), shO = up([-D.shX, D.shY, 0]);
       const [elS, hS] = ik(shS, V.add(shS, R(P.hd)), D.A1, D.A2, R([0.7, 0.6, -0.4])), [elO, hO] = ik(shO, V.add(shO, R(P.oh)), D.A1, D.A2, R([-0.7, 0.6, -0.4]));
       // the cape hangs from the shoulders to the floor behind; legs / arms behind its surface go under it (指示: マントから足や腕がはみ出ない)
-      const cTop = D.cape ? up([0, D.shY + 2, -6]) : null, cBot = [0, -1, -12 - P.sz * 0.5 - P.pitch * 10];
+      // the cape (指示: 背中や腕のつけねがマントにめり込まない): it sits over the shoulders and wraps round the back, so it is a
+      // curved sheet — top edge over the shoulders and round the back of the neck, hem on the floor flaring behind
+      const cBk = D.cape ? D.torso.rt * 0.9 : 0, cZb = -(cBk + 14) - P.sz * 0.8 - P.pitch * 14;
+      const cTop = D.cape ? up([0, D.shY - 3, -cBk]) : null, cBot = [0, -1, cZb];
+      const capeAt = (u, top) => top ? up([u * (D.shX + D.armR[0] + 1), D.shY - 3 - 3 * u * u, -cBk * (1 - u * u) + 1.5 * u * u])
+        : yaw([u * D.cape.w1 + Math.sin(T * 2.2 + u * 2) * 1.2, -1, cZb * (1 - 0.7 * u * u)], P.yaw * 0.5);
       const behindCape = q => { if (!D.cape) return false; const t = clamp((q[1] - cTop[1]) / (cBot[1] - cTop[1]), 0, 1); return q[2] < cTop[2] + (cBot[2] - cTop[2]) * t + 2; };
       const back = VIEW === 'b', hipD = dp(hip);
       // depth for a limb part that the cape covers: seen from behind just under the cape (0.55), otherwise under the cape (-20)
-      const capeD = (nat, low) => back ? Math.min(nat, 0.45 + nat * 0.001) : (low ? -40 : -21) + nat * 0.001;
+      const capeD = (nat, low) => back ? Math.min(nat, 0.45 + nat * 0.001) : (low ? -80 : -60) + nat * 0.001;
       const legHid = q => D.cape && (back || behindCape(q));
       const segT = (a, b, rs, C, d0) => { const m = V.mix(a, b, 0.5), mid = (dp(a) + dp(b)) / 2, nat = mid + d0; tube([a, b], rs, C, (legHid(m) ? capeD(nat) : nat) - mid); };
       // lower body: legs (knees forward), or a ghost's tail / a gown
@@ -1632,11 +1654,7 @@ const BEAST3 = (() => {
       }
       if (D.tail) D.tail(hip, P, T, p2);
       if (D.gown) cone(up([0, -2, 0]), [P.sz * 0.5, -1, P.sz - P.pitch * 6], D.gown.rt, D.gown.rb, D.gown.C, -0.5, true);
-      if (D.cape) {   // behind the body (over it seen from behind), down to the floor
-        op(back ? 0.55 : -20, () => { const a = pr(cTop), b = pr(cBot), w0 = D.cape.w0, w1 = D.cape.w1; g.poly([[a[0] - w0, a[1]], [a[0] + w0, a[1]], [b[0] + w1, b[1]], [b[0] - w1, b[1]]], back ? D.cape.m : D.cape.d);
-          if (back) for (const f of [-0.4, 0, 0.4]) g.line(a[0] + w0 * f, a[1] + 2, b[0] + w1 * f, b[1], 1, D.cape.d);
-          for (let i = -2; i <= 2; i++) g.poly([[b[0] + i * w1 * 0.4 - 4, b[1]], [b[0] + i * w1 * 0.4 + 4, b[1]], [b[0] + i * w1 * 0.4, b[1] + 4 + Math.sin(T * 4 + i) * 1.4]], back ? D.cape.m : D.cape.d); });
-      }
+      if (D.cape) drawCape(us => us.map(u => capeAt(u, true)), us => us.map(u => capeAt(u, false)), { out: D.cape.m, inn: D.cape.d, line: lineCol(D.cape) }, back, T, 1e9);
       if (D.wings) D.wings(up, P, T, p2);
       // torso
       const chest = up([0, D.shY + 2, 0]), waist = up([0, -2, 0]);
@@ -1679,7 +1697,7 @@ const BEAST3 = (() => {
       MOUTHS[0] = D.mouthAt === 'weapon' ? V.add(hS, V.mul(swd, D.weapon.len)) : null;
       // head
       const hc = up([0, D.neckY, 1]);
-      piece(hc, 1, (x, y) => { cx.translate(x, y); cx.scale(D.headK || 1.3, D.headK || 1.3); D.head(p2, T, P); });
+      piece(hc, D.cape && VIEW === 's' ? 22 : 1, (x, y) => { cx.translate(x, y); cx.scale(D.headK || 1.3, D.headK || 1.3); D.head(p2, T, P); });   // the head is never under the cape
       if (D.mouthAt !== 'weapon') MOUTHS[0] = V.add(hc, R([0, D.mouthY || 2, 9]));
     };
   }
