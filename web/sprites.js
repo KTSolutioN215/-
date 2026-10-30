@@ -3677,15 +3677,19 @@ const SPR = (() => {
       x.translate(pad,pad);
       if(type==='basilisk'){
         const G={d:'#3a4a1a',m:'#6a8a3a',h:'#a8c868'},Cr={d:'#8a2a1a',m:'#d84a2a',h:'#ffb060'},cx=34,hy=26-ready*8;
-        tube(g,[[cx,36,5],[cx-2,back?24:22,3.5],[cx-6,back?12:15+k,1.6]],G);
+        // Tail projects toward the viewer in the rear view, away in front.
+        const tail=()=>tube(g,back?[[cx,38,5],[cx+2,44,3.5],[cx+7,49,2.4],[cx+12,48+k,1.6]]:[[cx,36,5],[cx-2,22,3.5],[cx-6,15+k,1.6]],G);
+        const body=()=>{
         for(const d of[-1,1])for(const z of[-1,1]){const xx=cx+d*(z<0?7:10),yy=z<0?34:39,lift=step*d*z>0?2:0;tube(g,[[xx,yy,3],[xx+d*2,43-lift,2.4]],z<0?{d:'#26300e',m:'#4a5e28',h:'#6a8a3a'}:G);g.r(xx-2,43-lift,6,2,G.d);}
         blob(g,cx,34,10,9,G);if(!back){g.ell(cx,38,7,4,'#e0d8a0');g.line(cx-5,39,cx+5,39,1,'#b8a870');}
         for(const d of[-1,0,1])g.ell(cx+d*4,back?30:28,1.4,2,'#6a3a8a');
+        };
+        if(!back){tail();body();}
         const frill=()=>{if(!ready)return;for(let i=0;i<7;i++){const a=-Math.PI+ i*Math.PI/7,b=a+Math.PI/7*.85;g.poly([[cx,hy],[cx+Math.cos(a)*16*ready,hy+Math.sin(a)*15*ready],[cx+Math.cos(b)*16*ready,hy+Math.sin(b)*15*ready]],i%2?'#a03aa0':'#5a1a5a');}g.ell(cx,hy,6,6,'#e07ae0');};
         if(!back)frill();tube(g,[[cx,32-ready*3,6],[cx,hy,6]],G);blob(g,cx,hy,7,5.5,G);
         if(!back){g.ell(cx,hy+4,7,3,G.m);g.r(cx-5,hy+5,10,1,G.d);for(const d of[-1,1]){g.ell(cx+d*4,hy-1,ready?2.2:1.6,1.8,ready?'#e8ff7a':'#e0c040');g.r(cx+d*4,hy-2,1,3,'#2a0a2a');g.p(cx+d*3,hy+3,G.d);}if(P.st==='gaze'){g.r(cx-4,hy+5,8,3,'#4a0a1a');g.p(cx-2,hy+5,'#fff');g.p(cx+2,hy+5,'#fff');}}
         for(let i=0;i<3;i++)spike(g,cx-3+i*3,hy-4,-Math.PI/2-.3+i*.3,6+(i===1?2:0),1.4,Cr);
-        if(back)frill();return;
+        if(back){frill();body();tail();}return;
       }
       const Pu={d:'#4a1a7a',m:'#8a3ad8',h:'#c08aff'},Ye={d:'#a87a10',m:'#ffd23a',h:'#fff2a0'},Wh='#f4f0f8',Rd='#e02a3a',cx=26,loop=m.loop!=null?m.loop:(P.f||0)%6*Math.PI/3,up=Math.sin(loop),throwing=P.st==='throw';x.translate(0,6);
       const arm=far=>{const sx=side?cx+(far?-2:1):cx+(far?8:-8),sy=34,ex=side?cx+4:sx+(far?5:-5),ey=throwing?30:27+(far?-1:1)*up*3,hx=side?cx+(throwing?17:7):sx+(far?4:-4),hy=throwing?28:21+(far?-1:1)*up*3,C=far?Ye:Pu;tube(g,[[sx,sy,2.4],[ex,ey,2],[hx,hy,1.8]],C);blob(g,hx,hy,2.4,2.4,{d:'#c8c0d8',m:Wh,h:'#fff'});};
