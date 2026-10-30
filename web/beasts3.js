@@ -1203,17 +1203,22 @@ const BEAST3 = (() => {
       // arms: shoulder -> elbow -> hand, wide sleeves; the staff in the right hand
       const shR = up([13, -18, 0]), shL = up([-13, -18, 0]);
       const [elR, hR] = ik(shR, V.add(shR, P.hs), 12, 12, [0.6, 0.6, -0.5]), [elL, hL] = ik(shL, V.add(shL, P.ho), 12, 12, [-0.6, 0.6, -0.5]);
+      // a caped caster seen from behind: arms that don't reach back past the cape stay under it (指示: マントから腕がはみ出ない)
+      const capeHid = h => D.capeArms && VIEW === 'b' && h[2] > -9;
+      const ad = (hid, a, b, d) => hid ? 0.4 + d * 0.01 - (dp(a) + dp(b)) / 2 : d;
       for (const [sh, el, h] of [[shR, elR, hR], [shL, elL, hL]]) {
-        tube([sh, el], [5.6, 6.2], D.sleeve || C, 0.6); tube([el, V.mix(el, h, 0.8)], [6.4, 8.6], D.sleeve || C, 0.62);
-        sph(h, 3, D.hand, 0.7, 0);
+        const hid = capeHid(h), hm = V.mix(el, h, 0.8);
+        tube([sh, el], [5.6, 6.2], D.sleeve || C, ad(hid, sh, el, 0.6)); tube([el, hm], [6.4, 8.6], D.sleeve || C, ad(hid, el, hm, 0.62));
+        sph(h, 3, D.hand, ad(hid, h, h, 0.7), 0);
       }
+      const hidR = capeHid(hR);
       const sd = P.sd, sb = V.add(hR, V.mul(sd, -D.staff[0])), st = V.add(hR, V.mul(sd, D.staff[1]));
       if (P.twin) { ANCHS[0] = st; ANCHS[1] = sb; }
       if (P.reaping) ANCHS[0] = hR;   // the staff has become the scythe: drawn out along the sweep (sweepLimbs)
-      else { line(sb, st, 3, '#1a1008', 0.65); line(sb, st, 1.8, D.staffCol || '#7a4a20', 0.66); D.staffHead(st, sd, P, p2, T); }
+      else { line(sb, st, 3, '#1a1008', ad(hidR, sb, st, 0.65)); line(sb, st, 1.8, D.staffCol || '#7a4a20', ad(hidR, sb, st, 0.66)); D.staffHead(st, sd, P, p2, T); }
       MOUTHS.push(V.add(st, V.mul(sd, 4)));
       if (P.glow > 0.5 && B.mv) piece(st, 0.9, (x, y) => { g.ell(x, y, 6 + P.glow * 5, 6 + P.glow * 5, `rgba(${D.glowRGB},${0.25 * P.glow})`); });
-      sph(hR, 3.2, D.hand, 0.71, 0);   // the fist closes over the staff
+      sph(hR, 3.2, D.hand, ad(hidR, hR, hR, 0.71), 0);   // the fist closes over the staff
       if (D.extra) D.extra(B, P, T, p2, up, chest);
       // the head (hand-drawn for front / side / back)
       const hc = up([0, -38, 1]);
@@ -1480,7 +1485,7 @@ const BEAST3 = (() => {
   // =============================================================
   const MAOU = {
     robe: { d: '#120a1a', m: '#2a1a34', h: '#4a3058' }, body: { d: '#120a1a', m: '#30203c', h: '#584070' }, sleeve: { d: '#120a1a', m: '#2a1a34', h: '#4a3058' }, hand: { d: '#5a3a7a', m: '#a080c0', h: '#d8c0f0' }, flare: 25, trim: '#f2c14e', glowRGB: '200,90,255',
-    staff: [30, 16], staffCol: '#2a1a1a',
+    staff: [30, 16], staffCol: '#2a1a1a', capeArms: true,
     staffHead(st, sd, P, p2, T) { piece(st, 0.8, (x, y) => { g.ell(x, y, 5, 3, '#f2c14e'); for (const m of [-1, 1]) g.line(x + m * 4, y, x + m * 5, y - 6, 1.6, '#f2c14e'); g.ell(x, y - 6, 4.4, 4.4, p2 ? '#ff3a3a' : '#c04cff'); const h = 6 + Math.sin(T * 14) * 2; g.poly([[x - 3, y - 7], [x, y - 7 - h], [x + 3, y - 7]], p2 ? '#ffb040' : '#e090ff'); }); },
     extra(B, P, T, p2, up, chest) {
       const top = up([0, -16, -7]), bot = V.add([P.sway * 1.4, -2, -14 - P.lean * 10], [0, 0, 0]);
@@ -1600,21 +1605,29 @@ const BEAST3 = (() => {
       const R = q => pitch(yaw(q, P.yaw), -P.pitch), hip = [0, D.hipY + P.drop, P.sz], up = q => V.add(hip, R(q));
       const shS = up([D.shX, D.shY, 0]), shO = up([-D.shX, D.shY, 0]);
       const [elS, hS] = ik(shS, V.add(shS, R(P.hd)), D.A1, D.A2, R([0.7, 0.6, -0.4])), [elO, hO] = ik(shO, V.add(shO, R(P.oh)), D.A1, D.A2, R([-0.7, 0.6, -0.4]));
+      // the cape hangs from the shoulders to the floor behind; legs / arms behind its surface go under it (指示: マントから足や腕がはみ出ない)
+      const cTop = D.cape ? up([0, D.shY + 2, -6]) : null, cBot = [0, -1, -12 - P.sz * 0.5 - P.pitch * 10];
+      const behindCape = q => { if (!D.cape) return false; const t = clamp((q[1] - cTop[1]) / (cBot[1] - cTop[1]), 0, 1); return q[2] < cTop[2] + (cBot[2] - cTop[2]) * t + 2; };
+      const back = VIEW === 'b', hipD = dp(hip);
+      // depth for a limb part that the cape covers: seen from behind just under the cape (0.55), otherwise under the cape (-20)
+      const capeD = (nat, low) => back ? Math.min(nat, 0.45 + nat * 0.001) : (low ? -40 : -21) + nat * 0.001;
+      const legHid = q => D.cape && (back || behindCape(q));
+      const segT = (a, b, rs, C, d0) => { const m = V.mix(a, b, 0.5), mid = (dp(a) + dp(b)) / 2, nat = mid + d0; tube([a, b], rs, C, (legHid(m) ? capeD(nat) : nat) - mid); };
       // lower body: legs (knees forward), or a ghost's tail / a gown
       if (D.legs) {
         const L = D.legs, hipS = V.add(hip, yaw([L.hipX, 0, 0], P.yaw * 0.5)), hipO = V.add(hip, yaw([-L.hipX, 0, 0], P.yaw * 0.5));
         const ftO = [-P.wid * L.k, L.ank - P.lf, (P.stride / 2 + P.fz + P.sz * 0.4) * L.k], ftS = [P.wid * L.k, L.ank - P.lb, (-P.stride / 2 + P.nz + P.sz * 0.4) * L.k];
         for (const [hp, ft, s] of [[hipO, ftO, -1], [hipS, ftS, 1]]) {
           const [kn, an] = ik(hp, ft, L.L1, L.L2, [s * 0.15, 0, 1]);
-          tube([hp, kn], [L.r1, L.r2], L.C, -1); tube([kn, an], [L.r2, L.r3], L.C2 || L.C, -1);
-          piece(an, -0.9, (x, y) => { const f = VIEW === 's' ? DIRX : 0, w = L.foot; g.ell(x + f * w * 0.4, y + 1, w + 1, 3.6, (L.boot || L.C).d); g.ell(x + f * w * 0.4 - 0.5, y, w, 2.6, (L.boot || L.C).m); });
+          segT(hp, kn, [L.r1, L.r2], L.C, -1); segT(kn, an, [L.r2, L.r3], L.C2 || L.C, -1);
+          const fn = dp(an) - 0.9;
+          piece(an, (legHid(an) ? capeD(fn) : fn) - dp(an), (x, y) => { const f = VIEW === 's' ? DIRX : 0, w = L.foot; g.ell(x + f * w * 0.4, y + 1, w + 1, 3.6, (L.boot || L.C).d); g.ell(x + f * w * 0.4 - 0.5, y, w, 2.6, (L.boot || L.C).m); });
         }
       }
       if (D.tail) D.tail(hip, P, T, p2);
       if (D.gown) cone(up([0, -2, 0]), [P.sz * 0.5, -1, P.sz - P.pitch * 6], D.gown.rt, D.gown.rb, D.gown.C, -0.5, true);
-      if (D.cape) {   // behind the body (in front of it seen from behind), down to the floor
-        const top = up([0, D.shY + 2, -6]), bot = [0, -1, -12 - P.sz * 0.5 - P.pitch * 10];
-        op(VIEW === 'b' ? 0.55 : -20, () => { const a = pr(top), b = pr(bot), back = VIEW === 'b', w0 = D.cape.w0, w1 = D.cape.w1; g.poly([[a[0] - w0, a[1]], [a[0] + w0, a[1]], [b[0] + w1, b[1]], [b[0] - w1, b[1]]], back ? D.cape.m : D.cape.d);
+      if (D.cape) {   // behind the body (over it seen from behind), down to the floor
+        op(back ? 0.55 : -20, () => { const a = pr(cTop), b = pr(cBot), w0 = D.cape.w0, w1 = D.cape.w1; g.poly([[a[0] - w0, a[1]], [a[0] + w0, a[1]], [b[0] + w1, b[1]], [b[0] - w1, b[1]]], back ? D.cape.m : D.cape.d);
           if (back) for (const f of [-0.4, 0, 0.4]) g.line(a[0] + w0 * f, a[1] + 2, b[0] + w1 * f, b[1], 1, D.cape.d);
           for (let i = -2; i <= 2; i++) g.poly([[b[0] + i * w1 * 0.4 - 4, b[1]], [b[0] + i * w1 * 0.4 + 4, b[1]], [b[0] + i * w1 * 0.4, b[1] + 4 + Math.sin(T * 4 + i) * 1.4]], back ? D.cape.m : D.cape.d); });
       }
@@ -1625,15 +1638,23 @@ const BEAST3 = (() => {
       if (D.belly) sph(up([0, -12, 4]), D.belly.r, D.belly.C, -0.35);
       if (D.front) { const fp = up([0, D.front.y, D.front.z]), fc = up([0, D.front.y, 0]); if (dp(fp) > dp(fc) + 1) piece(fp, -0.3, (x, y) => { const w = clamp((dp(fp) - dp(fc)) / D.front.z, 0.2, 1); D.front.draw(x, y, w, p2, T); }); }
       // arms, hands, weapons
-      const arm = (sh, el, h, s, d0) => { if (D.pauld) sph(sh, D.pauld.r, D.pauld.C, d0 + 0.05); tube([sh, el], [D.armR[0], D.armR[1]], D.arm, d0); tube([el, h], [D.armR[1], D.armR[2]], D.arm2 || D.arm, d0 + 0.02); sph(h, D.armR[2] + 0.6, D.hand, d0 + 0.3, 0); };
-      const dS = dp(V.mix(shS, hS, 0.5)) * 0.02 + 1, dO = dp(V.mix(shO, hO, 0.5)) * 0.02 + 1;
-      arm(shO, elO, hO, -1, dp(elO) + 1); arm(shS, elS, hS, 1, dp(elS) + 1.1);
+      // an arm goes under the cape seen from behind (unless it reaches back past it), or from the side when it swings back on the far side
+      const armHid = (el, h) => D.cape && (back ? !behindCape(h) && !behindCape(el) : behindCape(h) && dp(h) < hipD - 2);
+      const arm = (sh, el, h, s, d0) => {
+        const hid = armHid(el, h), at = (q, d) => { const nat = dp(q) + d; return (hid ? capeD(nat, true) : nat) - dp(q); };
+        if (D.pauld) sph(sh, D.pauld.r, D.pauld.C, at(sh, d0 + 0.05));
+        const t2 = (a, b, rs, C, d) => { const m = V.mix(a, b, 0.5); tube([a, b], rs, C, at(m, d) + dp(m) - (dp(a) + dp(b)) / 2); };
+        t2(sh, el, [D.armR[0], D.armR[1]], D.arm, d0); t2(el, h, [D.armR[1], D.armR[2]], D.arm2 || D.arm, d0 + 0.02); sph(h, D.armR[2] + 0.6, D.hand, at(h, d0 + 0.3), 0);
+        return hid;
+      };
+      const hidO = arm(shO, elO, hO, -1, dp(elO) + 1), hidS = arm(shS, elS, hS, 1, dp(elS) + 1.1);
+      const wd = (hid, d, H, dir, len) => { if (!hid) return d; const mid = (dp(V.add(H, V.mul(dir, 3))) + dp(V.add(H, V.mul(dir, len)))) / 2, nat = mid + d; return capeD(nat, true) - mid; };
       const swd = norm(R(P.sw));
       if (!P.sweeping) {
-        drawWeapon(D.weapon, hS, swd, 1.25, p2, T);
-        if (D.off === 'sword') drawWeapon(D.weapon2 || D.weapon, hO, norm(R([-P.sw[0], P.sw[1], P.sw[2]])), 1.2, p2, T);
+        drawWeapon(D.weapon, hS, swd, wd(hidS, 1.25, hS, swd, D.weapon.len), p2, T);
+        if (D.off === 'sword') { const d2 = norm(R([-P.sw[0], P.sw[1], P.sw[2]])); drawWeapon(D.weapon2 || D.weapon, hO, d2, wd(hidO, 1.2, hO, d2, (D.weapon2 || D.weapon).len), p2, T); }
       }
-      if (D.off === 'shield') drawShield(D.shield, V.add(hO, R([-2, 0, 3])), norm(R([-0.3, 0, 1])), 1.4);
+      if (D.off === 'shield') { const sa = V.add(hO, R([-2, 0, 3])); drawShield(D.shield, sa, norm(R([-0.3, 0, 1])), hidO ? capeD(dp(sa) + 1.4, true) - dp(sa) : 1.4); }
       ANCHS[0] = hS; ANCHS[1] = hO;
       MOUTHS[0] = D.mouthAt === 'weapon' ? V.add(hS, V.mul(swd, D.weapon.len)) : null;
       // head
@@ -1653,11 +1674,20 @@ const BEAST3 = (() => {
     front: { y: -24, z: 15, draw(x, y, w) { g.ell(x, y, 15 * w + 3, 5, '#f0ece0'); for (let i = -3; i <= 3; i++) g.p(Math.round(x + i * 4 * w), Math.round(y + 1 + (i % 2)), '#a8a090'); } },
     head(p2, T) {
       const S = GKS, E = p2 ? '#ff3a2a' : '#ffe14a';
-      const crown = () => { g.r(-7, -12, 14, 4, '#f2c14e'); for (let i = -1; i <= 1; i++) g.poly([[i * 5 - 2.5, -12], [i * 5, -17], [i * 5 + 2.5, -12]], '#f2c14e'); g.p(0, -10, '#e04050'); };
-      if (VIEW === 'b') { for (const m of [-1, 1]) g.poly([[m * 7, -3], [m * 18, -8], [m * 16, -2], [m * 7, 2]], S.d); g.ell(0, -1, 10, 9, S.d); g.ell(-1, -2, 9, 8, S.m); crown(); return; }
-      if (VIEW === 's') { const d = DIRX; g.poly([[-4 * d, -3], [-16 * d, -8], [-14 * d, -1], [-4 * d, 3]], S.d); g.ell(1 * d, 0, 10, 9, S.m); g.ell(9 * d, 2, 3, 2.4, S.d); g.r(Math.min(4 * d, 7 * d), -3, 3, 2, E); g.r(Math.min(3 * d, 9 * d), 5, 6, 2, '#3a1a10'); g.p(5 * d, 4, '#ffffff'); crown(); return; }
+      const crown = () => { g.r(-7, -12, 14, 4, '#f2c14e'); for (let i = -1; i <= 1; i++) g.poly([[i * 5 - 2.5, -12], [i * 5, -17], [i * 5 + 2.5, -12]], '#f2c14e'); if (VIEW !== 'b') g.p(0, -10, '#e04050'); };
+      const skull = (x0) => { g.ell(x0, 0, 10.5, 9, S.m); g.ell(x0 + 2, 1, 7, 7, S.d); g.ell(x0 - 1, -1, 8, 7, S.m); };   // the same head / shading in every view
+      if (VIEW === 'b') { for (const m of [-1, 1]) g.poly([[m * 7, -3], [m * 18, -8], [m * 16, -2], [m * 7, 2]], m > 0 ? S.d : S.m); skull(0); crown(); return; }
+      if (VIEW === 's') {   // the front face turned side-on: big ear behind, heavy brow over a yellow slit eye, nose, the wide mouth with an upturned fang
+        const d = DIRX, X = (a, w) => d > 0 ? a : -a - w;
+        g.poly([[-3 * d, -3], [-16 * d, -8], [-14 * d, -2], [-3 * d, 3]], S.d); g.poly([[-4 * d, -2], [-13 * d, -6], [-12 * d, -2], [-4 * d, 1]], S.m);
+        skull(d);
+        g.poly([[9 * d, -2], [13 * d, 0], [9 * d, 2]], S.m); g.p(Math.round(X(10, 1)), 0, S.d);
+        g.r(X(5, 4), -3, 4, 2, E); g.line(2.5 * d, -6, 9.5 * d, -4.5, 1.6, '#2a3a10');
+        g.r(X(2, 9), 4, 9, 2, '#3a1a10'); g.poly([[6 * d, 5], [7 * d, 2], [8 * d, 5]], '#ffffff');
+        crown(); return;
+      }
       for (const m of [-1, 1]) g.poly([[m * 7, -3], [m * 18, -8], [m * 16, -2], [m * 7, 2]], m > 0 ? S.d : S.m);
-      g.ell(0, 0, 10.5, 9, S.m); g.ell(2, 1, 7, 7, S.d); g.ell(-1, -1, 8, 7, S.m);
+      skull(0);
       for (const m of [-1, 1]) { g.r(m * 4 - 2, -3, 4, 2, E); g.line(m * 1.5, -5, m * 7, -6, 1.6, '#2a3a10'); }
       g.r(-1, 0, 3, 2, S.d); g.r(-6, 4, 12, 2, '#3a1a10'); g.poly([[-5, 5], [-4, 2], [-3, 5]], '#ffffff'); g.poly([[3, 5], [4, 2], [5, 5]], '#ffffff'); crown();
     },
