@@ -3669,7 +3669,19 @@ const SPR = (() => {
   function motionKey7(P){return P.motion7?'|m7|'+JSON.stringify(P.motion7):'';}
   const local7=(P,a)=>P.view==='l'?Math.atan2(Math.sin(a),-Math.cos(a)):a;
   function scythe7(g,P,sx,sy,a1,a2,C,far){
-    const m=P.motion7||{};if(m.weight){const f=local7(P,m.face),theta=local7(P,m.theta+(far?1:-1)*m.cross);const upper=Math.atan2(10+Math.sin(f)*2,Math.cos(f)*4);a1+=Math.atan2(Math.sin(upper-a1),Math.cos(upper-a1))*m.weight;a2+=Math.atan2(Math.sin(theta-a2),Math.cos(theta-a2))*m.weight;}
+    const m=P.motion7||{};
+    if(P.motion7){
+      // Lock the claw joint; turn the complete arm from the shoulder.
+      a1=-.95-(far?.25:0);const joint=1.5;
+      if(m.weight){
+        const theta=local7(P,m.theta+(far?1:-1)*m.cross),offset=Math.atan2(21*Math.sin(joint),12+21*Math.cos(joint)),len=Math.hypot(12+21*Math.cos(joint),21*Math.sin(joint));
+        // Aim the rigid assembly from its shoulder at the existing attack fan.
+        const side=P.view==='r'||P.view==='l',dx=sx-(side?28:30),dy=sy-(side?49:53),dot=dx*Math.cos(theta)+dy*Math.sin(theta),along=dot+Math.sqrt(Math.max(0,len*len-dx*dx-dy*dy+dot*dot));
+        const target=Math.atan2(along*Math.sin(theta)-dy,along*Math.cos(theta)-dx)-offset;
+        a1+=Math.atan2(Math.sin(target-a1),Math.cos(target-a1))*m.weight;
+      }
+      a2=a1+joint;
+    }
     const ex=sx+Math.cos(a1)*12,ey=sy+Math.sin(a1)*12,tx=ex+Math.cos(a2)*21,ty=ey+Math.sin(a2)*21,nx=-Math.sin(a2),ny=Math.cos(a2),cx=ex+Math.cos(a2)*11-nx*5,cy=ey+Math.sin(a2)*11-ny*5;
     tube(g,[[sx,sy,2.6],[ex,ey,2.2]],C);g.poly([[ex+nx*2.2,ey+ny*2.2],[cx,cy],[tx,ty],[ex-nx*1.8,ey-ny*1.8]],far?'#7a8a60':'#e0f4c0');if(!far){g.line(ex,ey,cx,cy,1,'#fff');for(let i=1;i<4;i++)g.p(Math.round(ex+Math.cos(a2)*i*4+nx*1.8),Math.round(ey+Math.sin(a2)*i*4+ny*1.8),'#7a8a60');}g.ell(ex,ey,2,2,C.h);
   }
@@ -3687,7 +3699,7 @@ const SPR = (() => {
     const m=P.motion7||{},side=P.view==='r'||P.view==='l',back=P.view==='b',st=P.st,ready=m.ready!=null?m.ready:st==='aim'?1:0,k=(P.f||0)%2,Bm={d:'#101018',m:'#2e2e40',h:'#7a7a92'},hand=back?-1:1,
       bx=cx+hand*(11*(1-ready)+(side?6:0)*ready),by=37-27*ready;
     if(st==='throw'){const tx=side?cx+16:cx+hand*4,ty=22+(back?-3:side?0:3);tube(g,[[cx+hand*6,33,2],[side?cx+11:cx+hand*8,27,1.8],[tx,ty,1.6]],Sk);for(let i=0;i<3;i++)g.r(tx-2+i*3,ty-6+i,2,1,'#e8e0c8');return;}
-    for(const d of[-1,1]){const sx=side?cx+d*2:cx+d*7,rx=side?(d<0?cx-3:cx+8):(d<0?cx-9:cx+8),ry=d<0?40:36,ex=(side?cx+(d<0?-2:6):cx+d*8)*(1-ready)+(side?cx+5:cx+d*12)*ready,ey=(d<0?37:34)*(1-ready)+22*ready,hx=rx*(1-ready)+(bx+d*(side?2:5))*ready,hy=ry*(1-ready)+(by+3)*ready;tube(g,[[sx,33,2],[ex,ey,1.8],[hx,hy,1.6]],Sk);}
+    for(const d of(side?[1]:[-1,1])){const sx=side?cx+d*2:cx+d*7,rx=side?(d<0?cx-3:cx+8):(d<0?cx-9:cx+8),ry=d<0?40:36,ex=(side?cx+(d<0?-2:6):cx+d*8)*(1-ready)+(side?cx+5:cx+d*12)*ready,ey=(d<0?37:34)*(1-ready)+22*ready,hx=rx*(1-ready)+(bx+d*(side?2:5))*ready,hy=ry*(1-ready)+(by+3)*ready;tube(g,[[sx,33,2],[ex,ey,1.8],[hx,hy,1.6]],Sk);}
     blob(g,bx,by,5,5,Bm);g.r(bx-1,by-7,3,2,'#8a8a90');g.line(bx+1,by-7,bx+3,by-9,1,'#c8b080');if(st==='aim'){g.p(bx+3,by-10,k?'#fff':'#ffe14a');g.p(bx+4,by-10,'#ff6a1a');g.p(bx+2+k*3,by-12+k,'#ffe14a');g.p(bx+5-k*4,by-11,'#ff8a2a');}else g.p(bx+3,by-10,'#ff8a2a');
   }
   function dullHead7(g,P,cx,side,back,A){
@@ -3711,12 +3723,12 @@ const SPR = (() => {
       }
       if(type==='archdemon'){
         const C={d:'#4a1028',m:'#8a2a4a',h:'#d0607a'},W={d:'#200814',m:'#3a1024',h:'#6a2a44'},BL={d:'#a05a40',m:'#d88a6a',h:'#f8c0a0'},HN={d:'#a89a70',m:'#e8dcc0',h:'#fff'},cx=35;
-        const wing=d=>{const X=a=>side?cx-a*.85:cx+d*a,el=[X(24),12-k*2],tips=[[X(32),6-k*2],[X(34),22],[X(30),34],[X(21),40]];g.poly([[X(8),30],el,...tips],W.m);g.poly([[X(8),30],el,tips[1],tips[2],tips[3]],W.d);g.line(X(8),30,...el,2.6,'#14040c');for(const t of tips)g.line(...el,...t,1.2,'#14040c');g.p(el[0],el[1]-1,HN.m);};wing(-1);if(!side)wing(1);
+        const wing=d=>{const X=a=>side?cx-a*.85:cx+d*a,el=[X(24),12-k*2],tips=[[X(32),6-k*2],[X(34),22],[X(back?24:30),back?43:34],[X(back?0:21),back?55:40]];g.poly([[X(back?0:8),30],el,...tips],W.m);g.poly([[X(back?0:8),30],el,tips[1],tips[2],tips[3]],W.d);g.line(X(8),30,...el,2.6,'#14040c');for(const t of tips)g.line(...el,...t,1.2,'#14040c');g.p(el[0],el[1]-1,HN.m);};wing(-1);if(!side)wing(1);
         for(const d of[-1,1]){const xx=side?cx+d*4:cx+d*8,lift=step*d>0?2:0;tube(g,[[xx,50,5.5],[xx,58-lift,5],[xx,63-lift,4.5]],C);g.r(xx-6,64-lift,13,3,'#2a0814');for(const c of[-4,0,4])g.p(xx+c,67-lift,HN.m);}
-        x.translate(0,m.drop||0);const arm=far=>{const sx=side?cx+(far?-3:5):cx+(far?-13:13),ex=side?cx+11:sx+(far?-6:6),hx=side?cx+16:sx+(far?-9:9),ay=-14*(m.raise||0);tube(g,[[sx,32,5.5],[ex,38+ay*.5,5],[hx,44+ay,4.8]],C);blob(g,hx,48+ay,5.5,5.5,C);for(const c of[-3,0,3])spike(g,hx+c,52+ay,Math.PI/2,3,1.1,HN);};arm(true);if(back)arm(false);
+        x.translate(0,m.drop||0);const arm=far=>{const sx=side?cx+(far?-3:2):cx+(far?-13:13),ex=side?cx+(far?-3:2):sx+(far?-6:6),hx=side?cx+(far?-2:3):sx+(far?-9:9),ay=-14*(m.raise||0);tube(g,[[sx,32,5.5],[ex,38+ay*.5,5],[hx,44+ay,4.8]],C);blob(g,hx,48+ay,5.5,5.5,C);for(const c of[-3,0,3])spike(g,hx+c,52+ay,Math.PI/2,3,1.1,HN);};arm(true);if(back)arm(false);
         blob(g,cx,40,side?13:16,15,C);if(side){g.ell(cx+7,44,4,8,BL.m);for(const yy of[40,44,48])g.r(cx+4,yy,6,1,BL.d);}for(const d of(side?[1]:[-1,1]))blob(g,cx+d*(side?5:7),30,6,4.5,C);
         blob(g,cx,20,side?8:9.5,8.5,C);for(const d of[-1,1])tube(g,[[cx+d*(side?5:7),15,2.6],[cx+d*(side?9:14),8,2.1],[cx+d*(side?10:15),2,1.2]],HN);
-        if(side){g.poly([[cx+3,19],[cx+8,20],[cx+3,21]],'#ffe14a');g.line(cx+2,17,cx+8,16,1.2,'#2a0814');g.ell(cx+5,25,3.5,2.4,'#2a0814');g.poly([[cx+4,24],[cx+5,27],[cx+6,24]],'#fff');arm(false);}return;
+        if(side){g.poly([[cx+3,19],[cx+8,20],[cx+3,21]],'#ffe14a');g.line(cx+2,17,cx+8,16,1.2,'#2a0814');g.ell(cx+5,25,3.5,2.4,'#2a0814');g.poly([[cx+4,24],[cx+5,27],[cx+6,24]],'#fff');arm(false);}if(back){wing(-1);wing(1);}return;
       }
       if(type==='bomber'){
         const Sk={d:'#4a6a2a',m:'#7fb04a',h:'#b0d878'},Bm={d:'#101018',m:'#2e2e40',h:'#7a7a92'},cx=22,lean=-ready+(m.release||0)*2;
