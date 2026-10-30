@@ -1512,6 +1512,263 @@ const BEAST3 = (() => {
     },
   };
   // =============================================================
+  //  ARMED HUMANOIDS (ゴブリンキング・デスナイト・ゆうれいせんちょう・サイクロプス・かげの勇者・まぐんしょうぐん・だてんし):
+  //  one rig — legs whose knees bend forward (or a ghost's tail / a floating gown), a torso that turns and leans, two arms,
+  //  a weapon held in 3D — posed with keyframes timed to each attack. In the big sweeps the body spins with the weapon and the
+  //  weapon reaches out to the sweep's length (sweepLimbs).
+  // =============================================================
+  const AP0 = { hd: [3, 19, 5], sw: [0.1, 0.95, 0.3], oh: [-3, 19, 3], drop: 1, sz: 0, pitch: 0.02, yaw: 0, stride: 4, wid: 6, lf: 0, lb: 0, fz: 0, nz: 0 };
+  const ap = o => Object.assign({}, AP0, o);
+  const APOSE = {   // hd: weapon hand from its shoulder; sw: weapon direction; oh: free hand; drop/sz: hips down/forward; pitch: lean in; yaw: shoulders turned; stride: feet apart front-to-back
+    rest: ap({}),
+    ready: ap({ hd: [0, 0, 14], sw: [0, -0.75, 0.66], oh: [-2, 10, 10], drop: 3, sz: 1, pitch: 0.08, yaw: -0.1, stride: 10 }),
+    up: ap({ hd: [-2, -21, -5], sw: [0.1, -0.6, -0.8], oh: [-4, 6, 13], drop: -1, sz: -2, pitch: -0.15, yaw: 0.2, stride: 12, lf: 3 }),
+    slam: ap({ hd: [0, 8, 19], sw: [0, 0.72, 0.7], oh: [-4, 14, -9], drop: 7, sz: 4, pitch: 0.32, yaw: -0.25, stride: 17 }),
+    low: ap({ hd: [6, 18, -9], sw: [0.2, 0.6, -0.78], oh: [-4, 6, 12], drop: 7, sz: 1, pitch: 0.25, yaw: 0.2, stride: 13, wid: 7 }),
+    hi: ap({ hd: [2, -20, 9], sw: [0, -0.95, 0.3], oh: [-4, 10, -8], drop: -3, sz: 2, pitch: -0.1, yaw: -0.1, stride: 9, lb: 4 }),
+    sideB: ap({ hd: [14, -4, -10], sw: [0.45, -0.15, -0.88], oh: [-6, 6, 12], drop: 4, sz: -1, pitch: 0.05, yaw: 0.6, stride: 12, wid: 7 }),
+    sideF: ap({ hd: [-12, 2, 16], sw: [-0.85, 0.05, 0.5], oh: [-14, 10, -6], drop: 5, sz: 3, pitch: 0.18, yaw: -0.6, stride: 15, wid: 7, lb: 3 }),
+    thrust: ap({ hd: [0, -4, 22], sw: [0, 0.02, 1], oh: [-6, 12, -10], drop: 4, sz: 6, pitch: 0.28, yaw: -0.3, stride: 18, lb: 3 }),
+    point: ap({ hd: [2, -10, 19], sw: [0, -0.3, 0.95], oh: [-4, 14, 4], drop: 2, sz: 2, pitch: 0.05, yaw: -0.15, stride: 10 }),
+    raise: ap({ hd: [4, -22, 4], sw: [0.1, -1, 0.1], oh: [-6, -20, 4], drop: -1, pitch: -0.12, stride: 6 }),
+    spread: ap({ hd: [22, -3, 3], sw: [1, -0.05, 0.1], oh: [-22, -3, 3], drop: 5, pitch: 0.05, stride: 8, wid: 9 }),
+  };
+  function mixP(a, b, k) { const o = {}; for (const q in a) o[q] = Array.isArray(a[q]) ? V.mix(a[q], b[q], k) : typeof a[q] === 'number' ? lerp(a[q], b[q], k) : a[q]; return o; }
+  function kf(keys, t) {
+    if (t <= keys[0][0]) return APOSE[keys[0][1]];
+    for (let i = 1; i < keys.length; i++) { const [t1, n1, e] = keys[i]; if (t > t1) continue; const [t0, n0] = keys[i - 1], k0 = (t - t0) / Math.max(0.001, t1 - t0); return mixP(APOSE[n0], APOSE[n1], e === 'in' ? k0 * k0 * k0 : sstep(k0)); }
+    return APOSE[keys[keys.length - 1][1]];
+  }
+  const hitsK = (times, a, b, pre = 0.25) => { const K2 = [[0, 'rest']]; times.forEach((T0, i) => { const [w, s] = i % 2 && a === 'sideB' ? [b, a] : [a, b]; K2.push([T0 - pre, w], [T0, s, 'in'], [T0 + 0.14, s]); }); K2.push([times[times.length - 1] + 0.55, 'rest']); return K2; };
+  const holdK = (t0, t1, p = 'point') => [[0, 'rest'], [Math.max(0.05, t0 - 0.22), 'up'], [t0, p, 'in'], [t1, p], [t1 + 0.4, 'rest']];
+  function armedPose(B, T, E) {
+    const mv = B.mv, n = mvName(B), t = mv ? mv.t : 0, p2 = B.phase === 2, b = Math.sin(T * 2.2);
+    const walk = (spd, st) => { const ph = T * spd; return { stride: 0, fz: Math.sin(ph) * st, nz: -Math.sin(ph) * st, lf: Math.max(0, Math.cos(ph)) * 3, lb: Math.max(0, -Math.cos(ph)) * 3 }; };
+    let P;
+    if (!mv) P = Object.assign({}, APOSE.rest, { drop: 1 + b * 0.5, hd: [3, 19 - b * 0.4, 5] });
+    else if ((n === 'sweep' || n === 'twin' || n === 'whirlblade') && B.sweeps.length) { const sw = B.sweeps[0]; P = mixP(APOSE.ready, APOSE.spread, sstep(sw.t / Math.max(0.01, sw.tele))); P.sweeping = sw.t >= sw.tele; }
+    else if (n === 'sweep' || n === 'whirlblade') P = kf([[0, 'rest'], [0.5, 'ready']], t);
+    else if (n === 'quake') P = kf(hitsK([0.45, 1.0, 1.55], 'up', 'slam'), t);
+    else if (n === 'rocks') P = kf(hitsK([0.45, 0.9, 1.35], 'low', 'hi'), t);
+    else if (n === 'aimed3' || n === 'aimed5') P = kf(hitsK([0.45, 0.9], 'sideB', 'sideF'), t);
+    else if (n === 'darkwave') P = kf(hitsK(p2 ? [0.5, 1.1, 1.7] : [0.5, 1.1], 'sideB', 'sideF'), t);
+    else if (n === 'bombs') P = kf(hitsK(Array.from({ length: p2 ? 5 : 3 }, (_, i) => 0.4 + i * 0.28), 'low', 'hi', 0.14), t);
+    else if (n === 'boulders') P = kf(hitsK(Array.from({ length: p2 ? 3 : 2 }, (_, i) => 0.6 + i * 0.5), 'sideB', 'sideF', 0.22), t);
+    else if (n === 'ring' || n === 'ringaimed') P = kf(hitsK([0.55], 'up', 'slam', 0.3), t);
+    else if (n === 'triple') P = kf(hitsK([0.4, 0.72, 1.04], 'up', 'slam', 0.18), t);
+    else if (n === 'mines') P = kf(hitsK([0.45], 'up', 'slam', 0.3), t);
+    else if (n === 'charge' || n === 'dash3' || n === 'firetrail') P = mv.ph === 'go' ? Object.assign({}, APOSE.thrust, walk(22, 9), { pitch: 0.34 }) : kf(mv.ph === 'rest' ? [[0, 'thrust'], [0.5, 'rest']] : [[0, mv.k ? 'thrust' : 'rest'], [0.35, 'ready']], mv.pt || 0);
+    else if (n === 'stalk') P = Object.assign({}, APOSE.ready, walk(9, 6));
+    else if (n === 'jump') P = mv.n === 0 ? kf([[0, 'rest'], [0.3, 'up']], t) : mv.n === 1 ? kf([[0, 'up'], [0.3, 'slam', 'in']], t - mv.t1) : kf([[0, 'slam'], [0.35, 'slam'], [0.8, 'rest']], t - mv.t1 - 0.3);
+    else if (n === 'laser' || n === 'laser3') P = kf(holdK(0.45, 1.3), t);
+    else if (n === 'cross' || n === 'pillars' || n === 'summon' || n === 'rain' || n === 'spiral3') P = kf([[0, 'rest'], [0.35, 'raise'], [n === 'cross' ? 3.6 : 1.5, 'raise'], [(n === 'cross' ? 3.6 : 1.5) + 0.4, 'rest']], t);
+    else if (n === 'cannons') P = kf(p2 ? [[0, 'rest'], [0.15, 'up'], [0.35, 'point', 'in'], [1.3, 'point'], [1.55, 'up'], [1.95, 'point', 'in'], [2.9, 'point'], [3.3, 'rest']] : holdK(0.35, 1.3), t);
+    else if (n === 'wave' || n === 'homing' || n === 'gapring' || n === 'mirror') P = kf(holdK(0.4, n === 'wave' ? 2.2 : 0.9), t);
+    else if (n === 'warp') P = kf([[0, 'rest'], [0.3, 'raise'], [0.8, 'raise'], [1.2, 'rest']], t);
+    else P = kf([[0, 'rest'], [0.3, 'up'], [0.5, 'slam', 'in'], [0.7, 'slam'], [1.1, 'rest']], t);
+    return P;
+  }
+  // weapons, drawn in 3D from the hand along a direction
+  function drawWeapon(W, H, dir, d0, p2, T) {
+    const tip = V.add(H, V.mul(dir, W.len)), base = V.add(H, V.mul(dir, W.grip || 3)), back = V.add(H, V.mul(dir, -(W.pommel || 3)));
+    op((dp(base) + dp(tip)) / 2 + d0, () => {
+      const A = pr(base), Z = pr(tip), Bk = pr(back), Hq = pr(H), dx = Z[0] - A[0], dy = Z[1] - A[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+      const col = p2 && W.col2 ? W.col2 : W.col, glow = p2 && W.glow2 ? W.glow2 : W.glow;
+      g.line(Bk[0], Bk[1], Hq[0], Hq[1], 2.6, W.grip2 || '#3a2410');
+      if (W.kind === 'club') {
+        U.tube(g, [[A[0], A[1], W.w * 0.5], [Z[0], Z[1], W.w]], { d: '#5a3818', m: '#8a5a2a', h: '#b88a50' });
+        if (W.spikes) for (let i = 0; i < 6; i++) { const a = i / 6 * TAU + 0.4; const sx = Z[0] - dx / L * W.w * 0.4 + Math.cos(a) * W.w * 1.05, sy2 = Z[1] - dy / L * W.w * 0.4 + Math.sin(a) * W.w * 1.05; g.r(Math.round(sx) - 1, Math.round(sy2) - 1, 3, 3, '#d0d0d8'); }
+        return;
+      }
+      const w = W.w, curve = W.kind === 'cutlass' ? 1 : 0;
+      if (glow) { g.line(A[0], A[1], Z[0], Z[1], w * 2 + 3, glow); }
+      g.poly([[A[0] + nx * w, A[1] + ny * w], [A[0] + dx * 0.82 + nx * (w * 0.85 + curve * 2), A[1] + dy * 0.82 + ny * (w * 0.85 + curve * 2)], [Z[0] + nx * curve * 3, Z[1] + ny * curve * 3], [A[0] + dx * 0.82 - nx * w * 0.8, A[1] + dy * 0.82 - ny * w * 0.8], [A[0] - nx * w, A[1] - ny * w]], col);
+      g.line(A[0] + dx * 0.05, A[1] + dy * 0.05, A[0] + dx * 0.8, A[1] + dy * 0.8, 1, W.edge || '#ffffff');
+      g.line(A[0] + nx * (w + 3), A[1] + ny * (w + 3), A[0] - nx * (w + 3), A[1] - ny * (w + 3), 2.4, W.guard || '#c9a24a');
+    });
+  }
+  function drawShield(S, at, nrm, d0) {
+    op(dp(at) + d0, () => {
+      const pts = discPts(at, nrm, S.r, 1, 1.15, 16).map(p => { const q = pr(p); return [q[0], q[1]]; }), c = pr(at), face = Math.abs(nrm[2] * Math.sin(PSI) - nrm[0] * Math.cos(PSI));
+      const out = pts.map(([x, y]) => [c[0] + (x - c[0]) * 1.18, c[1] + (y - c[1]) * 1.12]);
+      g.poly(out, S.rim); g.poly(pts, S.face);
+      if (dp(V.add(at, nrm)) > dp(at) && S.emblem) { g.line(c[0], c[1] - S.r * 0.6, c[0], c[1] + S.r * 0.6, 2, S.emblem); g.line(c[0] - S.r * 0.4 * face, c[1] - S.r * 0.15, c[0] + S.r * 0.4 * face, c[1] - S.r * 0.15, 2, S.emblem); }
+    });
+  }
+  function armedBuild(D) {
+    return function (B, P, T, p2) {
+      const R = q => pitch(yaw(q, P.yaw), -P.pitch), hip = [0, D.hipY + P.drop, P.sz], up = q => V.add(hip, R(q));
+      const shS = up([D.shX, D.shY, 0]), shO = up([-D.shX, D.shY, 0]);
+      const [elS, hS] = ik(shS, V.add(shS, R(P.hd)), D.A1, D.A2, R([0.7, 0.6, -0.4])), [elO, hO] = ik(shO, V.add(shO, R(P.oh)), D.A1, D.A2, R([-0.7, 0.6, -0.4]));
+      // lower body: legs (knees forward), or a ghost's tail / a gown
+      if (D.legs) {
+        const L = D.legs, hipS = V.add(hip, yaw([L.hipX, 0, 0], P.yaw * 0.5)), hipO = V.add(hip, yaw([-L.hipX, 0, 0], P.yaw * 0.5));
+        const ftO = [-P.wid * L.k, L.ank - P.lf, (P.stride / 2 + P.fz + P.sz * 0.4) * L.k], ftS = [P.wid * L.k, L.ank - P.lb, (-P.stride / 2 + P.nz + P.sz * 0.4) * L.k];
+        for (const [hp, ft, s] of [[hipO, ftO, -1], [hipS, ftS, 1]]) {
+          const [kn, an] = ik(hp, ft, L.L1, L.L2, [s * 0.15, 0, 1]);
+          tube([hp, kn], [L.r1, L.r2], L.C, -1); tube([kn, an], [L.r2, L.r3], L.C2 || L.C, -1);
+          piece(an, -0.9, (x, y) => { const f = VIEW === 's' ? DIRX : 0, w = L.foot; g.ell(x + f * w * 0.4, y + 1, w + 1, 3.6, (L.boot || L.C).d); g.ell(x + f * w * 0.4 - 0.5, y, w, 2.6, (L.boot || L.C).m); });
+        }
+      }
+      if (D.tail) D.tail(hip, P, T, p2);
+      if (D.gown) cone(up([0, -2, 0]), [P.sz * 0.5, -1, P.sz - P.pitch * 6], D.gown.rt, D.gown.rb, D.gown.C, -0.5, true);
+      if (D.cape) {   // behind the body (in front of it seen from behind), down to the floor
+        const top = up([0, D.shY + 2, -6]), bot = [0, -1, -12 - P.sz * 0.5 - P.pitch * 10];
+        op(VIEW === 'b' ? 0.55 : -20, () => { const a = pr(top), b = pr(bot), back = VIEW === 'b', w0 = D.cape.w0, w1 = D.cape.w1; g.poly([[a[0] - w0, a[1]], [a[0] + w0, a[1]], [b[0] + w1, b[1]], [b[0] - w1, b[1]]], back ? D.cape.m : D.cape.d);
+          if (back) for (const f of [-0.4, 0, 0.4]) g.line(a[0] + w0 * f, a[1] + 2, b[0] + w1 * f, b[1], 1, D.cape.d);
+          for (let i = -2; i <= 2; i++) g.poly([[b[0] + i * w1 * 0.4 - 4, b[1]], [b[0] + i * w1 * 0.4 + 4, b[1]], [b[0] + i * w1 * 0.4, b[1] + 4 + Math.sin(T * 4 + i) * 1.4]], back ? D.cape.m : D.cape.d); });
+      }
+      if (D.wings) D.wings(up, P, T, p2);
+      // torso
+      const chest = up([0, D.shY + 2, 0]), waist = up([0, -2, 0]);
+      cone(chest, waist, D.torso.rt, D.torso.rb, D.torso.C, -0.4); sph(V.add(chest, [0, 2, 0]), D.torso.rt - 1, D.torso.C, -0.45);
+      if (D.belly) sph(up([0, -12, 4]), D.belly.r, D.belly.C, -0.35);
+      if (D.front) { const fp = up([0, D.front.y, D.front.z]), fc = up([0, D.front.y, 0]); if (dp(fp) > dp(fc) + 1) piece(fp, -0.3, (x, y) => { const w = clamp((dp(fp) - dp(fc)) / D.front.z, 0.2, 1); D.front.draw(x, y, w, p2, T); }); }
+      // arms, hands, weapons
+      const arm = (sh, el, h, s, d0) => { if (D.pauld) sph(sh, D.pauld.r, D.pauld.C, d0 + 0.05); tube([sh, el], [D.armR[0], D.armR[1]], D.arm, d0); tube([el, h], [D.armR[1], D.armR[2]], D.arm2 || D.arm, d0 + 0.02); sph(h, D.armR[2] + 0.6, D.hand, d0 + 0.3, 0); };
+      const dS = dp(V.mix(shS, hS, 0.5)) * 0.02 + 1, dO = dp(V.mix(shO, hO, 0.5)) * 0.02 + 1;
+      arm(shO, elO, hO, -1, dp(elO) + 1); arm(shS, elS, hS, 1, dp(elS) + 1.1);
+      const swd = norm(R(P.sw));
+      if (!P.sweeping) {
+        drawWeapon(D.weapon, hS, swd, 1.25, p2, T);
+        if (D.off === 'sword') drawWeapon(D.weapon2 || D.weapon, hO, norm(R([-P.sw[0], P.sw[1], P.sw[2]])), 1.2, p2, T);
+      }
+      if (D.off === 'shield') drawShield(D.shield, V.add(hO, R([-2, 0, 3])), norm(R([-0.3, 0, 1])), 1.4);
+      ANCHS[0] = hS; ANCHS[1] = hO;
+      MOUTHS[0] = D.mouthAt === 'weapon' ? V.add(hS, V.mul(swd, D.weapon.len)) : null;
+      // head
+      const hc = up([0, D.neckY, 1]);
+      piece(hc, 1, (x, y) => { cx.translate(x, y); cx.scale(D.headK || 1.3, D.headK || 1.3); D.head(p2, T, P); });
+      if (D.mouthAt !== 'weapon') MOUTHS[0] = V.add(hc, R([0, D.mouthY || 2, 9]));
+    };
+  }
+  // ---- shared helpers for heads ----
+  const eyeSlit = (y, col, w = 3) => { for (const m of [-1, 1]) g.r(m * 4 - (m > 0 ? 0 : w), y, w, 2, col); };
+  // ---- ゴブリンキング ----
+  const GKS = { d: '#5a7a2e', m: '#86b84a', h: '#b0d878' }, GKR = { d: '#6a1818', m: '#9a2a2a', h: '#c04a3a' };
+  const GOBK = {
+    hipY: -20, shX: 17, shY: -26, neckY: -38, A1: 9, A2: 9, armR: [5, 4.4, 4], arm: GKS, hand: GKS, legs: { hipX: 8, L1: 9, L2: 9, ank: -3, k: 0.8, r1: 6.5, r2: 5, r3: 4.4, C: GKS, foot: 6, boot: { d: '#3a2410', m: '#4a3018' } },
+    torso: { rt: 17, rb: 20, C: GKR }, belly: { r: 13, C: { d: '#8ab060', m: '#b0d878', h: '#d8f0a8' } }, cape: { w0: 16, w1: 26, d: '#5a1010', m: '#8a1e1e' },
+    weapon: { kind: 'club', len: 34, w: 7, spikes: true, grip: 2 }, mouthAt: 'head', headK: 1.45,
+    front: { y: -24, z: 15, draw(x, y, w) { g.ell(x, y, 15 * w + 3, 5, '#f0ece0'); for (let i = -3; i <= 3; i++) g.p(Math.round(x + i * 4 * w), Math.round(y + 1 + (i % 2)), '#a8a090'); } },
+    head(p2, T) {
+      const S = GKS, E = p2 ? '#ff3a2a' : '#ffe14a';
+      const crown = () => { g.r(-7, -12, 14, 4, '#f2c14e'); for (let i = -1; i <= 1; i++) g.poly([[i * 5 - 2.5, -12], [i * 5, -17], [i * 5 + 2.5, -12]], '#f2c14e'); g.p(0, -10, '#e04050'); };
+      if (VIEW === 'b') { for (const m of [-1, 1]) g.poly([[m * 7, -3], [m * 18, -8], [m * 16, -2], [m * 7, 2]], S.d); g.ell(0, -1, 10, 9, S.d); g.ell(-1, -2, 9, 8, S.m); crown(); return; }
+      if (VIEW === 's') { const d = DIRX; g.poly([[-4 * d, -3], [-16 * d, -8], [-14 * d, -1], [-4 * d, 3]], S.d); g.ell(1 * d, 0, 10, 9, S.m); g.ell(9 * d, 2, 3, 2.4, S.d); g.r(Math.min(4 * d, 7 * d), -3, 3, 2, E); g.r(Math.min(3 * d, 9 * d), 5, 6, 2, '#3a1a10'); g.p(5 * d, 4, '#ffffff'); crown(); return; }
+      for (const m of [-1, 1]) g.poly([[m * 7, -3], [m * 18, -8], [m * 16, -2], [m * 7, 2]], m > 0 ? S.d : S.m);
+      g.ell(0, 0, 10.5, 9, S.m); g.ell(2, 1, 7, 7, S.d); g.ell(-1, -1, 8, 7, S.m);
+      for (const m of [-1, 1]) { g.r(m * 4 - 2, -3, 4, 2, E); g.line(m * 1.5, -5, m * 7, -6, 1.6, '#2a3a10'); }
+      g.r(-1, 0, 3, 2, S.d); g.r(-6, 4, 12, 2, '#3a1a10'); g.poly([[-5, 5], [-4, 2], [-3, 5]], '#ffffff'); g.poly([[3, 5], [4, 2], [5, 5]], '#ffffff'); crown();
+    },
+  };
+  // ---- デスナイト ----
+  const DKA = { d: '#1a1a26', m: '#2a2a3a', h: '#4a4a62' };
+  const DKN = {
+    hipY: -26, shX: 15, shY: -30, neckY: -42, A1: 11, A2: 11, armR: [5.4, 4.8, 4.2], arm: DKA, hand: { d: '#1a1a26', m: '#3a3a52', h: '#6a6a88' }, pauld: { r: 8, C: { d: '#2a2a3a', m: '#4a4a62', h: '#8a8ea8' } },
+    legs: { hipX: 7, L1: 12, L2: 12, ank: -3, k: 1, r1: 6, r2: 5.2, r3: 4.6, C: DKA, foot: 6, boot: DKA },
+    torso: { rt: 15, rb: 12, C: DKA }, cape: { w0: 15, w1: 28, d: '#4a0610', m: '#6a0a14' },
+    weapon: { kind: 'sword', len: 46, w: 3.4, col: '#b8bcc8', guard: '#8a1a24', grip2: '#2a1a1a' }, mouthAt: 'weapon',
+    front: { y: -22, z: 13, draw(x, y, w, p2) { g.r(Math.round(x - 3 * w), Math.round(y - 6), Math.max(1, Math.round(6 * w)), 14, '#5a0a14'); g.r(Math.round(x - 12 * w), Math.round(y + 9), Math.round(24 * w), 2, '#c8ccd8'); } },
+    head(p2) {
+      const E = p2 ? '#ff2a4a' : '#ff8a3a', T2 = '#c8ccd8';
+      const horns = () => { for (const m of [-1, 1]) { g.line(m * 7, -6, m * 14, -12, 3, T2); g.line(m * 14, -12, m * 14, -19, 2.4, T2); } };
+      if (VIEW === 'b') { horns(); g.r(-9, -9, 18, 18, DKA.m); g.r(-1, -9, 2, 18, DKA.h); g.r(-9, 7, 18, 2, DKA.d); return; }
+      if (VIEW === 's') { const d = DIRX; g.line(-3 * d, -6, -9 * d, -12, 3, T2); g.line(-9 * d, -12, -9 * d, -19, 2.4, T2); g.r(-8, -9, 17, 18, DKA.m); g.r(d > 0 ? 2 : -9, -2, 7, 3, '#08080c'); g.r(d > 0 ? 4 : -8, -1, 4, 1, E); g.r(d > 0 ? 7 : -9, -9, 2, 18, DKA.h); return; }
+      horns(); g.r(-9, -9, 18, 18, DKA.m); g.r(4, -9, 5, 18, DKA.d); g.r(-8, -8, 3, 6, DKA.h); g.r(-7, -1, 14, 3, '#08080c'); g.r(-6, 0, 4, 1, E); g.r(2, 0, 4, 1, E); g.r(-1, 3, 2, 5, '#08080c');
+    },
+  };
+  // ---- ゆうれいせんちょう ----
+  const GCC = { d: '#141c34', m: '#26385e', h: '#4a6a9a' }, GCG = { d: '#4aa89a', m: '#8ae8d8', h: '#e0fff8' };
+  const GCAP = {
+    hipY: -36, shX: 15, shY: -24, neckY: -38, A1: 10, A2: 10, armR: [5, 4.4, 3.4], arm: GCC, hand: GCG, pauld: { r: 6, C: { d: '#a8782a', m: '#f2c14e', h: '#fff2c0' } },
+    torso: { rt: 15, rb: 14, C: GCC }, weapon: { kind: 'cutlass', len: 30, w: 3, col: '#d8e8f0', guard: '#f2c14e' }, mouthAt: 'weapon',
+    tail(hip, P, T) { const pts = [V.add(hip, [0, 0, 0])]; for (let i = 1; i <= 5; i++) pts.push(V.add(pts[i - 1], [Math.sin(T * 2 + i) * 2.4 * i * 0.3, 6, -2 - P.sz * 0.3])); tube(pts, [14, 13, 11, 8, 5, 2.5], GCG, -0.6); },
+    front: { y: -14, z: 14, draw(x, y, w) { g.poly([[x - 4 * w, y - 12], [x + 4 * w, y - 12], [x + 3 * w, y + 12], [x - 3 * w, y + 12]], '#e8e0d0'); g.line(x - 10 * w, y - 12, x + 8 * w, y + 8, 2.6, '#9a2030'); g.r(Math.round(x - 14 * w), Math.round(y + 2), Math.round(28 * w), 3, '#3a2010'); g.r(Math.round(x - 2 * w), Math.round(y + 2), Math.max(1, Math.round(4 * w)), 3, '#f2c14e'); } },
+    head(p2) {
+      const E = p2 ? '#ff4a6a' : '#7affd8', hat = () => { g.poly([[-14, -6], [0, -13], [14, -6], [10, -4], [0, -8], [-10, -4]], '#120e18'); g.poly([[-8, -6], [-5, -18], [5, -18], [8, -6]], '#2a2234'); g.r(-8, -7, 16, 2, '#f2c14e'); g.ell(0, -13, 2.4, 2.2, '#e8e2cf'); };
+      if (VIEW === 'b') { g.ell(0, 0, 9, 9, GCG.m); hat(); return; }
+      if (VIEW === 's') { const d = DIRX; g.ell(1 * d, 0, 8, 8.5, GCG.m); g.poly([[0, 3], [8 * d, 2], [5 * d, 13], [-2 * d, 9]], '#d8ece8'); g.ell(4 * d, -2, 1.8, 1.6, '#0a1a20'); g.p(4 * d, -2, E); hat(); return; }
+      g.ell(0, 0, 9, 9, GCG.m); g.ell(2, 1, 6, 7, GCG.d); g.ell(-1, -1, 7, 7, GCG.m); g.poly([[-8, 3], [8, 3], [5, 12], [0, 15], [-5, 12]], '#d8ece8'); for (let i = 0; i < 3; i++) g.line(-3 + i * 3, 5, -3 + i * 3, 12, 1, '#a8c8c0');
+      for (const m of [-1, 1]) { g.ell(m * 4, -2, 2.4, 2, '#0a1a20'); g.r(m * 4 - 1, -2, 2, 1, E); } hat();
+    },
+  };
+  // ---- サイクロプス ----
+  const CYS = { d: '#8a5a32', m: '#c8945e', h: '#f0c890' };
+  const CYC = {
+    hipY: -36, shX: 22, shY: -30, neckY: -46, A1: 15, A2: 14, armR: [8, 7, 6.4], arm: CYS, hand: CYS, legs: { hipX: 11, L1: 15, L2: 15, ank: -4, k: 1.3, r1: 9.5, r2: 8, r3: 7, C: CYS, foot: 9, boot: { d: '#3a2410', m: '#6a4a2a' } },
+    torso: { rt: 23, rb: 17, C: CYS }, gownBelt: true, weapon: { kind: 'club', len: 46, w: 10, spikes: true, grip: 2 }, mouthAt: 'head', mouthY: -3, headK: 1.5,
+    tail(hip, P, T) { op(-0.2, () => { const q = pr(V.add(hip, [0, 6, 0])); g.poly([[q[0] - 20, q[1] - 6], [q[0] + 20, q[1] - 6], [q[0] + 22, q[1] + 10], [q[0] + 10, q[1] + 6], [q[0] + 2, q[1] + 12], [q[0] - 8, q[1] + 6], [q[0] - 20, q[1] + 10]], '#6a4a2a'); g.r(Math.round(q[0] - 20), Math.round(q[1] - 7), 40, 3, '#3a2410'); }); },
+    front: { y: -18, z: 16, draw(x, y, w) { for (const [a, b] of [[-5, -6], [4, -6], [-5, 1], [4, 1]]) { g.r(Math.round(x + a * w), Math.round(y + b), Math.max(1, Math.round(4 * w)), 1, CYS.d); } g.r(Math.round(x), Math.round(y - 12), 1, 18, CYS.d); } },
+    head(p2, T, P) {
+      const E = p2 ? '#ff3a2a' : '#ffe14a', act = P && P.glowEye;
+      const horn = () => U.spike(g, 0, -10, -PI / 2, 8, 2.4, { d: '#a89a70', m: '#e8dcc0', h: '#ffffff' });
+      if (VIEW === 'b') { horn(); g.ell(0, 0, 11, 10, CYS.d); g.ell(-1, -1, 10, 9, CYS.m); g.poly([[-8, -7], [-4, -12], [0, -9], [4, -12], [8, -7]], '#6a4a2a'); return; }
+      if (VIEW === 's') { const d = DIRX; horn(); g.ell(0, 0, 11, 10, CYS.m); g.ell(6 * d, -2, 3.4, 4.4, '#ffffff'); g.ell(7 * d, -2, 2, 3, E); g.p(8 * d, -2, '#1a0a04'); g.r(Math.min(3 * d, 9 * d), 5, 6, 2, '#5a1a10'); return; }
+      horn(); g.ell(0, 0, 11, 10, CYS.m); g.ell(2, 1, 8, 8, CYS.d); g.ell(-1, -1, 9, 8, CYS.m);
+      g.ell(0, -2, 6.4, 5.4, CYS.d); g.ell(0, -2, 5.4, 4.6, '#ffffff'); g.ell(0, -2, 3.4, 3.4, E); g.ell(0, -2, 1.4, 2.4, '#1a0a04'); g.line(-6, -8, 6, -8, 2, CYS.d);
+      g.ell(0, 6, 5, 2.4, '#5a1a10'); for (const xx of [-3, 0, 3]) g.p(xx, 5, '#fff6e0');
+    },
+  };
+  // ---- かげの勇者 ----
+  const SHA = { d: '#14102a', m: '#2e2450', h: '#5a4a8a' };
+  const SHERO = {
+    hipY: -22, shX: 13, shY: -26, neckY: -38, A1: 9, A2: 9, armR: [4.6, 4, 3.6], arm: SHA, hand: SHA, legs: { hipX: 6, L1: 10, L2: 10, ank: -3, k: 1, r1: 5, r2: 4.4, r3: 4, C: { d: '#100c20', m: '#20183a', h: '#3a2e60' }, foot: 5, boot: { d: '#0a0814', m: '#1a1430' } },
+    torso: { rt: 13, rb: 11, C: SHA }, cape: { w0: 12, w1: 22, d: '#2a0a3a', m: '#4a1a6a' },
+    weapon: { kind: 'sword', len: 32, w: 2.8, col: '#8a6aff', col2: '#c04aff', glow: 'rgba(140,110,255,0.35)', guard: '#f2c14e' }, off: 'shield', shield: { r: 9, rim: '#1a1430', face: '#3a2e60', emblem: '#a080ff' }, mouthAt: 'weapon',
+    front: { y: -16, z: 12, draw(x, y, w) { g.ell(x, y, 2.4 * w + 0.6, 2.4, '#ff3a5a'); g.r(Math.round(x - 11 * w), Math.round(y + 7), Math.round(22 * w), 2, '#f2c14e'); } },
+    head(p2) {
+      const E = '#ff3a3a';
+      const plume = d => { g.line(0, -10, -4 * d, -15, 2.4, '#c02a40'); g.line(-4 * d, -15, -9 * d, -13, 2, '#c02a40'); };
+      if (VIEW === 'b') { plume(0); g.ell(0, 0, 10, 10, SHA.m); g.ell(0, -1, 9, 9, SHA.h); g.ell(0, 1, 8, 8, SHA.m); return; }
+      if (VIEW === 's') { const d = DIRX; plume(d); g.ell(0, 0, 10, 10, SHA.m); g.r(d > 0 ? 2 : -9, -2, 7, 4, '#08060e'); g.r(d > 0 ? 4 : -8, -1, 3, 2, E); g.r(-10, -5, 20, 2, '#f2c14e'); return; }
+      plume(1); g.ell(0, 0, 10, 10, SHA.m); g.ell(2, 1, 7, 7, SHA.d); g.ell(-1, -1, 8, 8, SHA.m); g.r(-10, -5, 20, 2, '#f2c14e'); g.r(-7, -2, 14, 5, '#08060e'); eyeSlit(-1, E, 3);
+    },
+  };
+  // ---- まぐんしょうぐん ----
+  const DGA = { d: '#3a0a10', m: '#7a1a1e', h: '#b03a30' }, DGB = { d: '#120608', m: '#2a1012', h: '#5a2a2a' };
+  const DGEN = {
+    hipY: -26, shX: 17, shY: -30, neckY: -42, A1: 12, A2: 12, armR: [5.6, 5, 4.4], arm: DGB, arm2: DGA, hand: DGB, pauld: { r: 9, C: DGB },
+    legs: { hipX: 8, L1: 12, L2: 12, ank: -3, k: 1.1, r1: 6.6, r2: 5.6, r3: 5, C: DGA, C2: DGB, foot: 6.5, boot: DGB },
+    torso: { rt: 17, rb: 13, C: DGA }, cape: { w0: 17, w1: 30, d: '#3a0408', m: '#5a0a10' },
+    weapon: { kind: 'sword', len: 36, w: 3.2, col: '#ff7a3a', col2: '#ff3a2a', glow: 'rgba(255,120,40,0.35)', guard: '#f2c14e', edge: '#ffe0a0' }, off: 'sword', mouthAt: 'weapon',
+    front: { y: -20, z: 14, draw(x, y, w) { g.poly([[x - 10 * w, y - 8], [x + 10 * w, y - 8], [x, y + 4]], '#f2c14e'); g.poly([[x - 7 * w, y - 7], [x + 7 * w, y - 7], [x, y + 1]], '#3a0a10'); g.r(Math.round(x - 14 * w), Math.round(y + 10), Math.round(28 * w), 3, '#f2c14e'); } },
+    head(p2) {
+      const E = p2 ? '#ffffff' : '#ffe14a', H2 = '#e8dcc0';
+      const horns = () => { for (const m of [-1, 1]) { g.line(m * 8, -5, m * 16, -9, 3.4, H2); g.line(m * 16, -9, m * 19, -18, 2.6, H2); } };
+      if (VIEW === 'b') { horns(); g.r(-9, -9, 18, 18, DGB.m); g.r(-9, -9, 18, 3, DGA.m); for (let i = -2; i <= 2; i++) U.spike(g, i * 4, -9, -PI / 2, 5, 1.6, DGB); return; }
+      if (VIEW === 's') { const d = DIRX; g.line(-2 * d, -5, -10 * d, -9, 3.4, H2); g.line(-10 * d, -9, -12 * d, -18, 2.6, H2); g.r(-8, -9, 17, 18, DGB.m); g.r(d > 0 ? 2 : -9, -2, 7, 3, '#08040a'); g.r(d > 0 ? 4 : -8, -1, 3, 1, E); g.poly([[5 * d, 6], [9 * d, 6], [7 * d, 10]], '#ffffff'); return; }
+      horns(); g.r(-9, -9, 18, 18, DGB.m); g.r(-9, -9, 18, 3, DGA.m); g.r(-7, -2, 14, 3, '#08040a'); eyeSlit(-1, E, 3); for (const m of [-1, 1]) g.poly([[m * 3, 6], [m * 6, 6], [m * 4.5, 11]], '#ffffff'); g.r(-6, 5, 12, 1, '#08040a');
+    },
+  };
+  // ---- だてんし ----
+  const FAG = { d: '#14122a', m: '#2a2648', h: '#4a4680' };
+  const FANG = {
+    hipY: -34, shX: 12, shY: -22, neckY: -34, A1: 10, A2: 10, armR: [4, 3.6, 3], arm: FAG, hand: { d: '#c0b8d0', m: '#f0eaf8', h: '#ffffff' },
+    torso: { rt: 12, rb: 11, C: FAG }, gown: { rt: 11, rb: 22, C: FAG },
+    weapon: { kind: 'sword', len: 34, w: 3, col: '#fff2b0', col2: '#ff6a9a', glow: 'rgba(255,240,170,0.45)', glow2: 'rgba(255,90,150,0.45)', guard: '#f2c14e', edge: '#ffffff' }, mouthAt: 'weapon',
+    front: { y: -14, z: 11, draw(x, y, w) { g.r(Math.round(x - 1), Math.round(y - 8), 2, 40, '#f2c14e'); } },
+    wings(up, P, T, p2) {
+      const f = Math.sin(T * 2.2) * 0.12;
+      for (const s of [-1, 1]) {
+        const root = up([s * 5, -20, -6]), white = s < 0 && !p2;
+        const C = white ? { m: '#ffffff', d: '#c8c8e0' } : { m: '#2a1a3a', d: '#120a1a' };
+        for (let i = 0; i < 9; i++) {
+          const k = i / 8, b = V.add(root, roll([s * (4 + k * 30), -8 - Math.sin(k * PI) * 10, -6 - k * 6], s * f)), tip = V.add(b, roll([s * (6 + k * 8), 22 - k * 8, -4], s * f));
+          poly([b, V.add(V.mix(b, tip, 0.5), [s * 3, 0, 0]), tip, V.add(V.mix(b, tip, 0.5), [-s * 3, 1, 0])], i % 2 ? C.m : C.d, VIEW === 'b' ? 2 : -8 + k * 0.1);
+        }
+      }
+    },
+    head(p2, T) {
+      const hair = '#e8e4f2', hairD = '#8a84a8', skin = '#f0e4ea', E = p2 ? '#ff3a6a' : '#7a5ad8', halo = p2 ? '#ff4a6a' : '#fff2a0';
+      const ring = () => { g.ell(0, -16, 10, 3, halo); g.ell(0, -16, 7.5, 1.8, 'rgba(0,0,0,0)'); g.ell(0, -16, 7, 1.4, '#1a1426'); g.r(5, -18, 2, 4, '#1a1426'); };
+      if (VIEW === 'b') { g.ell(0, 0, 9, 10, hairD); g.poly([[-9, 0], [9, 0], [10, 22], [-10, 22]], hair); g.ell(0, -1, 8, 9, hair); for (let i = -2; i <= 2; i++) g.line(i * 3, 2, i * 3.5, 20, 1, hairD); ring(); return; }
+      if (VIEW === 's') { const d = DIRX; g.poly([[-8 * d, -6], [2 * d, -6], [-2 * d, 20], [-11 * d, 18]], hairD); g.ell(2 * d, 0, 6.5, 8, skin); g.ell(5 * d, -1, 1.4, 1.2, E); g.poly([[-7 * d, -6], [-4 * d, -9], [2 * d, -9], [7 * d, -6], [5 * d, -4], [2 * d, -5], [-3 * d, 2], [-7 * d, 4]], hair); ring(); return; }
+      g.poly([[-9, -4], [9, -4], [11, 12], [8, 20], [5, 14], [-5, 14], [-8, 20], [-11, 12]], hairD); for (const m of [-1, 1]) g.line(m * 8, -2, m * 9, 16, 1.4, hair); g.ell(0, 0, 7.5, 9, skin); for (const m of [-1, 1]) { g.r(m * 3 - 1, 0, 2, 2, E); } g.r(-1, 5, 2, 1, '#c07090');
+      g.poly([[-8, -7], [8, -7], [7, -2], [3, -4], [0, -1], [-3, -4], [-7, -2]], hair); ring();
+    },
+  };
+  // =============================================================
   //  WHOLE-BODY SWEEPS (指示: ダメージバーではなく体で攻撃): during a sweep the beast's own arms / necks / tail / hands are
   //  the weapon. They are drawn in screen space from where they grow out to the sweep's full length (= the real hit area),
   //  lagging a little behind the turn; the game only keeps the faint motion blur of the swing.
@@ -1523,6 +1780,8 @@ const BEAST3 = (() => {
     mtube(gc, pts.map((p, i) => [p[0], p[1], rs[i]]), C, opt || {});
   }
   // what swings in each sweep: from = anchor index (else the sweep centre), rise = how high it rears in the telegraph
+  const ARMEDSW = /^(sweep|twin|whirlblade)$/;
+  const armedLimb = D => (B, i) => ARMEDSW.test(mvName(B)) ? { from: mvName(B) === 'sweep' ? 0 : i % 2, armed: D, actOnly: true } : null;
   const LIMB = {
     leviathan: () => ({ C: LV.B, belly: LV.belly, r: [7.5, 2], rise: 46, suckers: '#e8f4ff', foam: LV.foam }),
     kraken: () => ({ rim: 34, C: KR.B, belly: { c: KR.S, s: '#c090e0' }, r: [7, 1.8], rise: 40, suckers: KR.S }),
@@ -1532,6 +1791,7 @@ const BEAST3 = (() => {
     quetzal: () => ({ from: 0, C: QZ.B, belly: QZ.belly, r: [6, 2.2], actOnly: true, tip: 'feathers' }),
     clockmachine: (B, i) => ({ hand: i === 0 ? 'hour' : 'minute' }),
     lich: () => ({ from: 0, scythe: true, actOnly: true }),
+    goblinking: armedLimb(GOBK), deathknight: armedLimb(DKN), ghostcaptain: armedLimb(GCAP), cyclops: armedLimb(CYC), shadowhero: armedLimb(SHERO), demongeneral: armedLimb(DGEN), fallenangel: armedLimb(FANG),
     colossus: (B, i) => mvName(B) === 'twin' ? { from: i, blade: true, col: '#ffb060', w: 6, actOnly: true } : null,
     maou: (B, i) => mvName(B) === 'twin' ? { from: i, blade: true, col: '#c04cff', w: 5, actOnly: true } : null,
     hakaishin: (B, i) => mvName(B) === 'twin' ? { from: i, blade: true, col: '#ff4a9a', w: 5, actOnly: true } : mvName(B) === 'tentacles' ? { from: i, C: HK.A, r: [5.5, 3], actOnly: true, tip: 'claw' } : null,
@@ -1569,6 +1829,16 @@ const BEAST3 = (() => {
       }
       const r0 = spec.rim || 26, A = spec.from != null && anchors[spec.from] ? [anchors[spec.from][0] / K, anchors[spec.from][1] / K] : [cxA + cth * r0, cyA + sth * r0 * 0.75];   // from the body's edge, so nothing passes through it
       if (spec.actOnly && !act) return;
+      if (spec.armed) {   // the boss's own weapon, reaching out along the swing
+        if (!A) return;
+        const W = spec.armed.weapon, tip = [cxA + cth * len, cyA + sth * len], p2 = B.phase === 2;
+        if (W.kind === 'club') {
+          const pts = [], rs = []; for (let i = 0; i <= 8; i++) { const k = i / 8; pts.push([lerp(A[0], tip[0], k), lerp(A[1], tip[1], k)]); rs.push(lerp(W.w * 0.45, W.w * 1.1, k * k)); }
+          limbTube(gc, pts, rs, { d: '#5a3818', m: '#8a5a2a', h: '#b88a50' });
+          if (W.spikes) for (let i = 0; i < 7; i++) { const a = i / 7 * TAU; gc.r(Math.round(tip[0] + Math.cos(a) * W.w * 1.2) - 1, Math.round(tip[1] + Math.sin(a) * W.w * 1.2) - 1, 3, 3, '#d0d0d8'); }
+        } else energyBlade(gc, A, tip, W.w + 1, (p2 && W.col2) || W.col);
+        return;
+      }
       if (spec.blade) { if (A) energyBlade(gc, A, [cxA + cth * len, cyA + sth * len], spec.w || 5, spec.col); return; }
       if (spec.scythe) {   // the lich's staff grown into a scythe as long as the sweep: pole from its hand, a curved blade at the end
         const tip = [cxA + cth * len, cyA + sth * len], bl = -sg;
@@ -1602,8 +1872,11 @@ const BEAST3 = (() => {
   }
 
   // =============================================================
+  const ARMED = { goblinking: 1, deathknight: 1, ghostcaptain: 1, cyclops: 1, shadowhero: 1, demongeneral: 1, fallenangel: 1 };
   const RIGS = { nightmare: [nmPose, nmBuild, 1.05], fenrir: [fnPose, fnBuild, 1.3], bonedragon: [bdPose, bdBuild, 1.2], leviathan: [lvPose, lvBuild, 1.1], quetzal: [qzPose, qzBuild, 1.1],
     hydra: [hyPose, hyBuild, 1.1], cerberus: [cbPose, cbBuild, 1.15], voideye: [vePose, veBuild, 1.1], clockmachine: [cmPose, cmBuild, 1.15], kraken: [krPose, krBuild, 1.1],
+    goblinking: [armedPose, armedBuild(GOBK), 1.2], deathknight: [armedPose, armedBuild(DKN), 1.25], ghostcaptain: [armedPose, armedBuild(GCAP), 1.2], cyclops: [armedPose, armedBuild(CYC), 1.3],
+    shadowhero: [armedPose, armedBuild(SHERO), 1.2], demongeneral: [armedPose, armedBuild(DGEN), 1.25], fallenangel: [armedPose, armedBuild(FANG), 1.2],
     colossus: [coPose, coBuild, 1.25], gorgon: [goPose, goBuild, 1.25], hakaishin: [hkPose, hkBuild, 1.25], maou: [casterPose, casterBuild(MAOU), 1.25],
     lich: [casterPose, casterBuild(LICH), 1.2], icequeen: [casterPose, casterBuild(ICEQ), 1.2], pharaoh: [casterPose, casterBuild(PHAR), 1.25], archmage: [casterPose, casterBuild(ARCH), 1.15],
     kingslime: [ksPose, ksBuild, 1.15], treant: [trPose, trBuild, 1.2], spiderqueen: [sqPose, sqBuild, 1.15], dragon: [drPose, drBuild, 1.2], thunderbird: [tbPose, tbBuild, 1.15] };   // [pose, build, size]
@@ -1611,11 +1884,12 @@ const BEAST3 = (() => {
   const wrapPI = a => ((a + PI) % TAU + TAU) % TAU - PI;
   function spinPsi(B, E, st) {
     const mv = B.mv, n = mvName(B);
-    if (!mv || !(n === 'tentacles' || n === 'tail' || n === 'scythe' || (n === 'twin' && LIMB[B.type]))) return null;
+    const armed = !!ARMED[B.type] && ARMEDSW.test(n);
+    if (!mv || !(n === 'tentacles' || n === 'tail' || n === 'scythe' || armed || (n === 'twin' && LIMB[B.type]))) return null;
     const sw = B.sweeps[0];
     if (!sw) return st.psiLast != null && mv === st.psiMv ? st.psiLast : null;
     const sg = Math.sign(sw.vel || 1);
-    const align = n === 'twin' || (n === 'tentacles' && B.type === 'hakaishin');   // arms out along the blades: the right arm points down sweep 0
+    const align = n === 'twin' || armed || (n === 'tentacles' && B.type === 'hakaishin');   // arms out along the blades: the right arm points down sweep 0
     if (mv !== st.psiMv) { st.psiMv = mv; st.psi0 = n === 'tail' ? sw.ang + PI : align ? sw.ang + PI / 2 + sg * 0.35 : st.psi != null ? st.psi : E.look; st.ang0 = null; }
     let psi;
     if (sw.t < sw.tele) psi = st.psi0 - sg * 0.35 * sstep(sw.t / sw.tele);   // winds up, turning back against the coming spin

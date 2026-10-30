@@ -747,6 +747,8 @@ const FMusic = (() => {
       if (!Ss.A) { Ss.A = active(Ss); applyMix(Ss, Ss.A, t); Ss.started = true; }
       Ss.bi = barInfo(th, bar);
     }
+    if (!Ss.A) { Ss.A = active(Ss); applyMix(Ss, Ss.A, t); Ss.started = true; }   // started mid-bar (e.g. right after a scene change)
+    if (!Ss.bi) Ss.bi = barInfo(th, bar);
     const A = Ss.A, bi = Ss.bi, sec = bi.sec, sc = scaleFor(A, bi.ch);
     if (st % 4 === 0) events.push({ t, type: 'beat', beat: st / 4 });
 
