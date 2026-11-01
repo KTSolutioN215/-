@@ -640,7 +640,7 @@
       craftVisual(h.x,h.y,b.x,b.y,'#c8e8ff');
     }return n;
   }
-  function craftPerfect(){const c=craftState();if(!c||!craftReady('perfect',.35))return;c.perfectAt=c.clock;if(craftHas('b09'))c.riposte=1;if(craftHas('b33'))c.beats=Math.min(3,c.beats+1);}
+  function craftPerfect(){const c=craftState();if(!c||!craftReady('perfect',.35))return;c.perfectAt=c.clock;pfxEmit('impacts/parry',hero.x,hero.y,100,.35);if(craftHas('b09'))c.riposte=1;if(craftHas('b33'))c.beats=Math.min(3,c.beats+1);}
   function craftDamageAdjust(d,fromX,fromY,power,cause){
     const h=hero,c=craftState();if(!c)return {d,power};
     if(c.coffin>0)return {d:0,power:0};
@@ -694,18 +694,20 @@
   }
   function craftNotifyReady(){
     const c=hero?.craft;if(!c)return;const ready=c.feedbackReady||(c.feedbackReady={});
-    for(const r of craftGauges()){if(r.ready&&!ready[r.id]&&(c.readySoundAt==null||c.clock-c.readySoundAt>.35)){c.readySoundAt=c.clock;A.sfx('chargeReady');}ready[r.id]=r.ready;}
+    for(const r of craftGauges()){if(r.ready&&!ready[r.id]&&(c.readySoundAt==null||c.clock-c.readySoundAt>.35)){c.readySoundAt=c.clock;pfxEmit('lightning/charge-up',hero.x,hero.y,85,.45);A.sfx('chargeReady');}ready[r.id]=r.ready;}
   }
   function craftDrawProcs(c){
     for(const p of c.procs||[]){const u=1-p.life/p.max,col=p.kind==='fire'?'#ff9850':p.kind==='thunder'?'#fff080':p.kind==='water'?'#80d8ff':'#d6a0ff',R=(8+u*46)*p.scale,x=p.x,y=sy(p.y);
       ctx.globalAlpha=(1-u)*.9;ctx.fillStyle=col;
+      if(!pfxProc(p)){
       for(let i=0;i<12;i++){const a=i*Math.PI/6+p.angle,r=R*(i%2?1:.78),sz=Math.max(2,6*(1-u));ctx.fillRect(q(x+Math.cos(a)*r-sz/2),q(y+Math.sin(a)*r-sz/2),sz,sz);}
       ctx.strokeStyle=col;ctx.lineWidth=3*(1-u)+1;ctx.beginPath();ctx.arc(x,y,R*.68,0,Math.PI*2);ctx.stroke();
       if(u<.3){ctx.globalAlpha=(.3-u)*2;ctx.fillStyle='#fff7dc';ctx.fillRect(x-9*p.scale,y-9*p.scale,18*p.scale,18*p.scale);}
+      }
       if(p.label){ctx.globalAlpha=Math.min(1,(1-u)*2);txt(p.label,x,y-26-u*14,11,col,'center');}
     }ctx.globalAlpha=1;
   }
-  function craftOnHeal(total,actual,from='item'){guildHeal(actual,from);const h=hero,c=craftState();if(!c)return;if(craftHas('b02')){c.shield=Math.min(h.s.maxHp*.3,c.shield+Math.max(0,total-actual));c.shieldLife=10;}if(craftHas('b15')&&from==='item')c.scales=Math.min(3,c.scales+1);if(craftHas('f08')&&from==='item')craftClearBullets(85,'clear',8);}
+  function craftOnHeal(total,actual,from='item'){if(actual>0&&hero)pfxEmit('holy/heal',hero.x,hero.y,80,.75);guildHeal(actual,from);const h=hero,c=craftState();if(!c)return;if(craftHas('b02')){c.shield=Math.min(h.s.maxHp*.3,c.shield+Math.max(0,total-actual));c.shieldLife=10;}if(craftHas('b15')&&from==='item')c.scales=Math.min(3,c.scales+1);if(craftHas('f08')&&from==='item')craftClearBullets(85,'clear',8);}
   function craftOnRam(t,damage){
     const h=hero,c=craftState();if(!c||craftBusy)return;const alive=craftLive(t),angle=Math.atan2(t.y-h.y,t.x-h.x);if(c.lastTarget!==t)c.hunt=0;c.lastTarget=t;c.lastTargetAt=c.clock;
     arenaEvent('ram',1,t);
@@ -827,6 +829,7 @@
     ctx.globalAlpha=1;for(const b of c.shots){ctx.fillStyle=b.col;ctx.fillRect(b.x-3,sy(b.y)-3,6,6);}
     if(c.decoy){ctx.globalAlpha=.45;ctx.fillStyle='#d0a8ee';ctx.fillRect(c.decoy.x-8,sy(c.decoy.y)-25,16,24);}
     if(c.coffin>0){ctx.globalAlpha=.9;ctx.fillStyle='#d8b050';ctx.fillRect(hero.x-13,sy(hero.y)-34,26,38);}
+    if(c.decoy)pfxSprite('shadow/shadow-tendrils',c.decoy.x,sy(c.decoy.y),pfxClock%2/2,95,0,.6);
     if(c.shield>0){ctx.globalAlpha=.6;ctx.strokeStyle='#a8e098';ctx.beginPath();ctx.arc(hero.x,sy(hero.y)-12,23,0,Math.PI*2);ctx.stroke();}
     if(craftHas('f01'))for(const e of [...enemies,...livingBosses()]){if(!craftLive(e)||!e.craftFire)continue;for(let i=0;i<3;i++){ctx.fillStyle=e.craftFire>i?'#ffad50':'#54483e';ctx.fillRect(e.x-10+i*8,sy(e.y)-e.r-20,5,6);}}
     craftDrawProcs(c);ctx.restore();
@@ -1449,7 +1452,7 @@
   }
   function arenaBegin(kind,q,tier){
     if(state!=='town'||arenaRun)return false;
-    persist();const home=save,temp=JSON.parse(JSON.stringify(home));temp.settings=home.settings;
+    pfxClear();persist();const home=save,temp=JSON.parse(JSON.stringify(home));temp.settings=home.settings;
     arenaRun={kind,q,tier,home,pool:kind==='chain'?arenaPool(tier):[],used:[],phase:'starting',wins:0,total:0,elapsed:0,hits:0,supplied:0,lastStage:-1,clearDelay:0,settled:false,objective:{count:0,targets:new Set(),pair:0,cast:null,hold:0,web:new Set(),pushes:new Map(),groups:new Map(),sleepUntil:-1},failure:''};
     save=temp;save.hp=null;save.items=Object.fromEntries(Object.keys(ITEMS).map(k=>[k,0]));
     if(kind==='trial'){save.lv=q.lv;save.exp=0;save.gold=0;save.eq=Object.fromEntries(['weapon','armor','boots','charm'].map((k,i)=>[k,q.eq[i]]));save.owned=q.eq.filter(Boolean);save.skills=[...new Set([q.skill,...q.dual||[]])];save.skill=q.skill;save.craftSkills=q.dual||[];save.forge.inherited={...q.inherit};save.forge.upgrades={};}
@@ -1962,7 +1965,7 @@
     let d = Math.max(1, Math.round(dmg - hero.s.def * 0.5));
     hurtLog[cause] = (hurtLog[cause] || 0) + d;
     if (hero.buff.def > 0) d = Math.max(1, Math.round(d * 0.5));
-    if (hero.barrierT > 0) { if(hero.s.fx.aegis)arenaEvent('shield');hero.barrierT = 0; hero.inv = 0.6; popText(hero.x, hero.y + 30, 'バリア！', '#c8b0ff', 16, 0.9); burst(hero.x, hero.y, 24, '#c8b0ff', 240, 0.5); A.sfx('block'); return; }
+    if (hero.barrierT > 0) { if(hero.s.fx.aegis)arenaEvent('shield');pfxEmit('impacts/shield-block',hero.x,hero.y,110,.4);hero.barrierT = 0; hero.inv = 0.6; popText(hero.x, hero.y + 30, 'バリア！', '#c8b0ff', 16, 0.9); burst(hero.x, hero.y, 24, '#c8b0ff', 240, 0.5); A.sfx('block'); return; }
     if (hero.guardT > 0) { d = Math.max(1, Math.round(d * 0.4)); power *= 0.3; }
     const adjusted=craftDamageAdjust(d,fromX,fromY,power,cause);d=adjusted.d;power=adjusted.power;if(d<=0)return;
     guildHit();if(arenaRun)arenaRun.hits++;hero.hp -= d; hero.inv = 0.85 + (hero.s.fx.guard || 0); hero.calmT = 0;
@@ -2043,6 +2046,200 @@
     for (let i = 0; i < n; i++) { const a = rnd(0, 6.283), v = rnd(0.3, 1) * spd; fx.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rnd(0.5, 1) * life, max: life, col, r: rnd(1.5, 3.5) }); }
     if (fx.length > 400) fx.splice(0, fx.length - 400);
   }
+  // PIXELFX BEGIN — atlas playback only; no combat RNG, damage or physics.
+  const pfxData=window.PIXELFX_ATLAS,pfxImages=[],pfxEvents=[],pfxUsed=new Set(),pfxImpactAt=new WeakMap();
+  let pfxClock=0,pfxCalls=0,pfxSerial=0,pfxLoaded=0;
+  if(pfxData&&typeof Image!=='undefined')for(const src of pfxData.images){const img=new Image();img.onload=()=>{pfxLoaded++;};img.src=src;pfxImages.push(img);}
+  const pfxEnabled=()=>!!pfxData&&save.settings.pixelfx!==false;
+  function pfxSprite(id,x,y,u,width=100,angle=0,alpha=1,ys=1,attached=false,ui=false){
+    if(!pfxData||(!ui&&!pfxEnabled())||pfxCalls>=42||!Number.isFinite(x+y+u+width+angle+alpha)||alpha<=0)return false;
+    const e=pfxData.effects[id];if(!e)return false;const at=Math.min(e.frames.length-1,Math.max(0,Math.floor(clamp(u,0,.99999)*e.frames.length))),r=e.frames[at];if(!r)return false;
+    const img=pfxImages[r[0]];if(!img||!img.complete||!img.width)return false;
+    const pin=Array.isArray(attached)?attached:attached&&e.socket?e.socket:e.anchors?.[at]||[e.ox,e.oy],k=width/e.w;if(!ui&&(x+width*2<bcamX-W||x-width*2>bcamX+W||y+width*2< -200||y-width*2>H+200))return false;
+    ctx.save();ctx.imageSmoothingEnabled=false;ctx.globalAlpha*=clamp(alpha,0,1);ctx.translate(q(x),q(y));if(angle)ctx.rotate(angle);ctx.scale(k,k*ys);ctx.drawImage(img,r[1],r[2],r[3],r[4],r[5]-pin[0],r[6]-pin[1],r[3],r[4]);ctx.restore();pfxCalls++;pfxUsed.add(id);return true;
+  }
+  function pfxEmit(id,x,y,width=120,dur=.65,angle=0,back=false){
+    if(!pfxEnabled()||!pfxData.effects[id])return;
+    // Events are visual-only and bounded even during a dense boss barrage.
+    if(pfxEvents.length>=28)pfxEvents.shift();pfxEvents.push({id,x,y,width,dur,angle,back,t:0,serial:++pfxSerial});
+  }
+  function pfxTick(dt){pfxClock+=dt;for(let i=pfxEvents.length-1;i>=0;i--){pfxEvents[i].t+=dt;if(pfxEvents[i].t>=pfxEvents[i].dur)pfxEvents.splice(i,1);}}
+  function pfxClear(){pfxEvents.length=0;}
+  function pfxDrawEvents(back){for(const e of pfxEvents)if(e.back===back){const u=e.t/e.dur;pfxSprite(e.id,e.x,sy(e.y),u,e.width,e.angle,Math.min(1,(1-u)*5));}}
+  function pfxCast(id){
+    const h=hero;if(!h)return;const map={shock:['impacts/ground-slam',260,.65],cry:['fire/fire-ring',160,.7],heal:['holy/heal-aoe',165,1],frost:['ice/frost-nova',320,.85],sand:['arcane/time-stop',220,.8],holy:['holy/holy-pillar',140,.8],meteor:['arcane/magic-circle-cast',100,.6],thunder:['lightning/charge-up',100,.45]};const m=map[id];if(m)pfxEmit(m[0],h.x,h.y,m[1],m[2]);
+  }
+  function pfxHero(back){
+    const h=hero;if(!h||h.hp<=0)return;
+    if(back){if(h.guardT>0)pfxSprite('holy/divine-shield',h.x,sy(h.y),pfxClock%2.4/2.4,85,0,.8);if(h.barrierT>0)pfxSprite('arcane/magic-circle-cast',h.x,sy(h.y),pfxClock%2/2,110,0,.6);if(h.cryT>0)pfxSprite('fire/fire-ring',h.x,sy(h.y),pfxClock%1.3/1.3,90,0,.45);}
+    else{
+      if(h.whirlT>0)pfxSprite('melee/spin-slash',h.x,sy(h.y)-12,pfxClock%.3/.3,200,-h.face,.85);
+      if(h.holy)pfxSprite('holy/blessing',h.x,sy(h.y),pfxClock%3/3,75,0,.75);
+      if(h.barrierT>0)pfxSprite('holy/divine-shield',h.x,sy(h.y),pfxClock%2.4/2.4,95,0,.5);
+      if(h.meteor){const k=clamp(h.meteor.t/.9,0,1);pfxSprite('fire/fireball',h.meteor.x-150*(1-k),sy(h.meteor.y)-340*(1-k),pfxClock%1.2/1.2,85,Math.PI/3,.9);}
+    }
+  }
+  function pfxAnim(a){
+    const u=a.t/a.dur;
+    if(a.kind==='bolt')return pfxSprite('lightning/lightning-strike',a.x,sy(a.y),u,160,0,.95);
+    if(a.kind==='spark')return pfxSprite(a.big?'impacts/crit-hit':'impacts/hit-spark',a.x,sy(a.y),u,a.big?135:82,0,.95);
+    if(a.kind==='poof')return pfxSprite('spawn/poof',a.x,sy(a.y),u,92,0,.8);
+    return false;
+  }
+  function pfxProc(p){
+    let id=p.kind==='fire'?'explosions/small-explosion':p.kind==='thunder'?'lightning/thunderclap':p.kind==='water'?'water/splash':'arcane/mana-burst',width=140*(p.scale||1),angle=0;
+    const s=p.label||'';
+    const labels=[[/旋回竜巻/,'nature/tornado',165],[/導爆/,'explosions/big-explosion',220],[/火種/,'explosions/small-explosion',170],[/蓄熱/,'fire/fire-breath',200],[/三頭/,'fire/flame-pillar',150],[/裂界/,'nature/earth-spike',225],[/潮流/,'water/wave-crash',220],[/吸引/,'explosions/implosion',190],[/幽霊砲/,'shadow/soul-drain',170],[/吸弾/,'arcane/mana-burst',150],[/夢|影|残像/,'arcane/blink-in',125],[/蓄力/,'impacts/ground-slam',190],[/反攻/,'shadow/dark-explosion',220],[/大槌/,'melee/hammer-smash',140],[/双撃/,'melee/heavy-cleave',185],[/氷|凍/,'ice/ice-shatter',150],[/光へ/,'holy/holy-pillar',160],[/闇へ/,'shadow/shadow-tendrils',160],[/充電|三拍/,'lightning/thunderclap',180]];
+    for(const[re,key,size]of labels)if(re.test(s)){id=key;width=size*(p.scale||1);break;}
+    if(/蓄熱|潮流|幽霊砲/.test(s))angle=-(p.angle||hero?.face||0);
+    return pfxSprite(id,p.x,sy(p.y),1-p.life/p.max,Math.min(300,width),angle,.9);
+  }
+  function pfxSweep(s,x,y,B){if(s.t<s.tele)return;const id=/thrust|stab|lunge/.test(B?.mv?.name||'')?'melee/thrust':s.kind==='club'?'melee/hammer-smash':s.kind==='tail'?'melee/claw-swipe':s.kind==='scythe'?'melee/heavy-cleave':'melee/sword-slash';pfxSprite(id,x,y,clamp((s.t-s.tele)/Math.max(.15,s.act||.45),0,.99),s.kind==='club'?90:80,-s.ang+Math.PI/2,.75);}
+  function pfxImpact(t,col,power){
+    if(!pfxEnabled()||(pfxImpactAt.get(t)||-99)>pfxClock-.16)return;pfxImpactAt.set(t,pfxClock);
+    const ids={'#ffe14a':'lightning/zap-hit','#fff2a0':'lightning/zap-hit','#fff27a':'lightning/zap-hit','#a8e8ff':'ice/snowflake-burst','#b0e8ff':'ice/ice-shatter','#ff9850':'fire/fire-ring','#ff9a50':'fire/flame-pillar','#a0f0d0':'shadow/soul-drain','#80c8ff':'water/splash','#ff80d8':'shadow/dark-explosion'};
+    const id=ids[col]||(power>=350?'impacts/heavy-landing':'impacts/blunt-hit');pfxEmit(id,t.x,t.y+12,id==='impacts/blunt-hit'?65:100,.35);
+  }
+  function pfxField(){for(const tw of twisters){const fire=tw.fire||boss?.type==='dragon';pfxSprite(fire?'fire/fire-tornado':'nature/tornado',tw.x,sy(tw.y),pfxClock%2/2,Math.min(200,(tw.r||35)*3),0,.7);}}
+  // Nozzle and directional effects use the same attack phases as the real shots.
+  function pfxJet(x,y,angle,age,remaining,ice=false,kind='fire',speed=210){
+    if(age<=0||remaining<=0)return;
+    const len=Math.min(115,age*speed),width=len*(ice||kind!=='fire'?184/170:160/126);
+    if(len<4)return;
+    const id=kind==='void'?'shadow/void-breath':kind==='ghost'?'shadow/ghost-breath':kind==='poison'?'nature/poison-breath':ice?'ice/frost-breath':'fire/fire-breath';
+    ctx.save();
+    // Only a short jet: the original moving particles continue to show the true reach.
+    const c=Math.cos(angle),s=Math.sin(angle),point=(dx,dy)=>[x+dx*c+dy*s,y-dx*s+dy*c];
+    ctx.beginPath();ctx.moveTo(...point(-2,-5));ctx.lineTo(...point(len,-8-len*.35));ctx.lineTo(...point(len,8+len*.35));ctx.lineTo(...point(-2,5));ctx.closePath();ctx.clip();
+    pfxSprite(id,x,y,(age%1.2)/1.2,width,-angle,Math.min(.8,remaining*8));ctx.restore();
+  }
+  function pfxEnemyBreath(e,yy,view,back){
+    if(!pfxEnabled()||e.dead||e.ai!=='breath'||e.st!=='fire'||(view?.face==='b')!==back)return;
+    const base=zakoBase(e.type),side=view?.face==='l'||view?.face==='r',sgn=view?.face==='l'?-1:1;
+    // Mouth offsets from the existing pixel art (relative to the feet anchor); no model edits.
+    const pin=base==='lizard'?(side?[22,-9]:[0,view?.face==='b'?-19:-4]):base==='chaosbeast'?(side?[30,-23]:[0,-22]):(side?[27,-26]:[0,-23]);
+    const x=e.x+pin[0]*SPR.SCALE*sgn,y=yy+e.r*.75+pin[1]*SPR.SCALE;
+    // Join the mouth to the existing projectile lane, rather than moving its hitbox.
+    const tx=e.x+Math.cos(e.face)*(e.r+80),ty=yy-Math.sin(e.face)*(e.r+80),angle=-Math.atan2(ty-y,tx-x);
+    pfxJet(x,y,angle,e.t,.65-e.t,!!e.mod.ice,e.mod.void?'void':e.mod.ghost?'ghost':'fire');
+  }
+  function pfxBossBreath(B){
+    const m=B.mv;if(!pfxEnabled()||B.dead||!m)return;
+    const triple=m.name==='breath3',start=triple?.55:.5,end=triple?2.3:2.1;
+    if(!['breath','breath3'].includes(m.name)||m.t<start||m.t>=end||!Number.isFinite(m.a0))return;
+    const a=m.a0+(m.t-start)/(end-start)*(triple?1:1.8)*(m.dir||1),nm=(B.mouths||[]).length,c0=Math.max(0,Math.round((nm-1)/2)-1);
+    for(const[j,off]of(triple?[-.85,0,.85]:[0]).entries()){
+      const M=mouthOf(B,triple&&nm>=3?c0+j:0),ang=a+off,dist=M.at?6:B.r;
+      pfxJet(M.x+Math.cos(ang)*dist,sy(M.y+Math.sin(ang)*dist),ang,m.t-start,end-m.t,B.fcol==='water',B.fcol==='poison'?'poison':B.fcol==='ghost'?'ghost':'fire',270);
+    }
+  }
+  function pfxEnemyMelee(e,x,y){
+    if(!pfxEnabled()||e.dead)return;
+    const slash=(e.ai==='swing'||e.ai==='assassin')&&e.st==='slash',thrust=(e.ai==='guard'||e.ai==='lunge')&&e.st==='dash';
+    if(!slash&&!thrust)return;
+    const len=thrust?Math.max(36,e.r*2.2):e.ai==='assassin'?70:(e.mod.reach||72),span=thrust?.6:e.ai==='assassin'?1.2:1.25;
+    const id=thrust?'melee/thrust':e.mod.quake?'melee/hammer-smash':/mantis|werewolf|beast/.test(e.type)?'melee/claw-swipe':'melee/sword-slash';
+    const u=clamp(e.t/(thrust?.3:e.ai==='assassin'?.18:.2),0,.99);
+    ctx.save();ctx.beginPath();ctx.moveTo(x,y);ctx.arc(x,y,len,-e.face-span,-e.face+span);ctx.closePath();ctx.clip();
+    pfxSprite(id,x,y,u*.5,thrust?len*196/66:len*136/42,-e.face,.8,1,true);ctx.restore();
+  }
+  function pfxBullet(b){
+    let id;
+    // Continuous breath has one nozzle per head, not one expensive fireball per flame particle.
+    if(b.kind==='flame')return;
+    if(b.kind==='orb')id=b.slow?'ice/ice-lance':Math.hypot(b.vx,b.vy)>=210?'projectiles/laser-bolt':'arcane/arcane-orb';
+    else if(b.kind==='big'||b.kind==='fire')id='fire/fireball';else if(b.kind==='homing'||b.kind==='dream')id='shadow/life-steal';else if(b.kind==='bubble')id='water/whirlpool';else if(b.kind==='crescent')id='melee/sword-slash';else if(b.kind==='rock'||b.kind==='sandball')id='nature/quake';
+    if(id&&Math.hypot(b.x-hero.x,b.y-hero.y)<450){
+      const orb=id==='arcane/arcane-orb',width=orb?Math.max(30,b.r*136/17):id==='projectiles/laser-bolt'?65:Math.min(60,Math.max(26,b.r*4));
+      pfxSprite(id,b.x,sy(b.y)-(b.z||0),((b.t||0)%(orb?2.4:1.2))/(orb?2.4:1.2),width,orb?0:-Math.atan2(b.vy,b.vx),.65);
+    }
+  }
+  const pfxKind=kind=>({fire:'fire/flame-pillar',burn:'fire/fire-ring',ice:'ice/frost-nova',bolt:'lightning/lightning-strike',holy:'holy/holy-pillar',mine:'explosions/big-explosion',poison:'nature/poison-cloud',web:'nature/root-snare',dark:'shadow/dark-explosion',void:'shadow/black-hole',sand:'water/whirlpool',quake:'nature/quake',root:'nature/root-snare',water:'water/geyser',wind:'nature/tornado'})[kind]||'explosions/dirt-explosion';
+  function pfxBeam(z,u){
+    if(!pfxEnabled()||z.dead||z.t<z.tele||z.t>=z.tele+z.act||!(z.len>0&&z.w>0))return;
+    const e=pfxData.effects['arcane/arcane-beam'];if(!e)return;
+    // Upstream: hand=(15,-24), beam length=168, half-width=6 in a 264px frame.
+    // Map that hand to the collision segment's start; scale length and width separately.
+    const unit=e.w/264,pin=[e.ox+15*unit,e.oy-24*unit],width=z.len*264/168;
+    const x=z.x,y=sy(z.y),c=Math.cos(z.ang),s=Math.sin(z.ang),half=z.w*1.5;
+    ctx.save();ctx.beginPath();
+    ctx.moveTo(x-s*half,y-c*half);ctx.lineTo(x+c*z.len-s*half,y-s*z.len-c*half);
+    ctx.lineTo(x+c*z.len+s*half,y-s*z.len+c*half);ctx.lineTo(x+s*half,y+c*half);ctx.closePath();ctx.clip();
+    pfxSprite('arcane/arcane-beam',x,y,u,width,-z.ang,.65,z.w*1.6*168/(12*z.len),pin);
+    ctx.restore();
+  }
+  function pfxZones(){
+    for(const z of zones){
+      if(z.type==='patch'){if(['burn','poison','sand','web'].includes(z.kind))pfxSprite(pfxKind(z.kind),z.x,sy(z.y),pfxClock%2/2,Math.min(210,z.r*2),0,.35);continue;}
+      if(z.t<z.tele)continue;
+      const u=clamp((z.t-z.tele)/Math.max(.15,z.act||.5),0,.99);
+      if(z.type==='circle'&&z.fired)pfxSprite(pfxKind(z.kind),z.x,sy(z.y),u,Math.min(390,z.r*2.4),0,.75);
+      else if(z.type==='seg'&&z.dmg){const dx=z.x2-z.x,dy=z.y2-z.y;pfxSprite('melee/heavy-cleave',z.x,sy(z.y)+18,u,Math.min(260,Math.hypot(dx,dy)*1.6),-Math.atan2(dy,dx),.75);}
+      else if(z.type==='cone'&&z.fired){ctx.save();ctx.beginPath();ctx.moveTo(z.x,sy(z.y));ctx.arc(z.x,sy(z.y),z.len,-z.ang-z.spread,-z.ang+z.spread);ctx.closePath();ctx.clip();pfxSprite(z.kind==='ice'?'ice/frost-breath':z.kind==='fire'?'fire/fire-breath':'nature/leaf-storm',z.x,sy(z.y),u,z.len*1.5,-z.ang,.8);ctx.restore();}
+      else if(z.type==='beam'||z.type==='laser')pfxBeam(z,u);
+      else if(z.type==='doom'&&z.fired)pfxSprite('shadow/dark-explosion',arena.cx,sy(arena.cy),u,Math.min(600,arena.R*1.6),0,.5);
+    }
+  }
+  function gateFx(kind,x,y,width,hard,alpha=1,progress=null){
+    const id=hard?{portal:'gate/portal-hard',rune:'gate/rune-hard',open:'gate/open-hard'}[kind]:{portal:'arcane/portal',rune:'arcane/rune-circle',open:'spawn/spawn-portal'}[kind];
+    const e=pfxData?.effects[id];if(!e)return false;
+    const u=progress==null?(globalT%e.duration)/e.duration:clamp(progress,0,.999);
+    return pfxSprite(id,x,y,u,width,0,alpha,1,false,true);
+  }
+  function drawGateRune(cx,floor,height,hard){
+    gateFx('rune',cx,floor+6,height*1.65,hard,.55);
+  }
+  function drawGateVortex(cx,floor,height,hard,depart=null){
+    // Same portal and palette outside and inside. The static well survives missing images.
+    const ry=height/2,cy=floor-height*34/58;
+    ctx.fillStyle='#070912';ctx.beginPath();ctx.ellipse(cx,cy,height*17/58,ry,0,0,Math.PI*2);ctx.fill();
+    if(!gateFx('portal',cx,floor,height*152/58,hard,.96)){
+      ctx.strokeStyle=hard?'#b4589e':'#6278bc';ctx.lineWidth=3;ctx.stroke();
+      ctx.fillStyle=hard?'#35152f':'#161e42';ctx.beginPath();ctx.ellipse(cx,cy,height*12/58,ry*.82,0,0,Math.PI*2);ctx.fill();
+    }
+    if(depart!=null)gateFx('open',cx,floor,height*1.55,hard,Math.sin(Math.PI*clamp(depart,0,1)),depart);
+  }
+  function gateChamberSize(){return {floor:Math.min(H*.39,H*.44-28),height:Math.min(178,H*.23)};}
+  const gateMistCache=new Map();
+  function gateMist(hard){
+    const key=hard?'hard':'normal';if(gateMistCache.has(key))return gateMistCache.get(key);
+    // Two tiny cached images; no full-screen filters, simulation or combat RNG.
+    const c=document.createElement('canvas');c.width=128;c.height=96;const g=c.getContext('2d'),col=hard?'158,64,126':'76,96,168';
+    for(const[x,y,r,a]of[[22,48,38,.42],[63,34,41,.38],[107,52,37,.32]]){
+      const glow=g.createRadialGradient(x,y,0,x,y,r);glow.addColorStop(0,`rgba(${col},${a})`);glow.addColorStop(.52,`rgba(${col},${a*.52})`);glow.addColorStop(1,`rgba(${col},0)`);g.fillStyle=glow;g.fillRect(x-r,y-r,r*2,r*2);
+    }
+    gateMistCache.set(key,c);return c;
+  }
+  function drawGateAtmosphere(hard,floor){
+    const mist=gateMist(hard),drift=Math.sin(globalT*.11)*W*.045;
+    ctx.save();ctx.globalAlpha=.85;ctx.drawImage(mist,-W*.17+drift,58,W*1.12,floor*.83);
+    ctx.globalAlpha=.52;ctx.drawImage(mist,W*.11-drift,floor*.35,W*1.03,floor*.75);
+    // Sparse embers float through the chamber, behind the door and menu.
+    ctx.fillStyle=hard?'#dba1c9':'#a7bbef';const span=Math.max(1,floor-56);
+    for(let i=0;i<18;i++){
+      const x=((i*97+globalT*(i%2?1.8:-1.2))%(W+24)+W+24)%(W+24)-12,y=floor+22-(i*37+globalT*(3+i%3))%span;
+      ctx.globalAlpha=.16+.23*(.5+.5*Math.sin(globalT*.65+i*2.3));const size=i%5===0?3:1.5;
+      ctx.fillRect(q(x),q(y),size,size);if(i%6===0){ctx.globalAlpha*=.35;ctx.fillRect(q(x)-3,q(y),size+6,1.5);}
+    }
+    ctx.restore();
+  }
+  function drawGateChamber(){
+    const hard=transition?.gate&&!transition.done?transition.gate.hard:gateMode==='hard',{floor,height}=gateChamberSize(),cx=W/2,inner=height*.46,top=floor-height-23;
+    ctx.fillStyle='#0c0e1b';ctx.fillRect(0,0,W,H);drawGateAtmosphere(hard,floor);
+    // Stonework and dais remain still; the atmosphere drifts on its own clock.
+    const TP=townTiles();patShift(TP.stone,0,top);ctx.fillStyle=TP.stone;
+    ctx.fillRect(cx-inner-23,top,20,floor-top);ctx.fillRect(cx+inner+3,top,20,floor-top);ctx.fillRect(cx-inner-23,top,inner*2+46,24);
+    ctx.fillStyle='#a0a0b2';ctx.fillRect(cx-inner-25,top-3,inner*2+50,4.5);
+    ctx.fillStyle='#444257';ctx.beginPath();ctx.ellipse(cx,floor+7,height*.77,22,0,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#716b85';ctx.lineWidth=3;ctx.stroke();
+    ctx.fillStyle='#080a14';ctx.fillRect(cx-inner,top+24,inner*2,floor-top-24);ctx.beginPath();ctx.moveTo(cx-inner,floor);ctx.lineTo(cx-inner,top+45);ctx.quadraticCurveTo(cx,top+4,cx+inner,top+45);ctx.lineTo(cx+inner,floor);ctx.closePath();ctx.fill();
+    drawGateRune(cx,floor,height,hard);
+    ctx.save();ctx.beginPath();ctx.rect(cx-inner,top+24,inner*2,floor-top-18);ctx.clip();
+    const depart=transition?.gate&&!transition.done?transition.t/transition.mid:null;
+    drawGateVortex(cx,floor-3,height,hard,depart);ctx.restore();
+    ctx.fillStyle=hard?'#d775b2':'#8299d3';for(const m of[-1,1])for(let i=0;i<3;i++){const x=cx+m*(inner+12),y=top+52+i*32;ctx.fillRect(q(x-1.5),q(y),3,10.5);ctx.fillRect(q(x-4.5),q(y+3),9,3);}
+  }
+  // PIXELFX END
   // ---- equipment drops ----
   let runLoot = [], toasts = [];
   function toast(s, col) { toasts.push({ s, col, t: 2.6 }); if (toasts.length > 3) toasts.shift(); }
@@ -2084,6 +2281,7 @@
   //  START / END RUNS
   // ---------------------------------------------------------------
   function enterDungeon(di,hard=false) {
+    pfxClear();
     if(arenaRun)arenaRestore();
     if(!hard)hardRun=null;
     closePanel(); deathT = 0;
@@ -2152,6 +2350,7 @@
     }
   }
   function enterBossRoom() {
+    pfxClear();
     if(hardRun)return hardBossRoom();
     const B = BOSSES[D.boss];
     state = 'boss';
@@ -2200,6 +2399,7 @@
   }
 
   function bossDefeated(B=boss) {
+    pfxEmit('shadow/dark-explosion',B.x,B.y,330,1);
     if(hardRun)return hardBossDeath(B);
     B.dead = 0.01; A.sfx('bossKill');   // ズバーン！
     hitStop = 0.25; slowMo = 1.5; shake = 26; flash = 1; flashCol = '255,255,255';
@@ -2451,6 +2651,7 @@
   }
 
   function killEnemy(e) {
+    if(!e.dead&&/ghost|wraith|spirit/.test(e.type))pfxEmit('arcane/mana-burst',e.x,e.y,85,.7);else if(!e.dead&&/armor|golem|crystal/.test(e.type))pfxEmit('ice/ice-shatter',e.x,e.y,100,.6);
     if(e.dead)return;arenaEnemyKilled(e,craftOrigin);if(e.type==='pinkdiamondslime'&&!pinkCrystalDrop(e))return;guildKill(e);if(!arenaRun)craftDropEnemy(e);craftOnKill(e);
     e.hp = 0; e.dead = true; runKills++; save.kills++;
     if (state === 'play' && !['goldslime','pinkdiamondslime'].includes(e.type) && gateKills < gateNeed && ++gateKills >= gateNeed) {   // the seal on the boss door breaks
@@ -2606,7 +2807,7 @@
           } else { want = d > 110 ? 1 : 0.2; wx = ux; wy = uy; e.face = Math.atan2(dy, dx); if (d < 170 && e.cd <= 0) { e.st = 'wind'; e.t = 0; } }
           break;
         case 'slam':
-          if (e.st === 'wind') { want = 0; if (e.t > 0.7) { e.st = 'idle'; e.cd = rnd(1.8, 2.4); rings.push({ x: e.x, y: e.y, r: e.r, max: 100, spd: 280, dmg: e.atk, w: 12 }); shake = Math.max(shake, 10); A.sfx('quake'); if (e.mod.fire) for (let k = 0; k < 8; k++) shootFx(e, k / 8 * Math.PI * 2, 160, 'fire'); } }
+          if (e.st === 'wind') { want = 0; if (e.t > 0.7) { e.st = 'idle'; e.cd = rnd(1.8, 2.4); pfxEmit('impacts/ground-slam',e.x,e.y,170,.45); rings.push({ x: e.x, y: e.y, r: e.r, max: 100, spd: 280, dmg: e.atk, w: 12 }); shake = Math.max(shake, 10); A.sfx('quake'); if (e.mod.fire) for (let k = 0; k < 8; k++) shootFx(e, k / 8 * Math.PI * 2, 160, 'fire'); } }
           else { want = 1; wx = ux; wy = uy; if (d < 100 && e.cd <= 0) { e.st = 'wind'; e.t = 0; } }
           break;
         case 'spore':   // swells up, then puffs a ring of slow spores
@@ -2760,7 +2961,7 @@
       let x, y;
       if (state === 'boss') { const a = rnd(0, 6.28), r = rnd(0.3, 0.8) * arena.R; x = arena.cx + Math.cos(a) * r; y = arena.cy + Math.sin(a) * r; }
       else { y = e.y + rnd(-120, 120); const tn = tunnelAt(y); x = tn.cx + rnd(-0.35, 0.35) * tn.w; }
-      if (hyp(x - hero.x, y - hero.y) > 120) { burst(e.x, e.y, 12, '#b48cff', 120); e.x = x; e.y = y; e.vx = e.vy = 0; burst(x, y, 12, '#b48cff', 120); return; }
+      if (hyp(x - hero.x, y - hero.y) > 120) { pfxEmit('arcane/blink-out',e.x,e.y,100,.45);pfxEmit('arcane/blink-in',x,y,100,.45);burst(e.x, e.y, 12, '#b48cff', 120); e.x = x; e.y = y; e.vx = e.vy = 0; burst(x, y, 12, '#b48cff', 120); return; }
     }
   }
 
@@ -2837,6 +3038,7 @@
     rings = rings.filter(r => r.r < r.max);
   }
   function explodeBig(b) {
+    pfxEmit('explosions/big-explosion',b.x,b.y,240,.75);
     for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; shoot(b.x, b.y, Math.cos(a), Math.sin(a), 150, b.dmg, 'fire', 2.5); }
     burst(b.x, b.y, 24, '#ff8a3a', 240); shake = Math.max(shake, 8); A.sfx('boom');
   }
@@ -3486,13 +3688,13 @@
     const dmg = skillDmg(t, mult);
     if (isBoss(t)) {
       if (t.dead || (t.alpha != null && t.alpha < 0.5)||hardRun&&t.intro>0) return;
-      t.hp -= dmg;if(!craftBusy)arenaEvent('skillHit',1,t); t.hurt = 0.15; popText(t.x + rnd(-14, 14), t.y + t.r + 10, '' + dmg, col, 20, 0.9);
+      t.hp -= dmg;pfxImpact(t,col,power);if(!craftBusy)arenaEvent('skillHit',1,t); t.hurt = 0.15; popText(t.x + rnd(-14, 14), t.y + t.r + 10, '' + dmg, col, 20, 0.9);
       if (t.hp <= 0) { t.hp = 0; bossDefeated(t); }
       return;
     }
     if (t.dead) return;
     if (t.mod.stone && !t.awake) wakeStatue(t);
-    t.hp -= dmg;if(!craftBusy)arenaEvent('skillHit',1,t); t.hurt = 0.18; popText(t.x, t.y + 20, '' + dmg, col, 16, 0.8);
+    t.hp -= dmg;pfxImpact(t,col,power);if(!craftBusy)arenaEvent('skillHit',1,t); t.hurt = 0.18; popText(t.x, t.y + 20, '' + dmg, col, 16, 0.8);
     const dx = t.x - fx, dy = t.y - fy, l = hyp(dx, dy) || 1; t.vx += dx / l * power / Math.max(0.6, t.mass); t.vy += dy / l * power / Math.max(0.6, t.mass);
     if (t.hp <= 0) killEnemy(t);
   }
@@ -3504,6 +3706,7 @@
     if(craftState().coffin>0)return;
     const craftWait=craftState().readyAt==null?0:craftState().clock-craftState().readyAt;craftState().readyAt=null;
     h.skCD = S.cd * (1 - (h.s.fx.skillcd || 0)); h.skFlash = 0.5; tutDone('skill');
+    pfxCast(id);
     arenaSkillBegin(id);
     guildSkill(id);craftOnSkill(id,craftWait);popText(h.x, h.y + 46, S.name + '！', S.col, 17, 1);
     switch (id) {
@@ -3550,7 +3753,7 @@
     if (h.meteor) {
       const M = h.meteor; M.t += dt;
       if (M.t >= 0.9) {
-        h.meteor = null; burst(M.x, M.y, 50, '#ff8a3a', 420, 0.8); burst(M.x, M.y, 20, '#ffe080', 260, 0.6); anims.push({ kind: 'poof', x: M.x, y: M.y, t: 0, dur: 0.4, frames: 5 });
+        pfxEmit('fire/meteor',M.x,M.y,300,.8);h.meteor = null; burst(M.x, M.y, 50, '#ff8a3a', 420, 0.8); burst(M.x, M.y, 20, '#ffe080', 260, 0.6); anims.push({ kind: 'poof', x: M.x, y: M.y, t: 0, dur: 0.4, frames: 5 });
         rings.push({ x: M.x, y: M.y, r: 10, max: 130, spd: 520, dmg: 0, w: 10, fx: true }); shake = Math.max(shake, 18); A.sfx('boom');
         for (const t of targetsNear(M.x, M.y, 120)) skillHit(t, 3, M.x, M.y, 420, '#ff9a5a');
       }
@@ -4417,6 +4620,7 @@
     if(arenaRun&&arenaRun.phase!=='fight')return;
     if (hitStop > 0) { hitStop -= dt; return; }
     if (slowMo > 0) { slowMo -= dt; dt *= 0.3; }
+    pfxTick(dt);
     t += dt;
     if (comboT > 0) { comboT -= dt; if (comboT <= 0) combo = 0; }
     if (hint > 0) hint -= dt;
@@ -4994,6 +5198,7 @@
     const step = moving ? (Math.sin((globalT + e.phase) * 11) > 0 ? 1 : -1) : 0;
     const arm = zakoArm(e), bx = arm ? x + arm.lean * SPR.SCALE * (hero.x < e.x - 2 ? -1 : 1) : x, byy = arm ? yy + arm.cr * SPR.SCALE : yy;   // the body leans back into the wind-up and steps into the blow
     const view = ZAKO4.has(e.type) ? zakoFacing(e) : null;
+    pfxEnemyBreath(e,yy,view,true);
     // colour variants (フロストリザード…ゴールデンスライム) move exactly like the monster they are made from
     const em = view && zakoBase(e.type) !== e.type ? Object.assign({}, e, { type: zakoBase(e.type) }) : e;
     const spr = SPR.enemy(e.type, { view:view&&view.face, upSlash:view?skeletonUpSlash(em,view):null, motion:view?zakoMotion2(em,view):null, motion3:view?zakoMotion3(em,view):null, motion4:view?zakoMotion4(em,view):null, motion5:view?zakoMotion5(em,view):null, motion6:view?zakoMotion6(em,view):null, motion7:view?zakoMotion7(em,view):null, motion8:view?zakoMotion8(em,view):null, bodyX:view&&arm?Math.round(arm.lean*(view.face==='r'?1:view.face==='l'?-1:0)):0, bodyY:view&&arm?Math.round(arm.cr):0, pull:e.st==='aim'?easeIO(clamp(e.t/.55,0,1)):0, release:view&&view.prev==='aim'?Math.max(0,1-(globalT-view.changed)/.2):0, st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step: arm && arm.sp != null ? Math.round(arm.sp) : step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: !view && hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm });
@@ -5003,6 +5208,7 @@
       const hop=['slime','fireslime','iceslime','goldslime','pinkdiamondslime'].includes(e.type)&&e.st==='hop'?Math.sin(clamp(e.t/.38,0,1)*Math.PI)*7:0;
       SPR.draw(ctx, spr, view?x:bx, (view?yy:byy) + r * .75-hop);
     }
+    pfxEnemyBreath(e,yy,view,false);pfxEnemyMelee(e,x,yy);
     if (e.ai === 'swing' && e.st === 'slash') { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(x, yy, (e.mod.reach || 72) - 8, -e.face - 1.25, -e.face + 1.25); ctx.stroke(); }
     if (e.ai === 'assassin' && e.st === 'slash') { ctx.strokeStyle = e.critNext ? 'rgba(255,220,90,.75)' : 'rgba(255,255,255,.55)'; ctx.lineWidth = e.critNext ? 12 : 9; ctx.beginPath(); ctx.arc(x, yy, 60, -e.face - 1.2, -e.face + 1.2); ctx.stroke(); }
     if (telegraph && e.ai !== 'swing') { const top = yy + r * 0.75 - (spr ? spr.ay * SPR.SCALE : r * 2), mk2 = e.critNext ? '!!' : '!'; ctx.fillStyle = e.critNext ? '#ffd23a' : '#ff4040'; ctx.strokeStyle = '#1a1420'; ctx.lineWidth = 3; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'center'; ctx.strokeText(mk2, x, top - 2); ctx.fillText(mk2, x, top - 2); }
@@ -5091,6 +5297,7 @@
         ctx.strokeStyle = 'rgba(255,60,60,.25)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, s.len, 0, 7); ctx.stroke();
         continue;
       }
+      pfxSweep(s,ex,ey,B);
       for (let k = 1; k <= 4; k++) { const a = s.ang - Math.sign(s.vel) * k * 0.09; ctx.strokeStyle = hexA(s.col, 0.18 / k * 2); ctx.lineWidth = s.w * 2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * s.len, y - Math.sin(a) * s.len); ctx.stroke(); }
       if (B3HAS(B.type) ? s.own : ((R3[B.type] && ((B.type==='kraken' && s.kind==='tentacle') || (B.type==='dragon' && s.kind==='tail'))) || (s.own && !(R3[B.type] && R3[B.type].magicSweep)) || (R3[B.type] && R3[B.type].dual && si<2))) continue;   // the held blades already draw their own weapons
       ctx.strokeStyle = s.col; ctx.lineWidth = s.w * (s.kind === 'club' || s.kind === 'tail' ? 2 : 1.2); ctx.lineCap = 'round';
@@ -5800,7 +6007,7 @@
     const B = boss; if (!B) return;
     const x = B.x, by = sy(B.y), r = B.r, z = (B.z || 0) * 70;
     if (B.dead > 0.6) return;
-    if (RIG[B.type]) { drawSweeps(B, x, by, r); if (B.tele != null) { ctx.strokeStyle = 'rgba(255,60,60,.55)'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(x + Math.cos(B.tele) * 300, by - Math.sin(B.tele) * 300); ctx.stroke(); ctx.setLineDash([]); } drawRigBoss(B); return; }
+    if (RIG[B.type]) { drawSweeps(B, x, by, r); if (B.tele != null) { ctx.strokeStyle = 'rgba(255,60,60,.55)'; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(x, by); ctx.lineTo(x + Math.cos(B.tele) * 300, by - Math.sin(B.tele) * 300); ctx.stroke(); ctx.setLineDash([]); } drawRigBoss(B); pfxBossBreath(B); return; }
     const y = by - z;
     ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x, by + r * 0.7, r * (1 - B.z * 0.4), r * 0.4 * (1 - B.z * 0.4), 0, 0, 7); ctx.fill();
     if (B.mv && (B.mv.name === 'jump' || B.mv.name === 'split') && B.mv.n === 0) { ctx.strokeStyle = 'rgba(255,60,60,.7)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(B.mv.tx, sy(B.mv.ty), r, 0, 7); ctx.stroke(); }
@@ -5828,6 +6035,7 @@
     else if (R3[B.type]) drawR3(B, R3[B.type], x, by + r * 0.7 - z - hov, hurt);
     else if (WR[B.type]) drawWeaponBoss(B, WR[B.type], x, by + r * 0.7 - z - hov, y, spr, hurt);
     else SPR.draw(ctx, spr, x, by + r * 0.7 - z - hov);
+    pfxBossBreath(B);
     if (B.type === 'thunderbird' && Math.sin(globalT * 13) > 0.6) { ctx.strokeStyle = '#fff6a0'; ctx.lineWidth = 2; ctx.beginPath(); let px = x + rnd(-r, r), py = y - r * 1.2; ctx.moveTo(px, py); for (let k = 0; k < 4; k++) { px += rnd(-12, 12); py += 12; ctx.lineTo(px, py); } ctx.stroke(); }
     ctx.restore();
   }
@@ -5866,8 +6074,9 @@
     ctx.fillStyle = `rgba(14,6,24,${a})`; ctx.fill('evenodd');
   }
 
-  function drawZones() {
+  function drawZones(telegraphsOnly=false) {
     for (const z of zones) {
+      if(telegraphsOnly&&(z.type==='patch'||z.t>=z.tele))continue;
       const col = ZCOL[z.kind] || '255,80,80';
       if (z.type === 'patch') {
         const x = z.x, y = sy(z.y), P = PATCH[z.kind] || ['255,80,80', 0.4], fade = Math.min(1, (z.life - z.t) / 0.6, z.t / 0.25);
@@ -5957,6 +6166,7 @@
       const x = b.x, y = sy(b.y), R = Math.max(2, Math.round(b.r / 1.5));
       if (b.delay && b.t < b.delay) continue;
       const lift = b.z || 0;
+      pfxBullet(b);
       if (b.kind === 'web') { SPR.draw(ctx, SPR.ENV.web(), x, y - lift); continue; }
       if (b.kind === 'bomb') { ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(q(x - 6), q(y + 4), 12, 3); SPR.draw(ctx, SPR.ENV.barrel(true, f), x, y + 8 - lift); continue; }
       if (b.kind === 'knife') { const a = b.vx || b.vy ? Math.atan2(-b.vy, b.vx) : Math.atan2(-(hero.y - b.y), hero.x - b.x); ctx.strokeStyle = '#e8ecf4'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x - Math.cos(a) * 9, y + Math.sin(a) * 9); ctx.lineTo(x + Math.cos(a) * 7, y - Math.sin(a) * 7); ctx.stroke(); ctx.fillStyle = '#f2c14e'; ctx.fillRect(q(x - Math.cos(a) * 9) - 1.5, q(y + Math.sin(a) * 9) - 1.5, 3, 3); continue; }
@@ -6028,6 +6238,7 @@
     ctx.restore(); ctx.globalAlpha = 1;
     // hit sparks / defeat puffs (pixel animations)
     for (const a of anims) {
+      if(pfxAnim(a))continue;
       const f = Math.min(a.frames - 1, Math.floor(a.t / a.dur * a.frames));
       if (a.kind === 'bolt') {
         const k = a.t / a.dur, x0 = a.x, y1 = sy(a.y); let py = y1 - 420, px = x0 + 20;
@@ -6264,9 +6475,12 @@
       ctx.fillRect(x + 9, y + 21, 45, h - 21); ctx.fillRect(x + w - 54, y + 21, 45, h - 21); ctx.fillRect(x, y, w, 36);
       ctx.fillStyle = '#847a94'; for (let i = 0; i < 6; i++) ctx.fillRect(q(x + 4.5 + i * (w - 9) / 6), y - 10.5, q((w - 9) / 6 - 6), 12);
       ctx.fillStyle = '#2e2838'; ctx.fillRect(x, y + 33, w, 3); ctx.fillRect(x + 51, y + 36, 3, h - 36); ctx.fillRect(x + w - 54, y + 36, 3, h - 36);
-      ctx.fillStyle = '#140c18'; ctx.beginPath(); ctx.moveTo(x + 54, by); ctx.lineTo(x + 54, y + 69); ctx.quadraticCurveTo(cx, y + 30, x + w - 54, y + 69); ctx.lineTo(x + w - 54, by); ctx.fill();
-      for (let i = 0; i < 3; i++) { const k = (globalT * 0.6 + i / 3) % 1; ctx.strokeStyle = `rgba(255,120,220,${0.7 * (1 - k)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(cx, by - 64.5, 49.5 * (1 - k * 0.7), 66 * (1 - k * 0.7), 0, 0, 7); ctx.stroke(); }
-      ctx.fillStyle = ditherFill('255,120,220', 0.5 + 0.2 * Math.sin(globalT * 3)); ctx.beginPath(); ctx.ellipse(cx, by - 64.5, 39, 55.5, 0, 0, 7); ctx.fill();
+      // Opaque recess fills the whole opening, including the space above the curved portal.
+      ctx.fillStyle = '#140c18';ctx.fillRect(x+54,y+36,w-108,by-y-36);
+      ctx.beginPath(); ctx.moveTo(x + 54, by); ctx.lineTo(x + 54, y + 69); ctx.quadraticCurveTo(cx, y + 30, x + w - 54, y + 69); ctx.lineTo(x + w - 54, by); ctx.fill();
+      drawGateRune(cx,by-3,128,false);
+      ctx.save();ctx.beginPath();ctx.moveTo(x+54,by);ctx.lineTo(x+54,y+69);ctx.quadraticCurveTo(cx,y+30,x+w-54,y+69);ctx.lineTo(x+w-54,by);ctx.closePath();ctx.clip();
+      drawGateVortex(cx,by-6,128,false);ctx.restore();
       drawTorchAt(x + 31.5, y + 60); drawTorchAt(x + w - 31.5, y + 60);
     } else {
       // walls (planks/bricks), shingled roof, door, windows, sign
@@ -6378,12 +6592,7 @@
   // interiors (the shop window sits on the lower half; the room shows above)
   function drawInterior(id) {
     if(id==='arena'){arenaDrawInterior();return;}
-    if (id === 'gate') {
-      ctx.fillStyle = '#0d0a16'; ctx.fillRect(0, 0, W, H);
-      for (let i = 0; i < 7; i++) { const k = (globalT * 0.4 + i / 7) % 1; ctx.strokeStyle = `rgba(255,120,220,${0.6 * (1 - k)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(W / 2, H * 0.24, VW * 0.45 * (1 - k), Math.min(H * 0.18, VW * 0.36) * (1 - k), 0, 0, 7); ctx.stroke(); }
-      for (let i = 0; i < 24; i++) { const a = i * 2.4 + globalT * 0.3, rr = (i * 13 % 100) / 100 * VW * 0.45; ctx.fillStyle = 'rgba(255,190,240,.7)'; ctx.fillRect(q(W / 2 + Math.cos(a) * rr), q(H * 0.24 + Math.sin(a) * rr * 0.4), 1.5, 1.5); }
-      return;
-    }
+    if (id === 'gate') { drawGateChamber(); return; }
     const T = SPR.tileCanvas, wallCol = id === 'smith' ? '#4a3428' : id === 'house' ? '#5a4868' : '#5a4430';
     const plank = T('t_plank' + wallCol, 12, 16, g => { g.r(0, 0, 12, 16, wallCol); g.r(0, 0, 1, 16, SPR.shade(wallCol, -0.3)); g.r(6, 0, 1, 16, SPR.shade(wallCol, -0.2)); g.r(2, 5, 1, 2, SPR.shade(wallCol, -0.3)); g.r(9, 11, 1, 2, SPR.shade(wallCol, -0.3)); g.r(1, 0, 4, 1, SPR.shade(wallCol, 0.12)); });
     const board = T('t_board', 24, 8, g => { g.r(0, 0, 24, 8, '#6a4a2a'); g.r(0, 3, 24, 1, '#4a3018'); g.r(0, 7, 24, 1, '#4a3018'); g.r(10, 0, 1, 3, '#4a3018'); g.r(20, 4, 1, 3, '#4a3018'); g.r(0, 0, 24, 1, '#8a6a40'); });
@@ -6420,7 +6629,7 @@
     }
   }
   function drawInteriorUI(id) {
-    if (id === 'gate') { txt('どこへ むかう？', W / 2, H * 0.25, 20, '#fff', 'center'); drawTownTop(); return; }
+    if (id === 'gate') { txt('どこへ むかう？', W / 2, 76, 20, '#fff', 'center'); drawTownTop(); return; }
     if (id !== 'house') {
       const kx = W / 2, ky = H * 0.33;
       const say = id==='arena'?'挑戦を 待っているぞ！':id==='guild'?'ようこそ、冒険者ギルドへ！':id==='craft'?'いらっしゃい、合成屋へ。':'いらっしゃい！';
@@ -6443,11 +6652,12 @@
   function render() {
     mainCtx.setTransform(dpr * S, 0, 0, dpr * S, 0, 0);
     mainCtx.clearRect(0, 0, W, H);
-    ctx = mainCtx;
+    ctx = mainCtx;pfxCalls=0;
     if (state === 'title') { beginPix(); drawTitleBg(); endPix(); return; }
     if (state === 'town' || (state === 'over' && !D)) {
-      beginPix(); if (inside) drawInterior(inside); else drawTown(); endPix();
-      if (inside) drawInteriorUI(inside); else drawTownUI();
+      const gateLeaving=transition?.gate&&!transition.done;
+      beginPix(); if (gateLeaving) drawGateChamber(); else if (inside) drawInterior(inside); else drawTown(); endPix();
+      if (gateLeaving) drawTownTop(); else if (inside) drawInteriorUI(inside); else drawTownUI();
       drawFade(); return;
     }
     if(arenaRun&&['rest','ready'].includes(arenaRun.phase)){
@@ -6464,6 +6674,7 @@
     else ctx.translate(q(WX), 0);                    // corridor: the 360-wide field in the middle of a wider screen
     if (arena) {if(arenaRun)arenaDrawCombat();else drawArena();} else if(hardRun)hardDrawField();else drawDungeon();
     if (state !== 'boss' && !arena) drawProps();
+    pfxDrawEvents(true);pfxHero(true);
     drawEvents();
     drawDrops();
     const list = enemies.filter(e => !e.dead);
@@ -6473,8 +6684,8 @@
     if (hero.hp > 0 || slowMo > 0) drawHero();craftDraw();guildDraw();arenaDrawMarks();
     if (darkT > 0) drawDark();
     drawZones();
-    drawBullets();
-    drawFx();
+    pfxZones();pfxField();drawBullets();
+    drawFx();pfxDrawEvents(false);pfxHero(false);if(pfxEnabled())drawZones(true);
     if (D) lighting();
     ctx.restore();
     endPix();
@@ -6487,7 +6698,7 @@
     drawFade();
     if (paused) { ctx.fillStyle = trayOpen ? 'rgba(0,0,0,.3)' : 'rgba(0,0,0,.45)'; ctx.fillRect(0, 0, W, H); }
   }
-  function drawFade() { if (transition) { const k = transition.t < transition.mid ? transition.t / transition.mid : 2 - transition.t / transition.mid; ctx.fillStyle = `rgba(0,0,0,${clamp(k, 0, 1)})`; ctx.fillRect(0, 0, W, H); } }
+  function drawFade() { if (transition) { if(transition.gate&&!transition.done){const u=clamp(transition.t/transition.mid,0,1),{floor,height}=gateChamberSize(),cy=floor-height*.58,r=height*(.55+u*.5),g=ctx.createRadialGradient(W/2,cy,0,W/2,cy,r);g.addColorStop(0,`rgba(${transition.gate.hard?'255,180,224':'190,210,255'},${Math.sin(u*Math.PI)*.38})`);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.fillRect(W/2-r,cy-r,r*2,r*2);} const k = transition.t < transition.mid ? transition.t / transition.mid : 2 - transition.t / transition.mid; ctx.fillStyle = `rgba(0,0,0,${clamp(k, 0, 1)})`; ctx.fillRect(0, 0, W, H); } }
   // ---- title (指示: ロゴが主役、中央に剣を掲げる勇者を大きく、奥にボスのシルエット) ----
   // the hero: hand-drawn at half the art resolution and shown at 2x, so it reads big and bold
   const TH = {};   // cached hero frames (cape wave)
@@ -6746,6 +6957,7 @@
   function closeTray() { trayOpen = false; $('tray').hidden = true; if (!panelOpen) paused = false; }
 
   function goTown() {
+    pfxClear();
     const fromArena=!!arenaRun;if(arenaRun)arenaRestore();
     tut = null;
     closePanel();hardRun=null;WX=(W-VW)/2; state = 'town'; D = null; arena = null; boss = null; enemies = []; bullets = []; hero = null; paused = false;
@@ -6908,7 +7120,7 @@
   function openPrep(di,hardPair=null) {
     const d = DUNGEONS[di], mh = stats().maxHp, sl = getSlots().map(x => x && Object.assign({}, x));
     const shown = x => Math.min(x.n, ITEMS[x.id].carry, save.items[x.id] || 0);
-    const go = () => { if(hardPair!=null&&(!hardUnlocked(hardPair)||hardDone(hardPair))){openGate();return;}save.slots = sl; save.loadout = slotsLoadout(sl); persist(); transition = { t: 0, mid: 0.4, fn: () => hardPair==null?enterDungeon(di):hardEnter(hardPair) }; closePanel(); };
+    const go = () => { if(hardPair!=null&&(!hardUnlocked(hardPair)||hardDone(hardPair))){openGate();return;}save.slots = sl; save.loadout = slotsLoadout(sl); persist(); transition = { t: 0, mid: 0.4, gate:{hard:hardPair!=null}, fn: () => hardPair==null?enterDungeon(di):hardEnter(hardPair) }; A.sfx('warp'); closePanel(); };
     const keep = fn => () => { const sc = panelBody.scrollTop; fn(); panelBody.scrollTop = sc; };
     const slotsView = () => {
       const html = sl.map((x, i) => {
@@ -7021,6 +7233,7 @@
     obj(s.eq);for(const slot of ['weapon','armor','boots','charm']){const id=s.eq[slot];if(id==null){if(slot!=='charm')bad();}else if(!Object.hasOwn(EQ,id)||EQ[id].slot!==slot||!s.owned.includes(id))bad();}
     if(s.skill!=null&&!s.skills.includes(s.skill))bad();obj(s.items);for(const[k,n]of Object.entries(s.items))if(!Object.hasOwn(ITEMS,k)||!integer(n)||n>ITEM_MAX)bad();
     obj(s.settings);for(const k of ['bgm','sfx'])if(typeof s.settings[k]!=='number'||s.settings[k]<0||s.settings[k]>1)bad();
+    if(s.settings.pixelfx!=null&&typeof s.settings.pixelfx!=='boolean')bad();
     if(![0,30,60,90,120].includes(s.settings.fps)||![.4,.7,1,1.5].includes(s.settings.pad))bad();
     for(const path of ['materials','bestiary','bestiary.seen','bestiary.obtained','forge','forge.inherited','forge.upgrades','guild','guild.stats','guild.stats.values','guild.stats.crafts','guild.stats.skills','guild.stats.builds','guild.claimed','guild.receipts','arena','arena.trials','arena.chains','arena.rewards','hard','hard.cleared']){let v=s;for(const k of path.split('.'))v=v?.[k];if(v!=null)obj(v);}
     for(const path of ['craftTools','craftSkills','forge.receipts','guild.titles']){let v=s;for(const k of path.split('.'))v=v?.[k];if(v!=null)strings(v);}
@@ -7084,6 +7297,7 @@
         <span class="optn">現在の画面：約 ${Math.round(1000 / rafMs / 10) * 10}Hz</span></div>
       <div class="optg">スライドパッドの こさ<div class="tabs" id="optPad">${[[0.4, 'うすい'], [0.7, 'ややうすい'], [1, 'ふつう'], [1.5, 'こい']].map(([v, l]) => `<button data-v="${v}" aria-pressed="${save.settings.pad === v}">${l}</button>`).join('')}</div>
         <canvas id="optPadPrev" width="150" height="74" style="display:block;margin:6px auto 0;border-radius:8px;background:#2a2a3e"></canvas></div>
+      <div class="optg">技のエフェクト<div class="tabs" id="optFx"><button data-v="1" aria-pressed="${save.settings.pixelfx!==false}">新しい演出</button><button data-v="0" aria-pressed="${save.settings.pixelfx===false}">従来の演出</button></div></div>
       <div class="optg"><button class="btn" id="optSaveTransfer">セーブデータの管理</button></div>
       `,
       [['もどる', openHouse, true], ['操作の説明',openHelp], ['操作練習をやり直す',()=>{save.tut=0;persist();toast('次に はじまりの洞窟へ入ると操作練習が始まります。','#f2c14e');}], ['データをけす', () => openPanel('ほんとうに けしますか？', '<p>冒険記録と端末内の読み込み前の控えを消し、すべて最初にもどします。</p>', [['けす', () => { localStorage.removeItem(TRANSFER_BACKUP); save = DEF_SAVE(); craftNormalize(); forgeNormalize(); bestNormalize(); guildNormalize(); hardNormalize(); arenaNormalize(); guildRun=null; persist(); goTown(); }], ['やめる', openOptions, true]], 'house')]], 'house');
@@ -7094,6 +7308,7 @@
       $(id).querySelectorAll('button').forEach(o => o.setAttribute('aria-pressed', String(o === b))); if (after) after();
     }));
     const prev = () => { const c = $('optPadPrev'), x = c.getContext('2d'); x.clearRect(0, 0, c.width, c.height); padShape(x, 75, 37, 105, 30, 30, false, 0.6); };
+    $('optFx').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{save.settings.pixelfx=b.dataset.v==='1';pfxClear();persist();A.sfx('select');$('optFx').querySelectorAll('button').forEach(o=>o.setAttribute('aria-pressed',String(o===b)));}));
     $('optSaveTransfer').addEventListener('click',()=>{A.sfx('select');openSaveTransfer();});
     seg('optFps', 'fps', () => { nextT = 0; }); seg('optPad', 'pad', prev); prev();
   }
@@ -7269,6 +7484,6 @@
   window.claude?.hot?.snapshot?.(() => arenaRun?arenaRun.home:save);
   requestAnimationFrame(frame);
   // test hooks
-  window.__yusha = { saveTransfer:{validate:transferValidate,open:openSaveTransfer,encode:transferEncode,parse:transferParse,preview:transferPreview,commit:transferCommit,export:transferExportFile,get pending(){return transferPending;}},arenaMode:{ruleVersion:ARENA_RULE,ruleFor:id=>arenaTrialRule(arenaTrial(id)),open:openArena,trial:openArenaTrial,chain:openArenaChain,startTrial:arenaStartTrial,startChain:arenaStartChain,trials:ARENA_TRIALS,classes:ARENA_CLASSES,pool:arenaPool,canChain:arenaCanChain,rewards:ARENA_REWARDS,gear:arenaGear,claim:arenaClaim,normalize:arenaNormalize,supply:arenaSupply,rest:arenaRest,withdraw:arenaWithdraw,finish:arenaFinish,win:arenaBattleWon,next:arenaNextBattle,get run(){return arenaRun;},hudBox:arenaHudBox,hudLines:arenaHudLines,get circle(){return arena;}},enterBuilding,townSwipeTo, hard:{enter:hardEnter,pairs:HARD_PAIRS,normalize:hardNormalize,done:hardDone,unlocked:hardUnlocked,settle:hardSettle,contains:hardContains,confine:hardConfine,allBosses:fightBosses,hit:skillHit,openGate,get run(){return hardRun;},get arena(){return arena;}},facilities:{enter:facilityEnter,help:facilityShowHelp,closeHelp:facilityCloseHelp,stage:uiStageEnemies,get config(){return FACILITIES;},get active(){return{room:facilityRoom,tab:facilityTab};}},smith:{open:openSmith,detail:openSmithItem,confirm:openSmithConfirm,quote:smithQuote,upgrade:smithUpgrade,value:smithValue,keys:smithKeys,boots:smithBootEffects},forge:{open:openForge,confirm:openForgeConfirm,inherit:forgeInherit,check:forgeCheck,fx:forgeFx,normalize:forgeNormalize,grant:forgeGrantCrystals,hasEffect:forgeHasEffect},guild:{open:openGuild,detail:openGuildMission,missions:GUILD,claim:guildClaim,progress:guildProgress,choices:guildChoices,daily:guildDaily,normalize:guildNormalize,value:guildValue,inc:guildInc,clear:guildClear,sample:guildSampleBoss,dodge:guildDodge,ram:guildRam,wall:guildWall,hit:guildHit,heal:guildHeal,tick:guildTick,gear:guildGear,damage:ramDamage,hurt:hurtHero,rollScale:guildRollScale,get run(){return guildRun;}},bestiary:{open:openBestiary,detail:openBestiaryEntry,entries:bestEntries,drops:bestDrops,places:bestPlaces,normalize:bestNormalize,frame:bestFrame,playback:bestPlayback,get preview(){return bestPreview;}},crafting:{materials:craftMats,recipes:craftRecipes,make:craftMake,can:craftCanMake,open:openCraftShop,detail:openCraftRecipe,inventory:openCraftMaterials,exchange:craftExchange,normalize:craftNormalize,has:craftHas,ram:craftOnRam,roll:craftOnRoll,tick:craftTick,potion:craftUsePotion,skill:craftOnSkill,drop:craftDropEnemy,bossDrop:craftDropBoss,hasState:craftState,damage:craftDamageAdjust,gauges:craftGauges,feedback:craftFeedback},startRoll,useSkill,useItem, get tut() { return tut; }, get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
+  window.__yusha = { pixelfx:{emit:pfxEmit,clear:pfxClear,get data(){return {effects:Object.keys(pfxData?.effects||{}),decodedBytes:pfxData?.decodedBytes||0,loaded:pfxLoaded,images:pfxImages.length,calls:pfxCalls,events:pfxEvents.length,used:[...pfxUsed]};}},saveTransfer:{validate:transferValidate,open:openSaveTransfer,encode:transferEncode,parse:transferParse,preview:transferPreview,commit:transferCommit,export:transferExportFile,get pending(){return transferPending;}},arenaMode:{ruleVersion:ARENA_RULE,ruleFor:id=>arenaTrialRule(arenaTrial(id)),open:openArena,trial:openArenaTrial,chain:openArenaChain,startTrial:arenaStartTrial,startChain:arenaStartChain,trials:ARENA_TRIALS,classes:ARENA_CLASSES,pool:arenaPool,canChain:arenaCanChain,rewards:ARENA_REWARDS,gear:arenaGear,claim:arenaClaim,normalize:arenaNormalize,supply:arenaSupply,rest:arenaRest,withdraw:arenaWithdraw,finish:arenaFinish,win:arenaBattleWon,next:arenaNextBattle,get run(){return arenaRun;},hudBox:arenaHudBox,hudLines:arenaHudLines,get circle(){return arena;}},enterBuilding,townSwipeTo, hard:{enter:hardEnter,pairs:HARD_PAIRS,normalize:hardNormalize,done:hardDone,unlocked:hardUnlocked,settle:hardSettle,contains:hardContains,confine:hardConfine,allBosses:fightBosses,hit:skillHit,openGate,get run(){return hardRun;},get arena(){return arena;}},facilities:{enter:facilityEnter,help:facilityShowHelp,closeHelp:facilityCloseHelp,stage:uiStageEnemies,get config(){return FACILITIES;},get active(){return{room:facilityRoom,tab:facilityTab};}},smith:{open:openSmith,detail:openSmithItem,confirm:openSmithConfirm,quote:smithQuote,upgrade:smithUpgrade,value:smithValue,keys:smithKeys,boots:smithBootEffects},forge:{open:openForge,confirm:openForgeConfirm,inherit:forgeInherit,check:forgeCheck,fx:forgeFx,normalize:forgeNormalize,grant:forgeGrantCrystals,hasEffect:forgeHasEffect},guild:{open:openGuild,detail:openGuildMission,missions:GUILD,claim:guildClaim,progress:guildProgress,choices:guildChoices,daily:guildDaily,normalize:guildNormalize,value:guildValue,inc:guildInc,clear:guildClear,sample:guildSampleBoss,dodge:guildDodge,ram:guildRam,wall:guildWall,hit:guildHit,heal:guildHeal,tick:guildTick,gear:guildGear,damage:ramDamage,hurt:hurtHero,rollScale:guildRollScale,get run(){return guildRun;}},bestiary:{open:openBestiary,detail:openBestiaryEntry,entries:bestEntries,drops:bestDrops,places:bestPlaces,normalize:bestNormalize,frame:bestFrame,playback:bestPlayback,get preview(){return bestPreview;}},crafting:{materials:craftMats,recipes:craftRecipes,make:craftMake,can:craftCanMake,open:openCraftShop,detail:openCraftRecipe,inventory:openCraftMaterials,exchange:craftExchange,normalize:craftNormalize,has:craftHas,ram:craftOnRam,roll:craftOnRoll,tick:craftTick,potion:craftUsePotion,skill:craftOnSkill,drop:craftDropEnemy,bossDrop:craftDropBoss,hasState:craftState,damage:craftDamageAdjust,gauges:craftGauges,feedback:craftFeedback},startRoll,useSkill,useItem, get tut() { return tut; }, get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
     enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN, ITEMS, EQUIP }, get bag() { return bag; }, openPrep, charmHit, stats, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, get gate() { return [gateKills, gateNeed]; }, killE: e => killEnemy(e), hitE:hitEnemy, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt, openOptions };
 })();
