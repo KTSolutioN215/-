@@ -459,3 +459,9 @@ sh tools/build_apk.sh      # 初回は Android SDK（platform 35 / build-tools 3
 - HUD：村HP・波・残り数、右上にレーダー（村・敵・なかま・ボス・自分・ふえ）、村が画面外なら矢印（攻撃中は赤）、左下になかまのHP、ボスのHPバー。
 - 報酬：倒した敵のEXP・G（その面の0.8倍／0.6倍を頭数で割る）＋クリアボーナス（EXP 0.3倍、G 0.4倍×村の残りHP）。初回は2倍。
 - テスト用：`__yusha.defense.enter(k)`, `__yusha.defense.run`, `__yusha.defense.spawnBoss(type)`。
+
+## キーボード・コントローラー（2026-11-01）
+- 画面表示はなし。`pollInput`（毎フレーム）と keydown で、スライドパッドを仮想的に動かす（`drag.virtual`）。指でさわると指が優先。
+- 移動：WASD／矢印／左スティック／十字キー（倒しきり＝とっしん。Qを押しながら・スティック浅めで歩き）。
+- ころがり：J・Z／A・LB　スキル：K・X・Space・Shift／B・RB　どうぐ：I・C／X　ふえ：L・V／Y　ポーズ：Esc・P／Start・Back。
+- メニュー・どうぐ・ヘルプ：矢印（十字・スティック、押しっぱなしで連続）でボタン移動、Enter／Aで決定、Esc／Bでとじる（ポーズ中はつづける）。街：左右で移動、Enter／A・上で入る。タイトル：Enter／A。

@@ -6806,7 +6806,7 @@
   function safeTop() { return safeT; }
   function safeBottom() { return safeB; }
   function drawPad() {
-    if (!drag.down || paused || (state !== 'play' && state !== 'boss')) return;
+    if (!drag.down || drag.virtual || paused || (state !== 'play' && state !== 'boss')) return;
     const charge = hero && heroSpeed() > RAM_MIN;
     padShape(ctx, drag.ox, drag.oy, drag.px, drag.py, PAD_R, charge, hero ? clamp(RAM_MIN / (PAD_MAX * hero.s.ram), 0, 1) : 0);
   }
@@ -7775,16 +7775,6 @@
     startAudio();
     $('title').hidden = true; goTown();
   });
-  document.addEventListener('keydown', e => {
-    if ((state === 'play' || state === 'boss') && (e.key === ' ' || e.key === 'Shift')) { e.preventDefault(); useSkill(); return; }
-    if (state !== 'town') return;
-    if (e.key === 'Escape' && !$('helpWrap').hidden) { e.preventDefault();facilityCloseHelp();return; }
-    if (e.key === 'Escape' && panelOpen) closePanel();
-    else if (!panelOpen && e.key === 'ArrowLeft') townSwipeTo(townPage - 1);
-    else if (!panelOpen && e.key === 'ArrowRight') townSwipeTo(townPage + 1);
-    else if (!panelOpen && e.key === 'Enter') enterBuilding(curPage().id);
-  });
-
   // canvas input: drag to move (dungeon) / tap a building (town)
   cv.addEventListener('pointerdown', e => {
     if (trayOpen) { closeTray(); return; }
@@ -7798,8 +7788,8 @@
     if ((state !== 'play' && state !== 'boss') || paused) return;
     const r = cv.getBoundingClientRect(), now = performance.now(), tx = (e.clientX - r.left) / S, ty = (e.clientY - r.top) / S;
     if (now - lastTap.t < 320 && hyp(tx - lastTap.x, ty - lastTap.y) < 70) { lastTap.t = 0; useSkill(); }   // double tap = skill
-    if (drag.down) return;
-    drag.down = true; drag.id = e.pointerId; drag.t0 = now; drag.far = 0;
+    if (drag.down && !drag.virtual) return;
+    drag.down = true; drag.virtual = false; drag.id = e.pointerId; drag.t0 = now; drag.far = 0;
     drag.ox = drag.px = drag.sx = (e.clientX - r.left) / S; drag.oy = drag.py = drag.sy = (e.clientY - r.top) / S;craftFlickStart();
     try { cv.setPointerCapture(e.pointerId); } catch (er) { }
   });
@@ -7839,6 +7829,136 @@
   };
   const lastTap = { t: 0, x: 0, y: 0 };
   cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+
+  // ---------------------------------------------------------------
+  //  KEYBOARD / GAMEPAD (指示: キーボード・コントローラーで そうさ。表示は なし、各そうさに たいおう させるだけ)
+  //  move: WASD / arrows / left stick / d-pad (full tilt = とっしん; hold Q or a light stick tilt to walk)
+  //  roll: J・Z / pad A・LB    skill: K・X・Space・Shift / pad B・RB    item: I・C / pad X    whistle: L・V / pad Y
+  //  pause: Esc・P / Start     menus: arrows・Enter・Esc / d-pad・A・B
+  // ---------------------------------------------------------------
+  const keys = new Set();
+  const inPlay = () => (state === 'play' || state === 'boss') && hero && !paused && !panelOpen && !trayOpen;
+  function setVirtualPad(ax, ay) {   // ax, ay: screen direction (y down), length 0..1
+    const m = hyp(ax, ay);
+    if (m > 0.18 && inPlay()) {
+      if (drag.down && !drag.virtual) return;   // a finger on the screen wins
+      const d = 6 + Math.min(1, m) * (PAD_R - 6);
+      drag.down = true; drag.virtual = true; drag.id = null; drag.ox = drag.oy = 0; drag.px = ax / m * d; drag.py = ay / m * d;
+    } else if (drag.virtual) { drag.down = false; drag.virtual = false; }
+  }
+  function padRoll(ax, ay) {
+    if (!inPlay()) return;
+    if (hyp(ax, ay) < 0.2) { ax = Math.cos(hero.face); ay = -Math.sin(hero.face); }
+    craftFlickRoll(ax * 60, ay * 60);
+  }
+  function menuRoot() {
+    if (!$('helpWrap').hidden) return $('helpWrap');
+    if (trayOpen) return $('tray');
+    if (panelOpen) return $('panelWrap');
+    if (!$('title').hidden) return $('title');
+    return null;
+  }
+  const menuButtons = () => { const r = menuRoot(); return r ? [...r.querySelectorAll('button:not([disabled]),input')].filter(b => b.offsetParent !== null) : []; };
+  function menuMove(dir) {
+    const L = menuButtons(); if (!L.length) return;
+    let i = L.indexOf(document.activeElement); i = i < 0 ? 0 : clamp(i + dir, 0, L.length - 1);
+    L[i].focus(); try { L[i].scrollIntoView({ block: 'nearest' }); } catch (e) { }
+  }
+  function menuOk() { const L = menuButtons(), a = document.activeElement; if (L.includes(a)) a.click(); else if (L[0]) L[0].focus(); }
+  function menuBack() {
+    if (!$('helpWrap').hidden) { facilityCloseHelp(); return true; }
+    if (trayOpen) { closeTray(); return true; }
+    if (panelOpen && (state === 'play' || state === 'boss')) { if ($('panelTitle').textContent === 'ポーズ') { paused = false; closePanel(); } return true; }
+    if (panelOpen && state === 'town') { closePanel(); return true; }
+    return false;
+  }
+  function act(name, ax = 0, ay = 0) {   // one button press, from the keyboard or a pad
+    if (state === 'title') { if (name === 'ok' || name === 'pause') $('startBtn').click(); return; }
+    if (menuRoot()) {
+      if (name === 'up' || name === 'left') menuMove(-1); else if (name === 'down' || name === 'right') menuMove(1);
+      else if (name === 'ok') menuOk(); else if (name === 'back' || name === 'pause') menuBack();
+      return;
+    }
+    if (state === 'town') {
+      if (name === 'left') townSwipeTo(townPage - 1); else if (name === 'right') townSwipeTo(townPage + 1);
+      else if (name === 'ok' || name === 'up') enterBuilding(curPage().id);
+      return;
+    }
+    if (state !== 'play' && state !== 'boss') return;
+    if (name === 'pause') { if (!paused) { A.sfx('select'); openPause(); } return; }
+    if (!inPlay()) return;
+    if (name === 'roll') padRoll(ax, ay);
+    else if (name === 'skill') useSkill();
+    else if (name === 'item') openTray();
+    else if (name === 'whistle') defWhistle();
+  }
+  function keyDir() {
+    let x = 0, y = 0;
+    if (keys.has('arrowleft') || keys.has('a')) x--; if (keys.has('arrowright') || keys.has('d')) x++;
+    if (keys.has('arrowup') || keys.has('w')) y--; if (keys.has('arrowdown') || keys.has('s')) y++;
+    const m = hyp(x, y) || 1, k = keys.has('q') ? 0.5 : 1;
+    return [x / m * k, y / m * k];
+  }
+  const KEYACT = { j: 'roll', z: 'roll', k: 'skill', x: 'skill', ' ': 'skill', shift: 'skill', i: 'item', c: 'item', l: 'whistle', v: 'whistle', escape: 'pause', p: 'pause' };
+  document.addEventListener('keydown', e => {
+    const k = e.key.toLowerCase();
+    if (e.target && /input|textarea|select/i.test(e.target.tagName) && e.target.type !== 'checkbox' && e.target.type !== 'range') return;
+    const menu = menuRoot();
+    if (menu || state === 'title') {
+      if (k === 'arrowup' || k === 'w') { e.preventDefault(); act('up'); }
+      else if (k === 'arrowdown' || k === 's') { e.preventDefault(); act('down'); }
+      else if (k === 'arrowleft' || k === 'a') { e.preventDefault(); act('left'); }
+      else if (k === 'arrowright' || k === 'd') { e.preventDefault(); act('right'); }
+      else if (k === 'escape' || k === 'backspace') { e.preventDefault(); act('back'); }
+      else if ((k === 'enter' || k === ' ') && !menuButtons().includes(document.activeElement)) { e.preventDefault(); act('ok'); }   // a focused button clicks by itself
+      return;
+    }
+    if (state === 'town') {
+      if (k === 'arrowleft' || k === 'a') act('left'); else if (k === 'arrowright' || k === 'd') act('right');
+      else if (k === 'enter' || k === ' ' || k === 'arrowup' || k === 'w') { e.preventDefault(); act('ok'); }
+      return;
+    }
+    if (state !== 'play' && state !== 'boss') return;
+    if (/^(arrow|[wasdq]$)/.test(k)) { e.preventDefault(); keys.add(k); return; }
+    if (e.repeat) return;
+    if (KEYACT[k]) { e.preventDefault(); const [x, y] = keyDir(); act(KEYACT[k], x, y); }
+  });
+  document.addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+  window.addEventListener('blur', () => keys.clear());
+  // gamepads (standard mapping): polled every frame; buttons act on the press, the stick/d-pad repeat in menus
+  const gpPrev = {}, gpRep = { dir: '', t: 0 };
+  const GPACT = { 0: 'roll', 4: 'roll', 1: 'skill', 5: 'skill', 2: 'item', 3: 'whistle', 9: 'pause', 8: 'pause' };
+  function pollInput(dt) {
+    let ax = 0, ay = 0, any = false;
+    const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+    for (const g of pads) {
+      const b = i => !!(g.buttons[i] && g.buttons[i].pressed);
+      let sx = g.axes[0] || 0, sy2 = g.axes[1] || 0;
+      if (b(14)) sx = -1; if (b(15)) sx = 1; if (b(12)) sy2 = -1; if (b(13)) sy2 = 1;
+      if (hyp(sx, sy2) > hyp(ax, ay)) { ax = sx; ay = sy2; }
+      const P = gpPrev[g.index] || (gpPrev[g.index] = {});
+      const menuish = !!menuRoot() || state === 'title' || state === 'town';
+      for (let i = 0; i < g.buttons.length; i++) {
+        const now = b(i); if (now && !P[i]) {
+          any = true;
+          if (menuish) { if (i === 0) act('ok'); else if (i === 1) act('back'); else if (i === 9) act('pause'); }
+          else if (GPACT[i]) act(GPACT[i], sx, sy2);
+        }
+        P[i] = now;
+      }
+    }
+    // menus / town: the stick or d-pad steps through, repeating while held
+    const menuish = !!menuRoot() || state === 'title' || state === 'town';
+    if (pads.length && menuish) {
+      const m = hyp(ax, ay), dir = m < 0.5 ? '' : Math.abs(ax) > Math.abs(ay) ? (ax > 0 ? 'right' : 'left') : (ay > 0 ? 'down' : 'up');
+      if (dir !== gpRep.dir) { gpRep.dir = dir; gpRep.t = 0.4; if (dir) act(dir); }
+      else if (dir && (gpRep.t -= dt) <= 0) { gpRep.t = 0.13; act(dir); }
+    } else gpRep.dir = '';
+    // the hero: keys and stick drive the slide pad
+    const [kx, ky] = keyDir();
+    if (hyp(kx, ky) > hyp(ax, ay)) { ax = kx; ay = ky; }
+    if (pads.length || keys.size || drag.virtual) setVirtualPad(ax, ay);
+  }
 
   // ---------------------------------------------------------------
   //  LOOP
@@ -7913,6 +8033,7 @@
         perfWin.n = 0; perfWin.sum = 0;
       }
     }
+    pollInput(dt);
     if (!manual) update(dt);
     render();
   }
