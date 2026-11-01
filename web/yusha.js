@@ -2309,7 +2309,7 @@
   // ---------------------------------------------------------------
   const DEF_STAGES = [4, 9, 14, 19, 24, 29, 34];   // after every 5th dungeon (index of the dungeon it follows)
   const DEF_NAMES = ['ひなたの村', 'かざぐるまの村', 'みなとの村', 'すなかぜの村', 'ほしみの村', 'こもれびの村', 'さいはての村'];
-  const DEF_K = 0.7, DEF_LEN = 1000, DEF_WAVES = 5, DEF_VHP = 100, DEF_MARCH = 90;
+  const DEF_K = 0.7, DEF_LEN = 1000, DEF_WAVES = 5, DEF_VHP = 100, DEF_MARCH = 90, DEF_BOSS_MARCH = 26;
   const DEF_NPC = [
     { name: 'アレン', col: '#8ac4ff', hp: 1.25, atk: 0.9, def: 1.2, spd: 0.95, wo: 0, ao: 1, say: 'まかせろ！' },
     { name: 'リナ', col: '#ff9ad0', hp: 0.85, atk: 1.2, def: 0.85, spd: 1.12, wo: 1, ao: -1, say: 'いくよ！' },
@@ -2366,6 +2366,41 @@
     R.q = n; R.qT = 0; R.waveT = 30;
     banner = { a: R.wave >= DEF_WAVES ? 'さいごの 波が くる！' : `だい${R.wave}波 が くる！`, b: `WAVE ${R.wave} / ${DEF_WAVES}`, t: 1.8 };
     A.sfx('summon');
+    if (R.wave >= DEF_WAVES && !R.bossDone) { R.bossDone = 1; R.bossT = 2.2; }   // 指示: ボスも せめてくる（さいごの波と いっしょに）
+  }
+  // a boss from this stretch of dungeons leads the last wave. It runs the normal boss AI around a "home" that creeps toward the gate.
+  function defSpawnBoss(type) {
+    const R = defRun, lo = Math.max(0, R.di - 4), j = lo + Math.floor(Math.random() * (R.di - lo + 1)), d = DUNGEONS[j], T = type || d.boss, Bd = BOSSES[T], y = goalY - 170;
+    const hp = Math.round(Bd.hp * DEF_K);   // 指示: たいりょく 0.7ばい
+    boss = { type: T, name: Bd.name, x: VW / 2, y: goalY - 60, vx: 0, vy: 0, r: Math.round(Bd.r * 1.4), hp, maxHp: hp, atk: Bd.atk, def: Bd.def, col: Bd.col, wcol: Bd.wcol, fcol: Bd.fcol, ocol: Bd.ocol,
+      exp: Math.round(d.xp * 0.3), gold: Math.round(d.gp * 0.25), moves: Bd.moves, moves2: Bd.moves2, phase: 1, mv: null, mt: 0, cd: 2.2, last: '', hurt: 0, hitCD: 0, z: 0,
+      sweeps: [], intro: 2.6, face: -Math.PI / 2, dead: 0, rage: Bd.rage, waveT: 1e9, hx: VW / 2, hy: y, homeT: 0, alpha: 1, defBoss: true };
+    if (RIG[T]) rigInit(boss);
+    if (T === 'archmage') { boss.r0 = boss.r; boss.r1 = Math.round(boss.r * 0.68); boss.r = boss.r1; boss.sizeK = 0.68; boss.grow = -1; }
+    arena = { cx: VW / 2, cy: y - 20, R: 175 };   // only the boss's moves read this; the camera and walls stay the corridor's
+    banner = { a: `${Bd.name} が せめてきた！`, b: 'BOSS が 村を ねらっている', t: 2.6, boss: true };
+    bestEncounter('boss:' + T); A.bgm(FARR.boss[T]); A.sfx('bossAppear');
+    flash = 0.5; flashCol = '255,255,255'; shake = 14;
+  }
+  function defBossTick(dt) {
+    const R = defRun, B = boss;
+    if (!B.dead && !(B.intro > 0)) arena.cy = Math.max(B.r - 10, arena.cy - DEF_BOSS_MARCH * DEF_K * dt);   // 指示: しんこう そくど 0.7ばい
+    B.waveT = Math.max(B.waveT, 1e8);   // no endless reinforcements: the waves are the reinforcements
+    bossUpdate(dt);
+    if (!boss || B.dead) return;
+    const tn = tunnelAt(B.y); B.x = clamp(B.x, tn.cx - tn.w / 2 + B.r * 0.55, tn.cx + tn.w / 2 - B.r * 0.55); B.y = clamp(B.y, B.r * 0.4, goalY - 20);
+    if (B.y - B.r < 40 && (R.bossHitT || 0) < globalT) {   // at the gate: it smashes the fence, then is driven back a little
+      R.bossHitT = globalT + 2.5; defVillageHit(20, B.x, `${B.name}が 門を こわしている！`); shake = Math.max(shake, 16); A.sfx('quake');
+      arena.cy = Math.min(goalY - 190, arena.cy + 200);
+    }
+  }
+  function defBossDown(B) {
+    B.dead = 0.01; A.sfx('bossKill');
+    hitStop = 0.2; slowMo = 1.1; shake = 24; flash = 0.9; flashCol = '255,255,255';
+    B.sweeps = []; zones = zones.filter(z => z.boss !== B);
+    craftDropBoss(B); gainExp(B.exp); gainGold(B.gold);
+    popText(B.x, B.y + B.r + 40, `${B.name}を たおした！`, '#f2c14e', 20, 1.6); popText(B.x, B.y + B.r + 16, `+${B.exp} EXP`, '#9fd0ff', 13, 1.2);
+    if (audioOn) FMusic.setRage(false); A.bgm(FARR.dungeon[defRun.di]);
   }
   function defSpawnOne() {
     const R = defRun, type = wpick(R.pool), x = VW / 2 + rnd(-0.4, 0.4) * VW * 0.92, y = goalY - rnd(60, 150);
@@ -2382,6 +2417,7 @@
     const R = defRun; let best = null, bd = e.engaged ? 330 : 230;
     if (hero.hp > 0) { const d = hyp(hero.x - e.x, hero.y - e.y); if (d < bd) { bd = d; best = hero; } }
     for (const n of R.npcs) if (n.down <= 0) { const d = hyp(n.x - e.x, n.y - e.y); if (d < bd) { bd = d; best = n; } }
+    if (e.lane == null) { e.lane = rnd(-0.38, 0.38); e.hp = e.maxHp = Math.max(1, Math.round(e.maxHp * DEF_K)); e.spd = Math.max(20, e.spd) * DEF_K; e.dashSpd *= DEF_K; }
     e.engaged = !!best;
     e.march = !best && e.y > 230;   // far from the village: walk straight down
     if (best) return best;
@@ -2415,6 +2451,13 @@
     if (b.y < 14) { b.life = 0; burst(b.x, 14, 6, '#ffb070', 100, 0.3); if (R.vHitCD <= 0) { R.vHitCD = 0.35; defVillageHit(1, b.x); } }
   }
   function defNpcHit(n, e) {
+    if (e === boss) {
+      const B = boss, dmg = Math.max(1, Math.round((n.s.atk * rnd(1.0, 1.3) - B.def * 0.5) * (B.dmgTake || 1)));
+      B.hp -= dmg; B.hurt = 0.15; burst(n.x + (B.x - n.x) * 0.5, n.y + (B.y - n.y) * 0.5, 10, n.col, 180, 0.35); A.sfx('hit');
+      popText(B.x + rnd(-20, 20), B.y + B.r + 10, '' + dmg, n.col, 16, 0.8);
+      if (B.hp <= 0) { B.hp = 0; bossDefeated(B); }
+      return;
+    }
     const dmg = Math.max(1, Math.round(n.s.atk * rnd(1.0, 1.3) - e.def * 0.5));
     burst(e.x, e.y, 10, n.col, 180, 0.35); A.sfx('hit');
     hazardHit(e, dmg, n.x, n.y, 300);
@@ -2430,6 +2473,7 @@
     }
     if (n.inv > 0) n.inv -= dt; if (n.cd > 0) n.cd -= dt;
     const live = enemies.filter(e => !e.dead && !e.sub && !(e.ai === 'phase' && e.alpha < 0.5));
+    if (boss && !boss.dead && !(boss.intro > 0) && !(boss.alpha < 0.5) && !boss.sub) live.push(boss);
     const Wh = R.whistle;
     let gx = null, gy = null, foe = null;
     if (Wh) {   // ふえ: run to the spot; fight what is around it
@@ -2454,9 +2498,9 @@
     for (const e of live) {
       const dx = e.x - n.x, dy = e.y - n.y, d = hyp(dx, dy), rr = e.r + n.r; if (d >= rr || d === 0) continue;
       const nx = dx / d, ny = dy / d;
-      n.x -= nx * (rr - d) * 0.7; n.y -= ny * (rr - d) * 0.7; if (e.mass < 50) { e.x += nx * (rr - d) * 0.3; e.y += ny * (rr - d) * 0.3; }
+      n.x -= nx * (rr - d) * (e === boss ? 1 : 0.7); n.y -= ny * (rr - d) * (e === boss ? 1 : 0.7); if (e !== boss && e.mass < 50) { e.x += nx * (rr - d) * 0.3; e.y += ny * (rr - d) * 0.3; }
       if (n.st === 'dash' && !n.hitSet.has(e)) { n.hitSet.add(e); defNpcHit(n, e); n.vx = -nx * 230; n.vy = -ny * 230; n.st = 'run'; n.cd = rnd(0.8, 1.3); }
-      else if (n.inv <= 0 && e.atk > 0 && !(e.zap > 0)) defHurtUnit(n, e.atk, e.x, e.y, 220);
+      else if (n.inv <= 0 && e.atk > 0 && !(e.zap > 0)) defHurtUnit(n, e === boss ? e.atk * 0.7 : e.atk, e.x, e.y, e === boss ? 380 : 220);
       if (n.down > 0) return;
     }
     n.x += n.vx * dt; n.y += n.vy * dt;
@@ -2475,6 +2519,9 @@
     const R = defRun; if (!R || R.end) return;
     if (R.whCD > 0) R.whCD -= dt; if (R.vHitCD > 0) R.vHitCD -= dt; if (R.hitFlash > 0) R.hitFlash -= dt;
     if (R.whistle && (R.whistle.t -= dt) <= 0) R.whistle = null;
+    if (R.bossT > 0 && (R.bossT -= dt) <= 0) defSpawnBoss(R.forceBoss);
+    if (boss) defBossTick(dt);
+    if (state !== 'play') return;
     if (R.q > 0) { if ((R.qT -= dt) <= 0) { R.qT = 0.3; R.q--; defSpawnOne(); } }
     else if (R.spawned < R.total) {
       R.waveT -= dt;
@@ -2487,7 +2534,7 @@
     }
     for (const n of R.npcs) defNpc(n, dt);
     if (R.vHp <= 0) { defLose(); return; }
-    if (R.spawned >= R.total && R.q <= 0 && !enemies.some(e => !e.dead)) defWin();
+    if (R.spawned >= R.total && R.q <= 0 && !(R.bossT > 0) && !boss && !enemies.some(e => !e.dead)) defWin();
   }
   function defWin() {
     const R = defRun; R.end = 1; R.whistle = null;
@@ -2633,6 +2680,13 @@
       else bar(76, yy - 7, 40, 4, n.hp / n.s.maxHp, n.hp < n.s.maxHp * 0.3 ? '#e5483c' : '#6fd38a');
     });
     if (R.whistle) txt(`ふえ：あつまれ！ ${Math.ceil(R.whistle.t)}`, 10, by - 52, 11, '#ffe680', 'left');
+    if (boss && !boss.dead) {
+      const B = boss, yb = y0 + 62;
+      txt(B.name + (B.pers ? `（${PERS[B.pers][0]}がた）` : ''), W / 2, yb - 4, 13, '#fff', 'center');
+      bar(20, yb, W - 40, 9, B.hp / B.maxHp, B.phase === 2 ? '#ff3b6a' : '#e5483c');
+      const byy = sy(B.y); if (byy < 120) txt('▲ ボスが ちかづいている', W / 2, yb + 26, 12, '#ff9a8a', 'center');
+      else if (B.callout) { ctx.globalAlpha = Math.min(1, B.callout.t * 2); txt(B.callout.s, W / 2, yb + 26, 14, '#ffd24a', 'center'); ctx.globalAlpha = 1; }
+    }
   }
 
   function tutStart() { tut = { i: 0, t: 0, okT: 0, moved: 0, ramT: 0, slime: null, mark: 0 }; hint = 0; }
@@ -2739,6 +2793,7 @@
   function bossDefeated(B=boss) {
     pfxEmit('shadow/dark-explosion',B.x,B.y,330,1);
     if(hardRun)return hardBossDeath(B);
+    if(defRun)return defBossDown(B);
     B.dead = 0.01; A.sfx('bossKill');   // ズバーン！
     hitStop = 0.25; slowMo = 1.5; shake = 26; flash = 1; flashCol = '255,255,255';
     bullets = []; B.sweeps = []; rings = [];
@@ -4262,7 +4317,7 @@
     if (B.dead) {
       const was = B.dead; B.dead += dt;
       for (const k of [0.15, 0.3, 0.45, 0.6]) if (was < k && B.dead >= k) { burst(B.x + rnd(-30, 30), B.y + rnd(-30, 30), 40, pick([B.col, '#fff', '#f2c14e']), 380, 1); shake = 16; }
-      if (was < 1.2 && B.dead >= 1.2) showClear();
+      if (was < 1.2 && B.dead >= 1.2) { if (defRun) { boss = null; arena = null; } else showClear(); }
       return;
     }
     if (RIG[B.type]) rigUpdate(B, dt);
@@ -5012,7 +5067,7 @@
   // ---------------------------------------------------------------
   //  RENDER
   // ---------------------------------------------------------------
-  const sy = y => (arena ? H * 0.5 - (y - bcamY) : H * 0.62 - (y - camY));
+  const sy = y => (arena && !defRun ? H * 0.5 - (y - bcamY) : H * 0.62 - (y - camY));
   let floorPat = null, wallPat = null, patFor = -1, patCtx = null, townPats = null;
   function makePatterns() {
     if (patFor === dIdx && floorPat && patCtx === ctx) return;
@@ -5513,7 +5568,7 @@
   function drawEnemy(e) {
     const x = e.x, y = sy(e.y), r = e.r;
     if (y < -70 || y > H + 70) return;
-    if (e.ai === 'shark' && e.sub) { if(y>=0&&y<=H&&x+(arena?W/2-bcamX:WX)>0&&x+(arena?W/2-bcamX:WX)<W)bestEncounter('enemy:'+e.type);drawFin(e, x, y); return; }
+    if (e.ai === 'shark' && e.sub) { if(y>=0&&y<=H&&x+(arena&&!defRun?W/2-bcamX:WX)>0&&x+(arena&&!defRun?W/2-bcamX:WX)<W)bestEncounter('enemy:'+e.type);drawFin(e, x, y); return; }
     ctx.save();
     if (e.ai === 'phase' || e.ai === 'assassin') ctx.globalAlpha = e.alpha;
     const fly = e.fly ? 6 + Math.sin(e.t * 5) * 3 : 0, lift = e.ai === 'shark' && e.st === 'leap' ? Math.sin(Math.min(1, e.t / 0.4) * Math.PI) * 26 : 0;
@@ -5546,7 +5601,7 @@
     // colour variants (フロストリザード…ゴールデンスライム) move exactly like the monster they are made from
     const em = view && zakoBase(e.type) !== e.type ? Object.assign({}, e, { type: zakoBase(e.type) }) : e;
     const spr = SPR.enemy(e.type, { view:view&&view.face, upSlash:view?skeletonUpSlash(em,view):null, motion:view?zakoMotion2(em,view):null, motion3:view?zakoMotion3(em,view):null, motion4:view?zakoMotion4(em,view):null, motion5:view?zakoMotion5(em,view):null, motion6:view?zakoMotion6(em,view):null, motion7:view?zakoMotion7(em,view):null, motion8:view?zakoMotion8(em,view):null, bodyX:view&&arm?Math.round(arm.lean*(view.face==='r'?1:view.face==='l'?-1:0)):0, bodyY:view&&arm?Math.round(arm.cr):0, pull:e.st==='aim'?easeIO(clamp(e.t/.55,0,1)):0, release:view&&view.prev==='aim'?Math.max(0,1-(globalT-view.changed)/.2):0, st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step: arm && arm.sp != null ? Math.round(arm.sp) : step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: !view && hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm });
-    if(!bestPainting&&e.alpha>=.15&&spr){const left=x+(arena?W/2-bcamX:WX)-spr.ax*SPR.SCALE,top=yy+r*.75-spr.ay*SPR.SCALE;if(left<W&&left+spr.c.width*SPR.SCALE>0&&top<H&&top+spr.c.height*SPR.SCALE>0)bestEncounter('enemy:'+e.type);}
+    if(!bestPainting&&e.alpha>=.15&&spr){const left=x+(arena&&!defRun?W/2-bcamX:WX)-spr.ax*SPR.SCALE,top=yy+r*.75-spr.ay*SPR.SCALE;if(left<W&&left+spr.c.width*SPR.SCALE>0&&top<H&&top+spr.c.height*SPR.SCALE>0)bestEncounter('enemy:'+e.type);}
     if(!ZAKO4.has(e.type)&&R3[e.type] && R3[e.type].enemy) drawR3Enemy(e,R3[e.type],x,yy+r*.75,hurt);
     else {
       const hop=['slime','fireslime','iceslime','goldslime','pinkdiamondslime'].includes(e.type)&&e.st==='hop'?Math.sin(clamp(e.t/.38,0,1)*Math.PI)*7:0;
@@ -6604,7 +6659,7 @@
       ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(s.s, s.x, sy(s.y)); ctx.fillStyle = s.col; ctx.fillText(s.s, s.x, sy(s.y));
     }
     ctx.globalAlpha = 1;
-    if (D && !arena && !hardRun && defRun) { const dy = sy(goalY + 20); if (dy > -80 && dy < H + 80) txt('まものの すみか', VW / 2, dy - 70, 13, '#ff8a9a', 'center'); }
+    if (D && !hardRun && defRun) { const dy = sy(goalY + 20); if (dy > -80 && dy < H + 80) txt('まものの すみか', VW / 2, dy - 70, 13, '#ff8a9a', 'center'); }
     else if (D && !arena && !hardRun) {
       const dy = sy(goalY + 20);
       if (dy > -80 && dy < H + 80) { const glow = 0.5 + 0.5 * Math.sin(globalT * 3); txt('BOSS', VW / 2, dy - 100, 16, `rgba(255,${80 + glow * 60},${80 + glow * 60},1)`, 'center'); if (gateKills < gateNeed) txt(`ふういん：あと ${gateNeed - gateKills}たい`, VW / 2, dy - 122, 13, '#d8b0ff', 'center'); }
@@ -6697,7 +6752,7 @@
     }
     if (freezeT > 0) { ctx.fillStyle = `rgba(200,205,255,${0.16 * Math.min(1, freezeT * 3)})`; ctx.fillRect(0, 0, W, H); txt('TIME STOP', W / 2, H * 0.4, 22, '#e8ecff', 'center'); }
     toasts.forEach((q2, i) => {   // equipment found: short notices under the status bar
-      ctx.globalAlpha = Math.min(1, q2.t * 2); const y2 = top + (arenaRun?154+chargeH:hardRun&&state==='boss'?160:defRun?108+chargeH:92) + i * 22;
+      ctx.globalAlpha = Math.min(1, q2.t * 2); const y2 = top + (arenaRun?154+chargeH:hardRun&&state==='boss'?160:defRun?(boss?150:108)+chargeH:92) + i * 22;
       ctx.fillStyle = 'rgba(10,8,24,.75)'; ctx.fillRect(16, y2 - 15, W - 50, 20);
       txt(q2.s, W / 2 - 9, y2, 13, q2.col, 'center'); ctx.globalAlpha = 1;
     });
@@ -7016,10 +7071,10 @@
     beginPix();
     ctx.save();
     ctx.translate(shx, shy);
-    if (arena) ctx.translate(q(W / 2 - bcamX), 0);   // boss room camera
+    if (arena && !defRun) ctx.translate(q(W / 2 - bcamX), 0);   // boss room camera
     else ctx.translate(q(WX), 0);                    // corridor: the 360-wide field in the middle of a wider screen
-    if (arena) {if(arenaRun)arenaDrawCombat();else drawArena();} else if(hardRun)hardDrawField();else drawDungeon();
-    if (state !== 'boss' && !arena) drawProps();
+    if (arena && !defRun) {if(arenaRun)arenaDrawCombat();else drawArena();} else if(hardRun)hardDrawField();else drawDungeon();
+    if (state !== 'boss' && (!arena || defRun)) drawProps();
     pfxDrawEvents(true);pfxHero(true);
     drawEvents();
     drawDrops();
@@ -7036,7 +7091,7 @@
     if (D) lighting();
     ctx.restore();
     endPix();
-    ctx.save(); ctx.translate(shx, shy); ctx.translate(arena ? q(W / 2 - bcamX) : q(WX), 0); drawWorldText(); if (defRun) defDrawTags(); ctx.restore();
+    ctx.save(); ctx.translate(shx, shy); ctx.translate(arena && !defRun ? q(W / 2 - bcamX) : q(WX), 0); drawWorldText(); if (defRun) defDrawTags(); ctx.restore();
     camY = cam0; bcamX = bx0; bcamY = by0;
     if (flash > 0) { ctx.fillStyle = `rgba(${flashCol},${flash * 0.5})`; ctx.fillRect(0, 0, W, H); }
     drawHud();hardDrawHud();arenaDrawHud();
@@ -7834,6 +7889,6 @@
   requestAnimationFrame(frame);
   // test hooks
   window.__yusha = { pixelfx:{emit:pfxEmit,clear:pfxClear,get data(){return {effects:Object.keys(pfxData?.effects||{}),decodedBytes:pfxData?.decodedBytes||0,loaded:pfxLoaded,images:pfxImages.length,calls:pfxCalls,events:pfxEvents.length,used:[...pfxUsed]};}},saveTransfer:{validate:transferValidate,open:openSaveTransfer,encode:transferEncode,parse:transferParse,preview:transferPreview,commit:transferCommit,export:transferExportFile,get pending(){return transferPending;}},arenaMode:{ruleVersion:ARENA_RULE,ruleFor:id=>arenaTrialRule(arenaTrial(id)),open:openArena,trial:openArenaTrial,chain:openArenaChain,startTrial:arenaStartTrial,startChain:arenaStartChain,trials:ARENA_TRIALS,classes:ARENA_CLASSES,pool:arenaPool,canChain:arenaCanChain,rewards:ARENA_REWARDS,gear:arenaGear,claim:arenaClaim,normalize:arenaNormalize,supply:arenaSupply,rest:arenaRest,withdraw:arenaWithdraw,finish:arenaFinish,win:arenaBattleWon,next:arenaNextBattle,get run(){return arenaRun;},hudBox:arenaHudBox,hudLines:arenaHudLines,get circle(){return arena;}},enterBuilding,townSwipeTo, hard:{enter:hardEnter,pairs:HARD_PAIRS,normalize:hardNormalize,done:hardDone,unlocked:hardUnlocked,settle:hardSettle,contains:hardContains,confine:hardConfine,allBosses:fightBosses,hit:skillHit,openGate,get run(){return hardRun;},get arena(){return arena;}},facilities:{enter:facilityEnter,help:facilityShowHelp,closeHelp:facilityCloseHelp,stage:uiStageEnemies,get config(){return FACILITIES;},get active(){return{room:facilityRoom,tab:facilityTab};}},smith:{open:openSmith,detail:openSmithItem,confirm:openSmithConfirm,quote:smithQuote,upgrade:smithUpgrade,value:smithValue,keys:smithKeys,boots:smithBootEffects},forge:{open:openForge,confirm:openForgeConfirm,inherit:forgeInherit,check:forgeCheck,fx:forgeFx,normalize:forgeNormalize,grant:forgeGrantCrystals,hasEffect:forgeHasEffect},guild:{open:openGuild,detail:openGuildMission,missions:GUILD,claim:guildClaim,progress:guildProgress,choices:guildChoices,daily:guildDaily,normalize:guildNormalize,value:guildValue,inc:guildInc,clear:guildClear,sample:guildSampleBoss,dodge:guildDodge,ram:guildRam,wall:guildWall,hit:guildHit,heal:guildHeal,tick:guildTick,gear:guildGear,damage:ramDamage,hurt:hurtHero,rollScale:guildRollScale,get run(){return guildRun;}},bestiary:{open:openBestiary,detail:openBestiaryEntry,entries:bestEntries,drops:bestDrops,places:bestPlaces,normalize:bestNormalize,frame:bestFrame,playback:bestPlayback,get preview(){return bestPreview;}},crafting:{materials:craftMats,recipes:craftRecipes,make:craftMake,can:craftCanMake,open:openCraftShop,detail:openCraftRecipe,inventory:openCraftMaterials,exchange:craftExchange,normalize:craftNormalize,has:craftHas,ram:craftOnRam,roll:craftOnRoll,tick:craftTick,potion:craftUsePotion,skill:craftOnSkill,drop:craftDropEnemy,bossDrop:craftDropBoss,hasState:craftState,damage:craftDamageAdjust,gauges:craftGauges,feedback:craftFeedback},startRoll,useSkill,useItem, get tut() { return tut; }, get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
-    defense: { enter: defEnter, whistle: defWhistle, stages: DEF_STAGES, get run() { return defRun; } },
+    defense: { enter: defEnter, whistle: defWhistle, stages: DEF_STAGES, spawnBoss: defSpawnBoss, get run() { return defRun; }, get arena() { return arena; } },
     enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN, ITEMS, EQUIP }, get bag() { return bag; }, openPrep, charmHit, stats, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, get gate() { return [gateKills, gateNeed]; }, killE: e => killEnemy(e), hitE:hitEnemy, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt, openOptions };
 })();
