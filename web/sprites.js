@@ -4350,7 +4350,25 @@ const SPR = (() => {
       }
     });
   }
+  // New rare species: reuse the slime silhouette and its four views, with a faceted pink crystal.
+  function pinkDiamondSlime(P){
+    const left=P.view==='l',Q={...P,view:left?'r':P.view},base=Q.view?zakoView('slime',Q):EN.slime(Q);
+    let s=base.pinkDiamond;if(!s){
+      const colored=recolor(base,{h:200,s:.8,l:.08}),[c,x]=canvas(base.c.width,base.c.height);x.drawImage(colored.c,0,0);
+      const original=base.c.getContext('2d').getImageData(0,0,c.width,c.height).data,pixels=x.getImageData(0,0,c.width,c.height);
+      for(let i=0;i<original.length;i+=4)if(original[i]===30&&original[i+1]===24&&original[i+2]===48||original[i]===240&&original[i+1]===160&&original[i+2]===160){pixels.data[i]=original[i];pixels.data[i+1]=original[i+1];pixels.data[i+2]=original[i+2];}
+      x.putImageData(pixels,0,0);const g=api(x);
+      const top=P.st==='hop'?7:3;
+      g.poly([[16,top],[22,top+4],[20,top+8],[16,top+11],[12,top+8],[10,top+4]],'#a5418c');
+      g.poly([[16,top+1],[20,top+4],[16,top+6],[12,top+4]],'#ffe1f5');
+      g.poly([[12,top+5],[16,top+7],[16,top+10]],'#f2a0d5');g.poly([[17,top+7],[20,top+5],[19,top+8],[17,top+10]],'#cd62ac');
+      g.line(16,top+2,16,top+5,1,'#fff8fe');
+      s=base.pinkDiamond={c,ax:base.ax,ay:base.ay};
+    }
+    if(left||!P.view&&P.flip)s=flipped(s);if(P.flash)s=white(s);return s;
+  }
   function enemy(type, P) {
+    if(type==='pinkdiamondslime')return pinkDiamondSlime(P);
     if(ZAKO4.has(type)&&P.view){const V=VAR[type];let s=zakoView(V?V.base:type,P);if(V){const key='v_'+type;if(!s[key])s[key]=recolor(s,V);s=s[key];}if(P.view==='l')s=flipped(s);if(P.flash)s=white(s);return s;}
     const V = VAR[type];
     if (V) {
@@ -4406,6 +4424,7 @@ const SPR = (() => {
   }
   // item icons (18 x 18) for the item shop, the じゅんび slots and the bag tray
   function itemIcon(id) {
+    if(window.InventoryArt&&id.startsWith('craft_'))return InventoryArt.equipment({id});
     return mk('icon_' + id, 18, 18, 9, 9, g => {
       const flask = (L, big, tall) => {   // a round flask: cork, neck, glass body with liquid and a highlight
         const cy = big ? 11 : 12, r = big ? 6 : 5;
@@ -4444,6 +4463,9 @@ const SPR = (() => {
   };
   const FXCOL = { herbal: '#6ad870', gold: '#f2c14e', exp: '#7ab8ff', double: '#ff7a5a', buff: '#c08aff', recoil: '#ff9a3a', chain: '#5ac8ff' };
   function gearIcon(e) {
+    if(e.id.startsWith('arena_'))return mk('arena_reward_'+e.id,24,24,12,12,(g,x)=>{const base=gearIcon({...e,id:e.vis||'w0',craft:null});x.drawImage(base.c,2,2);for(const px of [0,21])for(const py of [0,21]){g.r(px,py,3,3,'#e8bd57');g.p(px+1,py+1,'#fff2b8');}g.r(8,21,8,2,'#e8bd57');g.p(11,20,'#fff2b8');});
+    if(window.GuildArt&&e.id.startsWith('guild_'))return GuildArt.equipment(e);
+    if(window.InventoryArt&&(e.craft||e.id.startsWith('craft_')))return InventoryArt.equipment(e);
     return mk('gear_' + e.id, 20, 20, 10, 10, (g, x) => {
       if (e.slot === 'weapon') {
         const W = WEAP[e.vis || e.id] || WEAP.w0, w = 2 + (W.wide || 0), L = Math.round(8 + W.bladeLen * 0.33), T = L + 6, top = -T / 2;
@@ -4866,9 +4888,28 @@ const SPR = (() => {
     },
     // town people
     npc(kind, f) {
+      if(kind==='receptionist'&&window.GuildArt)return GuildArt.receptionist(f);
       return mk('npc' + kind + (f % 2), 40, 46, 20, 44, g => {
         const sk = '#f8d0a8', b = f % 2;
-        if (kind === 'merchant') {   // hooded traveller with a huge pack, lantern swinging
+        if (kind === 'witch') {
+          // Pointed hat, silver hair, plum robe and an alchemist's green flask.
+          g.poly([[10,21+b],[29,21+b],[33,43],[7,43]],'#49315f');
+          g.poly([[20,22+b],[29,22+b],[33,43],[22,43]],'#32233f');
+          g.poly([[10,13+b],[29,13+b],[31,29+b],[24,27+b],[20,31+b],[9,28+b]],'#b5b7ce');
+          g.ell(20,18+b,7,7,sk);g.r(14,14+b,12,3,'#d7d4e0');
+          g.r(16,18+b,2,2,EYE);g.r(23,18+b,2,2,EYE);g.p(19,22+b,'#b96b78');
+          g.poly([[10,13+b],[18,2+b],[25,1+b],[22,5+b],[29,14+b]],'#674583');
+          g.poly([[21,4+b],[25,1+b],[22,5+b],[29,14+b],[22,14+b]],'#412b5b');
+          g.r(12,11+b,16,3,'#c29a52');g.ell(20,14+b,16,3,'#533468');
+          g.r(21,11+b,3,3,'#e9cf79');
+          g.poly([[10,26+b],[5,28+b],[7,34+b],[13,31+b]],'#674583');
+          g.poly([[28,26+b],[34,28+b],[33,33+b],[27,32+b]],'#674583');
+          g.r(8,31+b,4,4,sk);g.r(28,30+b,4,4,sk);
+          g.r(25,28+b,5,3,'#bd985d');g.r(26,31+b,3,3,'#bfddc5');
+          g.poly([[26,33+b],[29,33+b],[33,39+b],[31,42+b],[23,42+b],[22,39+b]],'#b8d9be');
+          g.poly([[24,37+b],[31,37+b],[30,40+b],[24,40+b]],'#7dba6b');g.p(24,35+b,'#f0f0cf');
+          g.line(18,29+b,19,40,2,'#b69a62');g.ell(19,28+b,2,2,'#ddc078');
+        } else if (kind === 'merchant') {   // hooded traveller with a huge pack, lantern swinging
           g.poly([[6, 14 + b], [34, 14 + b], [33, 36 + b], [7, 36 + b]], '#7a5a3a'); g.poly([[24, 14 + b], [34, 14 + b], [33, 36 + b], [24, 36 + b]], '#5a3e24');
           for (const [x, y, c] of [[9, 10, '#c84a3a'], [27, 11, '#3a8a5a'], [14, 8, '#e0c060']]) g.r(x, y + b, 6, 5, c);   // things strapped on top
           g.line(8, 18 + b, 32, 18 + b, 1, '#3a2614'); g.line(8, 28 + b, 32, 28 + b, 1, '#3a2614');

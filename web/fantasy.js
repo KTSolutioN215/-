@@ -1107,6 +1107,10 @@ const FMusic = (() => {
   }
   const PENTA = [0, 2, 4, 7, 9];
   const SFX = {
+    chargeReady(t,d){[88,95].forEach((m,i)=>{const g=G(d);const end=dec(g,t+i*.055,.002,.09,.10);O('triangle',mtof(m),t+i*.055,end,g);});},
+    craftFire(t,d){thump(t,d,165,42,.7,.10);nz(t,.30,d,'lowpass',3600,.7,.48,.09,180);sweep(t,d,'sawtooth',620,95,.18,.07);},
+    craftBurst(t,d){thump(t,d,120,45,.35,.08);ring(t,d,1100,.055,.16);sweep(t+.02,d,'triangle',480,1400,.13,.06);},
+    craftThunder(t,d){nz(t,.12,d,'highpass',2700,.8,.40,.035);thump(t,d,180,46,.55,.09);ring(t+.025,d,1800,.045,.16);},
     select(t, d) { I.harp(t, 86, 0.2, 0.75, d); I.harp(t + 0.04, 93, 0.25, 0.5, d); nz(t, 0.02, d, 'highpass', 3000, 0.7, 0.05, 0.006); },
     confirm(t, d) { [79, 84, 88, 91].forEach((m, i) => I.harp(t + i * 0.05, m, 0.4, 0.8, d)); I.glass(t + 0.2, 96, 0.6, 0.45, d); },
     coin(t, d, n = 0) {
@@ -1181,7 +1185,7 @@ const FMusic = (() => {
     return sfxIn;
   }
   // loudness trims (measured peaks -> impacts ~0.7, chimes and UI ~0.35)
-  const SFX_GAIN = { select: 1.25, confirm: 1.4, coin: 1.67, buy: 1.67, equip: 2.06, hit: 0.67, crit: 0.54, bosshit: 0.64, block: 0.9, hurt: 0.65, kill: 1.06, levelup: 1.25, heal: 1.3, spring: 1.3, buff: 0.72, chest: 1.21, item: 2.06, crate: 1.01, door: 0.68, bossAppear: 0.63, bossKill: 0.36, roll: 1.3, roar: 1.35, down: 0.67, quake: 0.47, boom: 0.5, magic: 4.0, magic2: 2.92, summon: 1.6, warp: 2.92 };
+  const SFX_GAIN = { chargeReady:.9, craftFire:.65, craftBurst:.8, craftThunder:.7, select: 1.25, confirm: 1.4, coin: 1.67, buy: 1.67, equip: 2.06, hit: 0.67, crit: 0.54, bosshit: 0.64, block: 0.9, hurt: 0.65, kill: 1.06, levelup: 1.25, heal: 1.3, spring: 1.3, buff: 0.72, chest: 1.21, item: 2.06, crate: 1.01, door: 0.68, bossAppear: 0.63, bossKill: 0.36, roll: 1.3, roar: 1.35, down: 0.67, quake: 0.47, boom: 0.5, magic: 4.0, magic2: 2.92, summon: 1.6, warp: 2.92 };
   function sfx(name, arg) {
     if (!bind() || !SFX[name]) return;
     try { const g = ac.createGain(); g.gain.value = SFX_GAIN[name] || 1; g.connect(sfxRevIn()); SFX[name](ac.currentTime + 0.005, g, arg); setTimeout(() => { try { g.disconnect(); } catch (e) { } }, 4000); } catch (e) { }
