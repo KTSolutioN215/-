@@ -2310,7 +2310,7 @@
   // ---------------------------------------------------------------
   const DEF_STAGES = [4, 9, 14, 19, 24, 29, 34];   // after every 5th dungeon (index of the dungeon it follows)
   const DEF_NAMES = ['ひなたの村', 'かざぐるまの村', 'みなとの村', 'すなかぜの村', 'ほしみの村', 'こもれびの村', 'さいはての村'];
-  const DEF_K = 0.7, DEF_BOSS_HP = 1.5, DEF_R = 780, DEF_VR = 112, DEF_WAVES = 5, DEF_VHP = 100, DEF_MARCH = 90, DEF_BOSS_MARCH = 26;
+  const DEF_K = 0.7, DEF_BOSS_HP = 1.5, DEF_R = 780, DEF_VR = 112, DEF_WAVES = 5, DEF_VHP = 6, DEF_MARCH = 90, DEF_BOSS_MARCH = 26;   // DEF_VHP: the village has 6x a companion's HP
   const DEF_NPC = [
     { name: 'アレン', col: '#8ac4ff', hp: 1.25, atk: 0.9, def: 1.2, spd: 0.95, wo: 0, ao: 1, say: 'まかせろ！' },
     { name: 'リナ', col: '#ff9ad0', hp: 0.85, atk: 1.2, def: 0.85, spd: 1.12, wo: 1, ao: -1, say: 'いくよ！' },
@@ -2352,8 +2352,9 @@
     hero = newHero(0, DEF_VR + 130); WX = (W - VW) / 2; bcamX = hero.x; bcamY = hero.y;
     boss = null; zones = []; freezeT = 0; darkT = 0; shades = []; twisters = []; combo = 0; runExp = 0; runGold = 0; runKills = 0; runLoot = []; toasts = []; runMaterials = {};
     guildRunStart(); paused = false; hint = 0; tut = null;
-    const total = 30 + k * 5;
-    defRun = { k, di, vHp: DEF_VHP, vMax: DEF_VHP, total, spawned: 0, q: 0, qT: 0, wave: 0, waveT: 4, dirs: [], npcs: defNpcs(di), whistle: null, whCD: 0, vHitCD: 0, hitFlash: 0, end: 0,
+    const total = 60 + k * 10;   // 指示: なかまが つよいので まものを ふやす
+    const npcs = defNpcs(di), G = npcs[2].s, vMax = Math.round(G.maxHp * DEF_VHP);   // 指示: 村は うごかない なかまのように HPと まもりを もつ
+    defRun = { k, di, vHp: vMax, vMax, vDef: Math.round(G.def * 0.5), total, spawned: 0, q: 0, qT: 0, wave: 0, waveT: 4, dirs: [], npcs, whistle: null, whCD: 0, vHitCD: 0, hitFlash: 0, end: 0,
       pool: defPool(di), vPt: { village: true, x: 0, y: 0, vx: 0, vy: 0, r: 24, slow: 0, ramSafe: 0, pw: null } };
     banner = { a: `防衛戦：${DEF_NAMES[k]}`, b: 'まわりじゅうから まものが くる！', t: 2.6 };
     A.bgm(FARR.dungeon[di]); A.sfx('bossAppear');
@@ -2397,18 +2398,20 @@
     const dx = arena.cx - e.x, dy = arena.cy - e.y, d = hyp(dx, dy) || 1;
     return [dx / d - dy / d * e.lane, dy / d + dx / d * e.lane];
   }
-  function defVillageHit(d, x, y, msg) {
+  function defVillageHit(atk, x, y, msg) {
     const R = defRun; if (!R || R.end) return;
+    const d = Math.max(1, Math.round(atk - R.vDef * 0.5));
     R.vHp = Math.max(0, R.vHp - d); R.hitFlash = 0.6; shake = Math.max(shake, 6); R.hitA = Math.atan2(y - arena.cy, x - arena.cx); R.hitAT = 1.2;
     if (msg && (R.msgT || 0) > globalT) msg = null;   // one big message at a time; the rest just show the damage
     if (msg) R.msgT = globalT + 1.2;
-    popText(x, y + (msg ? 30 : rnd(0, 20)), msg || `村 -${d}`, '#ff7a6a', msg ? 15 : 12, 0.9);
-    if (msg || d >= 4) A.sfx('hurt');
+    popText(x, y + rnd(0, 16), '-' + d, '#ff9a5a', 13, 0.7);
+    if (msg) popText(x, y + 44, msg, '#ff7a6a', 14, 1.2);
+    if (msg || d >= R.vMax * 0.02) A.sfx('hurt');
   }
   // an enemy's attack (redirected from hurtHero) lands on a companion or the village
   function defHurtUnit(u, dmg, fx2, fy2, power) {
     const R = defRun; if (!R) return;
-    if (u.village) { if (R.vHitCD <= 0) { R.vHitCD = 0.35; defVillageHit(2, u.x, u.y); } return; }
+    if (u.village) { defVillageHit(dmg, u.x, u.y); return; }
     if (u.down > 0 || u.inv > 0) return;
     const d = Math.max(1, Math.round(dmg - u.s.def * 0.5));
     u.hp -= d; u.inv = 0.6;
@@ -2422,7 +2425,7 @@
   function defBulletHit(b) {
     const R = defRun;
     for (const n of R.npcs) if (n.down <= 0 && n.inv <= 0 && hyp(b.x - n.x, b.y - n.y) < b.r + n.r * 0.6) { defHurtUnit(n, b.dmg, b.x - b.vx * 0.05, b.y - b.vy * 0.05, 200); if (!b.pierce) { b.life = 0; return; } }
-    if (defDist(b) < DEF_VR) { b.life = 0; burst(b.x, b.y, 6, '#ffb070', 100, 0.3); if (R.vHitCD <= 0) { R.vHitCD = 0.35; defVillageHit(1, b.x, b.y); } }
+    if (defDist(b) < DEF_VR) { b.life = 0; burst(b.x, b.y, 6, '#ffb070', 100, 0.3); defVillageHit(b.dmg, b.x, b.y); }
   }
   function defNpcHit(n, e) {
     if (e === boss) {
@@ -2517,7 +2520,7 @@
     bossUpdate(dt);
     if (!boss || B.dead) return;
     if (defDist(B) < DEF_VR + B.r * 0.6 && (R.bossHitT || 0) < globalT) {   // at the fence: it smashes the village, then is driven back a little
-      R.bossHitT = globalT + 2.5; defVillageHit(20, B.x, B.y, `${B.name}が 村を こわしている！`); shake = Math.max(shake, 16); A.sfx('quake');
+      R.bossHitT = globalT + 2.5; defVillageHit(B.atk * 1.5, B.x, B.y, `${B.name}が 村を こわしている！`); shake = Math.max(shake, 16); A.sfx('quake');
       B.defR = Math.min(DEF_R * 0.8, B.defR + 170);
     }
   }
@@ -2541,9 +2544,15 @@
       R.waveT -= dt;
       if (R.waveT <= 0 || (R.wave > 0 && enemies.filter(e => !e.dead).length <= 3 && R.waveT < 28)) defNextWave();
     }
-    for (const e of enemies) if (!e.dead && defDist(e) < DEF_VR + e.r * 0.3) {   // got over the fence: into the village
-      e.dead = true; e.escaped = true; burst(e.x, e.y, 18, '#ff6a4a', 200, 0.5);
-      defVillageHit(Math.round(DEF_VHP * 0.07), e.x, e.y, `${EN[e.type].name}が 村に はいった！`);
+    for (const e of enemies) {   // at the fence: they can't get in, they keep hitting it (the village is like a companion that can't move)
+      if (e.dead || e.sub) continue;
+      if (defDist(e) < DEF_VR + e.r + 4) {
+        defKeepOut(e, e.r * 0.8);
+        if ((e.vilCD = (e.vilCD || 0) - dt) <= 0 && e.atk > 0 && !(e.zap > 0)) {
+          e.vilCD = 1.1; burst(e.x + (arena.cx - e.x) * 0.25, e.y + (arena.cy - e.y) * 0.25, 6, '#ffb070', 120, 0.3);
+          defVillageHit(e.atk, e.x, e.y, (R.msgT || 0) < globalT - 4 ? '村が こうげきされている！' : null);
+        }
+      }
     }
     if (hero.hp > 0) defKeepOut(hero, hero.r);
     for (const n of R.npcs) defNpc(n, dt);
@@ -2661,7 +2670,9 @@
       ctx.globalAlpha = 1;
     }
   }
-  function defDrawTags() {   // names and HP over the companions (sharp text layer)
+  function defDrawTags() {   // names and HP over the companions and the village (sharp text layer)
+    const R = defRun, vy = sy(arena.cy) - DEF_VR - 34;
+    if (vy > -20 && vy < H) { txt(`${DEF_NAMES[R.k]}`, arena.cx, vy - 6, 11, '#ffd9a0', 'center'); bar(arena.cx - 50, vy, 100, 6, R.vHp / R.vMax, R.vHp < R.vMax * 0.3 ? '#e5483c' : '#e8a04a'); }
     for (const n of defRun.npcs) {
       if (n.down > 0) continue;
       const x = n.x, y = sy(n.y);
@@ -2671,15 +2682,15 @@
   }
   function defDrawHud(top, chargeH) {
     const R = defRun, bw = 150, x0 = W - 8 - bw, y0 = top + 56 + chargeH, k = R.vHp / R.vMax;
-    ctx.fillStyle = 'rgba(19,24,58,.86)'; roundRect(x0, y0, bw, 42, 6); ctx.fill();
-    ctx.strokeStyle = R.hitFlash > 0 && Math.floor(globalT * 12) % 2 ? '#ff6a5a' : '#e8a04a'; ctx.lineWidth = 2; roundRect(x0, y0, bw, 42, 6); ctx.stroke();
-    txt(`村 ${R.vHp}/${R.vMax}`, x0 + 8, y0 + 15, 12, k < 0.3 ? '#ff7a6a' : '#ffd9a0', 'left', false);
-    bar(x0 + 70, y0 + 7, bw - 78, 8, k, k < 0.3 ? '#e5483c' : '#e8a04a');
+    ctx.fillStyle = 'rgba(19,24,58,.86)'; roundRect(x0, y0, bw, 54, 6); ctx.fill();
+    ctx.strokeStyle = R.hitFlash > 0 && Math.floor(globalT * 12) % 2 ? '#ff6a5a' : '#e8a04a'; ctx.lineWidth = 2; roundRect(x0, y0, bw, 54, 6); ctx.stroke();
+    txt('村', x0 + 8, y0 + 15, 12, '#ffd9a0', 'left', false); txt(`HP ${R.vHp}/${R.vMax}`, x0 + bw - 8, y0 + 15, 12, k < 0.3 ? '#ff7a6a' : '#ffd9a0', 'right', false);
+    bar(x0 + 8, y0 + 21, bw - 16, 8, k, k < 0.3 ? '#e5483c' : '#e8a04a');
     const left = R.total - R.spawned + enemies.filter(e => !e.dead).length + (boss && !boss.dead ? 1 : 0);
     const lab = R.q <= 0 && R.spawned < R.total && R.wave > 0 ? `つぎの波 ${Math.max(0, Math.ceil(R.waveT))}s・のこり ${left}` : R.wave === 0 ? `まもなく 襲来…` : `波 ${R.wave}/${DEF_WAVES}・のこり ${left}`;
-    txt(lab, x0 + bw / 2, y0 + 34, 11, '#f3ecda', 'center', false);
+    txt(lab, x0 + bw / 2, y0 + 46, 11, '#f3ecda', 'center', false);
     // radar: the whole round field, the village in the middle
-    const mr = 37, mx = W - 8 - mr, my = y0 + 50 + mr, sc = mr / DEF_R;
+    const mr = 37, mx = W - 8 - mr, my = y0 + 62 + mr, sc = mr / DEF_R;
     ctx.fillStyle = 'rgba(10,12,30,.78)'; ctx.beginPath(); ctx.arc(mx, my, mr + 2, 0, 7); ctx.fill();
     ctx.strokeStyle = 'rgba(243,236,218,.6)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(mx, my, mr + 2, 0, 7); ctx.stroke();
     const P = (x, y) => [mx + (x - arena.cx) * sc, my - (y - arena.cy) * sc];
@@ -2708,7 +2719,7 @@
     });
     if (R.whistle) txt(`ふえ：あつまれ！ ${Math.ceil(R.whistle.t)}`, 10, by - 52, 11, '#ffe680', 'left');
     if (boss && !boss.dead) {
-      const B = boss, yb = y0 + 62, bw2 = W - 8 - 2 * mr - 30;
+      const B = boss, yb = y0 + 74, bw2 = W - 8 - 2 * mr - 30;
       txt(B.name + (B.pers ? `（${PERS[B.pers][0]}がた）` : ''), 16 + bw2 / 2, yb - 4, 13, '#fff', 'center');
       bar(16, yb, bw2, 9, B.hp / B.maxHp, B.phase === 2 ? '#ff3b6a' : '#e5483c');
       if (B.callout) { ctx.globalAlpha = Math.min(1, B.callout.t * 2); txt(B.callout.s, 16 + bw2 / 2, yb + 26, 14, '#ffd24a', 'center'); ctx.globalAlpha = 1; }
@@ -6775,7 +6786,7 @@
     }
     if (freezeT > 0) { ctx.fillStyle = `rgba(200,205,255,${0.16 * Math.min(1, freezeT * 3)})`; ctx.fillRect(0, 0, W, H); txt('TIME STOP', W / 2, H * 0.4, 22, '#e8ecff', 'center'); }
     toasts.forEach((q2, i) => {   // equipment found: short notices under the status bar
-      ctx.globalAlpha = Math.min(1, q2.t * 2); const y2 = top + (arenaRun?154+chargeH:hardRun&&state==='boss'?160:defRun?196+chargeH:92) + i * 22;
+      ctx.globalAlpha = Math.min(1, q2.t * 2); const y2 = top + (arenaRun?154+chargeH:hardRun&&state==='boss'?160:defRun?208+chargeH:92) + i * 22;
       ctx.fillStyle = 'rgba(10,8,24,.75)'; ctx.fillRect(16, y2 - 15, W - 50, 20);
       txt(q2.s, W / 2 - 9, y2, 13, q2.col, 'center'); ctx.globalAlpha = 1;
     });
