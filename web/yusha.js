@@ -2302,14 +2302,15 @@
 
 
   // ---------------------------------------------------------------
-  //  防衛戦 (指示: 5ステージごとに、村を背に まものから まもる モード)
-  //  A wide straight field with the village at the bottom (y < 0). Monsters from every dungeon so far come in waves from
-  //  the top and march on the gate. Their HP and speed are x0.7 of the dungeon's. Three NPC heroes, a little under the
-  //  recommended level, fight with you; the whistle sends them to where you blew it.
+  //  防衛戦 (指示: 5ステージごとに 村を まもる モード → 巨大な円形の ステージの 中心に 村、360度 から まものが せめてくる)
+  //  The field is a big round arena (the boss-room machinery: state 'boss', 2D camera, round walls) with the village in the
+  //  middle. Waves come in from a few directions at a time and march on the village. Monsters: HP and speed x0.7.
+  //  The boss of the last wave: HP x1.5. Three NPC heroes, a little under the recommended level, fight with you; the whistle
+  //  sends them to where you blew it.
   // ---------------------------------------------------------------
   const DEF_STAGES = [4, 9, 14, 19, 24, 29, 34];   // after every 5th dungeon (index of the dungeon it follows)
   const DEF_NAMES = ['ひなたの村', 'かざぐるまの村', 'みなとの村', 'すなかぜの村', 'ほしみの村', 'こもれびの村', 'さいはての村'];
-  const DEF_K = 0.7, DEF_LEN = 1000, DEF_WAVES = 5, DEF_VHP = 100, DEF_MARCH = 90, DEF_BOSS_MARCH = 26;
+  const DEF_K = 0.7, DEF_BOSS_HP = 1.5, DEF_R = 780, DEF_VR = 112, DEF_WAVES = 5, DEF_VHP = 100, DEF_MARCH = 90, DEF_BOSS_MARCH = 26;
   const DEF_NPC = [
     { name: 'アレン', col: '#8ac4ff', hp: 1.25, atk: 0.9, def: 1.2, spd: 0.95, wo: 0, ao: 1, say: 'まかせろ！' },
     { name: 'リナ', col: '#ff9ad0', hp: 0.85, atk: 1.2, def: 0.85, spd: 1.12, wo: 1, ao: -1, say: 'いくよ！' },
@@ -2318,6 +2319,9 @@
   let defRun = null, defAimT = null;
   const defUnlocked = k => !!save.cleared[DEF_STAGES[k]];
   const defDone = k => !!(save.defense && save.defense[k]);
+  const defDist = o => hyp(o.x - arena.cx, o.y - arena.cy);   // from the middle of the village
+  const DIR8 = ['ひがし', 'きたひがし', 'きた', 'きたにし', 'にし', 'みなみにし', 'みなみ', 'みなみひがし'];   // +y is up on screen = north
+  const dirName = a => DIR8[((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8];
   function defPool(di) {   // every monster met so far; the newer dungeons a little more often
     const P = {};
     for (let j = 0; j <= di; j++) {
@@ -2331,110 +2335,80 @@
     return DEF_NPC.map((p, i) => {
       const w = EQ['w' + clamp(g + p.wo, 0, 22)], a = EQ['a' + clamp(g + p.ao, 0, 21)];
       const s = { maxHp: Math.round((60 + (L - 1) * 10) * 1.6 * p.hp), atk: Math.round((8 + (L - 1) * 2 + w.atk) * p.atk), def: Math.round((2 + (L - 1) + a.def) * p.def) };
-      return { npc: true, i, name: p.name, col: p.col, say: p.say, lv: L, s, hp: s.maxHp, x: VW / 2 + (i - 1) * 90, y: 170, vx: 0, vy: 0, r: HERO_R, face: Math.PI / 2,
-        walk: 0, inv: 0, cd: rnd(0.3, 1), st: 'run', dashT: 0, down: 0, spd: 200 * p.spd, w: visOf(w.id), a: visOf(a.id), slow: 0, ramSafe: 0, pw: null, hitSet: null };
+      const ga = Math.PI / 2 + (i - 1) * 2.1;
+      return { npc: true, i, name: p.name, col: p.col, say: p.say, lv: L, s, hp: s.maxHp, x: Math.cos(ga) * (DEF_VR + 70), y: Math.sin(ga) * (DEF_VR + 70), vx: 0, vy: 0, r: HERO_R, face: ga,
+        walk: 0, inv: 0, cd: rnd(0.3, 1), st: 'run', dashT: 0, down: 0, spd: 210 * p.spd, w: visOf(w.id), a: visOf(a.id), slow: 0, ramSafe: 0, pw: null, hitSet: null, post: ga };
     });
-  }
-  function defGen(di) {
-    D = DUNGEONS[di]; dIdx = di; goalY = DEF_LEN;
-    nodes = [{ y: -600, cx: VW / 2, w: VW * 0.92 }, { y: goalY + 600, cx: VW / 2, w: VW * 0.92 }];
-    enemies = []; bullets = []; drops = []; props = []; fx = []; texts = []; rings = []; anims = []; evs = []; ev = {};
-    gateNeed = 0; gateKills = 0; gateMsgT = 0; gateCallT = 0;
-    for (let i = 0; i < 3; i++) props.push({ type: 'rock', x: VW / 2 + (i - 1) * 112 + rnd(-16, 16), y: rnd(430, 720), r: rnd(14, 19), seed: Math.random() });
-    for (let ty = 200; ty < goalY; ty += 230) props.push({ type: 'torch', side: (ty / 230) % 2 < 1 ? -1 : 1, y: ty });
-    props.sort((a, b) => a.y - b.y);
   }
   function defEnter(k) {
     pfxClear(); if (arenaRun) arenaRestore(); hardRun = null;
     closePanel(); deathT = 0;
     bag = fillBag(Array.isArray(save.slots) ? slotsLoadout(getSlots()) : save.loadout || autoLoadout());
     const di = DEF_STAGES[k];
-    defGen(di);
-    hero = newHero(VW / 2, 110); WX = (W - VW) / 2; camY = hero.y + 40;
-    boss = null; arena = null; zones = []; freezeT = 0; darkT = 0; shades = []; twisters = []; combo = 0; runExp = 0; runGold = 0; runKills = 0; runLoot = []; toasts = []; runMaterials = {};
-    guildRunStart(); state = 'play'; paused = false; hint = 0; tut = null;
-    const total = 24 + k * 4;
-    defRun = { k, di, vHp: DEF_VHP, vMax: DEF_VHP, total, spawned: 0, q: 0, qT: 0, wave: 0, waveT: 3.5, npcs: defNpcs(di), whistle: null, whCD: 0, vHitCD: 0, hitFlash: 0, end: 0,
-      pool: defPool(di), vPt: { village: true, x: VW / 2, y: -10, vx: 0, vy: 0, r: 24, slow: 0, ramSafe: 0, pw: null } };
-    banner = { a: `防衛戦：${DEF_NAMES[k]}`, b: 'DEFEND THE VILLAGE', t: 2.6 };
+    D = DUNGEONS[di]; dIdx = di; nodes = [{ y: -2000, cx: VW / 2, w: VW }, { y: 2000, cx: VW / 2, w: VW }]; goalY = 1e9;
+    enemies = []; bullets = []; drops = []; props = []; fx = []; texts = []; rings = []; anims = []; evs = []; ev = { qT: 40 };
+    gateNeed = 0; gateKills = 0; gateMsgT = 0; gateCallT = 0;
+    state = 'boss'; arena = { cx: 0, cy: 0, R: DEF_R };   // a big round field; the village sits in the middle
+    hero = newHero(0, DEF_VR + 130); WX = (W - VW) / 2; bcamX = hero.x; bcamY = hero.y;
+    boss = null; zones = []; freezeT = 0; darkT = 0; shades = []; twisters = []; combo = 0; runExp = 0; runGold = 0; runKills = 0; runLoot = []; toasts = []; runMaterials = {};
+    guildRunStart(); paused = false; hint = 0; tut = null;
+    const total = 30 + k * 5;
+    defRun = { k, di, vHp: DEF_VHP, vMax: DEF_VHP, total, spawned: 0, q: 0, qT: 0, wave: 0, waveT: 4, dirs: [], npcs: defNpcs(di), whistle: null, whCD: 0, vHitCD: 0, hitFlash: 0, end: 0,
+      pool: defPool(di), vPt: { village: true, x: 0, y: 0, vx: 0, vy: 0, r: 24, slow: 0, ramSafe: 0, pw: null } };
+    banner = { a: `防衛戦：${DEF_NAMES[k]}`, b: 'まわりじゅうから まものが くる！', t: 2.6 };
     A.bgm(FARR.dungeon[di]); A.sfx('bossAppear');
     showHud(true);
   }
   function defNextWave() {
     const R = defRun; R.wave++;
     const left = R.total - R.spawned, n = R.wave >= DEF_WAVES ? left : Math.min(left, Math.ceil(R.total / DEF_WAVES));
-    R.q = n; R.qT = 0; R.waveT = 30;
-    banner = { a: R.wave >= DEF_WAVES ? 'さいごの 波が くる！' : `だい${R.wave}波 が くる！`, b: `WAVE ${R.wave} / ${DEF_WAVES}`, t: 1.8 };
+    // each wave comes from a few directions at once (more of them as the waves go on)
+    const nd = Math.min(4, 1 + Math.ceil(R.wave / 2)), a0 = rnd(0, Math.PI * 2);
+    R.dirs = Array.from({ length: nd }, (_, i) => a0 + i * Math.PI * 2 / nd + rnd(-0.4, 0.4));
+    R.q = n; R.qT = 0; R.waveT = 32; R.qi = 0;
+    banner = { a: R.wave >= DEF_WAVES ? 'さいごの 波が くる！' : `だい${R.wave}波 が くる！`, b: [...new Set(R.dirs.map(dirName))].join('・') + ' から', t: 2 };
     A.sfx('summon');
     if (R.wave >= DEF_WAVES && !R.bossDone) { R.bossDone = 1; R.bossT = 2.2; }   // 指示: ボスも せめてくる（さいごの波と いっしょに）
   }
-  // a boss from this stretch of dungeons leads the last wave. It runs the normal boss AI around a "home" that creeps toward the gate.
-  function defSpawnBoss(type) {
-    const R = defRun, lo = Math.max(0, R.di - 4), j = lo + Math.floor(Math.random() * (R.di - lo + 1)), d = DUNGEONS[j], T = type || d.boss, Bd = BOSSES[T], y = goalY - 170;
-    const hp = Math.round(Bd.hp * DEF_K);   // 指示: たいりょく 0.7ばい
-    boss = { type: T, name: Bd.name, x: VW / 2, y: goalY - 60, vx: 0, vy: 0, r: Math.round(Bd.r * 1.4), hp, maxHp: hp, atk: Bd.atk, def: Bd.def, col: Bd.col, wcol: Bd.wcol, fcol: Bd.fcol, ocol: Bd.ocol,
-      exp: Math.round(d.xp * 0.3), gold: Math.round(d.gp * 0.25), moves: Bd.moves, moves2: Bd.moves2, phase: 1, mv: null, mt: 0, cd: 2.2, last: '', hurt: 0, hitCD: 0, z: 0,
-      sweeps: [], intro: 2.6, face: -Math.PI / 2, dead: 0, rage: Bd.rage, waveT: 1e9, hx: VW / 2, hy: y, homeT: 0, alpha: 1, defBoss: true };
-    if (RIG[T]) rigInit(boss);
-    if (T === 'archmage') { boss.r0 = boss.r; boss.r1 = Math.round(boss.r * 0.68); boss.r = boss.r1; boss.sizeK = 0.68; boss.grow = -1; }
-    arena = { cx: VW / 2, cy: y - 20, R: 175 };   // only the boss's moves read this; the camera and walls stay the corridor's
-    banner = { a: `${Bd.name} が せめてきた！`, b: 'BOSS が 村を ねらっている', t: 2.6, boss: true };
-    bestEncounter('boss:' + T); A.bgm(FARR.boss[T]); A.sfx('bossAppear');
-    flash = 0.5; flashCol = '255,255,255'; shake = 14;
-  }
-  function defBossTick(dt) {
-    const R = defRun, B = boss;
-    if (!B.dead && !(B.intro > 0)) arena.cy = Math.max(B.r - 10, arena.cy - DEF_BOSS_MARCH * DEF_K * dt);   // 指示: しんこう そくど 0.7ばい
-    B.waveT = Math.max(B.waveT, 1e8);   // no endless reinforcements: the waves are the reinforcements
-    bossUpdate(dt);
-    if (!boss || B.dead) return;
-    const tn = tunnelAt(B.y); B.x = clamp(B.x, tn.cx - tn.w / 2 + B.r * 0.55, tn.cx + tn.w / 2 - B.r * 0.55); B.y = clamp(B.y, B.r * 0.4, goalY - 20);
-    if (B.y - B.r < 40 && (R.bossHitT || 0) < globalT) {   // at the gate: it smashes the fence, then is driven back a little
-      R.bossHitT = globalT + 2.5; defVillageHit(20, B.x, `${B.name}が 門を こわしている！`); shake = Math.max(shake, 16); A.sfx('quake');
-      arena.cy = Math.min(goalY - 190, arena.cy + 200);
-    }
-  }
-  function defBossDown(B) {
-    B.dead = 0.01; A.sfx('bossKill');
-    hitStop = 0.2; slowMo = 1.1; shake = 24; flash = 0.9; flashCol = '255,255,255';
-    B.sweeps = []; zones = zones.filter(z => z.boss !== B);
-    craftDropBoss(B); gainExp(B.exp); gainGold(B.gold);
-    popText(B.x, B.y + B.r + 40, `${B.name}を たおした！`, '#f2c14e', 20, 1.6); popText(B.x, B.y + B.r + 16, `+${B.exp} EXP`, '#9fd0ff', 13, 1.2);
-    if (audioOn) FMusic.setRage(false); A.bgm(FARR.dungeon[defRun.di]);
-  }
   function defSpawnOne() {
-    const R = defRun, type = wpick(R.pool), x = VW / 2 + rnd(-0.4, 0.4) * VW * 0.92, y = goalY - rnd(60, 150);
+    const R = defRun, a = R.dirs[R.qi++ % R.dirs.length] + rnd(-0.22, 0.22), rr = DEF_R * rnd(0.84, 0.92);
+    const type = wpick(R.pool), x = arena.cx + Math.cos(a) * rr, y = arena.cy + Math.sin(a) * rr;
     const e = spawnEnemy(type, x, y, true);
     e.hp = e.maxHp = Math.max(1, Math.round(e.maxHp * DEF_K));   // 指示: たいりょく 0.7ばい
     e.spd = Math.max(20, e.spd) * DEF_K; e.dashSpd *= DEF_K;      // 指示: しんこう そくど 0.7ばい
-    e.lane = rnd(-0.38, 0.38); e.march = true;
+    e.lane = rnd(-0.3, 0.3); e.march = true; e.defK = 1;
     e.exp = Math.max(1, Math.round(D.xp * 0.8 / R.total)); e.gold = Math.max(1, Math.round(D.gp * 0.6 / R.total));
     R.spawned++;
     anims.push({ kind: 'poof', x: e.x, y: e.y, t: 0, dur: 0.4, frames: 5 }); burst(e.x, e.y, 12, '#c8a0ff', 150, 0.4);
   }
-  // who a monster is after: you or a companion close by, otherwise the gate below it
+  // who a monster is after: you or a companion close by, otherwise the village
   function defAim(e) {
     const R = defRun; let best = null, bd = e.engaged ? 330 : 230;
+    if (!e.defK) { e.defK = 1; e.lane = rnd(-0.3, 0.3); e.hp = e.maxHp = Math.max(1, Math.round(e.maxHp * DEF_K)); e.spd = Math.max(20, e.spd) * DEF_K; e.dashSpd *= DEF_K; }   // the boss's helpers
     if (hero.hp > 0) { const d = hyp(hero.x - e.x, hero.y - e.y); if (d < bd) { bd = d; best = hero; } }
     for (const n of R.npcs) if (n.down <= 0) { const d = hyp(n.x - e.x, n.y - e.y); if (d < bd) { bd = d; best = n; } }
-    if (e.lane == null) { e.lane = rnd(-0.38, 0.38); e.hp = e.maxHp = Math.max(1, Math.round(e.maxHp * DEF_K)); e.spd = Math.max(20, e.spd) * DEF_K; e.dashSpd *= DEF_K; }
     e.engaged = !!best;
-    e.march = !best && e.y > 230;   // far from the village: walk straight down
+    const dv = defDist(e) || 1;
+    e.march = !best && dv > DEF_VR + 160;   // far from the village: walk straight at it
     if (best) return best;
-    R.vPt.x = clamp(e.x, 20, VW - 20); return R.vPt;
+    R.vPt.x = arena.cx + (e.x - arena.cx) / dv * DEF_VR; R.vPt.y = arena.cy + (e.y - arena.cy) / dv * DEF_VR; return R.vPt;
   }
-  function defVillageHit(d, x, msg) {
+  function defMarch(e) {   // the march: toward the middle, each on a slightly curved line so they don't stack
+    const dx = arena.cx - e.x, dy = arena.cy - e.y, d = hyp(dx, dy) || 1;
+    return [dx / d - dy / d * e.lane, dy / d + dx / d * e.lane];
+  }
+  function defVillageHit(d, x, y, msg) {
     const R = defRun; if (!R || R.end) return;
-    R.vHp = Math.max(0, R.vHp - d); R.hitFlash = 0.6; shake = Math.max(shake, 6);
+    R.vHp = Math.max(0, R.vHp - d); R.hitFlash = 0.6; shake = Math.max(shake, 6); R.hitA = Math.atan2(y - arena.cy, x - arena.cx); R.hitAT = 1.2;
     if (msg && (R.msgT || 0) > globalT) msg = null;   // one big message at a time; the rest just show the damage
     if (msg) R.msgT = globalT + 1.2;
-    popText(x, msg ? 70 : 40 + rnd(0, 20), msg || `村 -${d}`, '#ff7a6a', msg ? 15 : 12, 0.9);
+    popText(x, y + (msg ? 30 : rnd(0, 20)), msg || `村 -${d}`, '#ff7a6a', msg ? 15 : 12, 0.9);
     if (msg || d >= 4) A.sfx('hurt');
   }
-  // an enemy's attack (redirected from hurtHero) lands on a companion or the gate
+  // an enemy's attack (redirected from hurtHero) lands on a companion or the village
   function defHurtUnit(u, dmg, fx2, fy2, power) {
     const R = defRun; if (!R) return;
-    if (u.village) { if (R.vHitCD <= 0) { R.vHitCD = 0.35; defVillageHit(2, u.x); } return; }
+    if (u.village) { if (R.vHitCD <= 0) { R.vHitCD = 0.35; defVillageHit(2, u.x, u.y); } return; }
     if (u.down > 0 || u.inv > 0) return;
     const d = Math.max(1, Math.round(dmg - u.s.def * 0.5));
     u.hp -= d; u.inv = 0.6;
@@ -2448,7 +2422,7 @@
   function defBulletHit(b) {
     const R = defRun;
     for (const n of R.npcs) if (n.down <= 0 && n.inv <= 0 && hyp(b.x - n.x, b.y - n.y) < b.r + n.r * 0.6) { defHurtUnit(n, b.dmg, b.x - b.vx * 0.05, b.y - b.vy * 0.05, 200); if (!b.pierce) { b.life = 0; return; } }
-    if (b.y < 14) { b.life = 0; burst(b.x, 14, 6, '#ffb070', 100, 0.3); if (R.vHitCD <= 0) { R.vHitCD = 0.35; defVillageHit(1, b.x); } }
+    if (defDist(b) < DEF_VR) { b.life = 0; burst(b.x, b.y, 6, '#ffb070', 100, 0.3); if (R.vHitCD <= 0) { R.vHitCD = 0.35; defVillageHit(1, b.x, b.y); } }
   }
   function defNpcHit(n, e) {
     if (e === boss) {
@@ -2462,11 +2436,18 @@
     burst(e.x, e.y, 10, n.col, 180, 0.35); A.sfx('hit');
     hazardHit(e, dmg, n.x, n.y, 300);
   }
+  // keep a body out of the village (the fence) and inside the round field
+  function defKeepOut(o, r) {
+    const dx = o.x - arena.cx, dy = o.y - arena.cy, d = hyp(dx, dy) || 1, lo = DEF_VR + r, hi = DEF_R - r;
+    if (d < lo) { const nx = dx / d, ny = dy / d; o.x = arena.cx + nx * lo; o.y = arena.cy + ny * lo; const vn = o.vx * nx + o.vy * ny; if (vn < 0) { o.vx -= vn * nx; o.vy -= vn * ny; } }
+    else if (d > hi) { const nx = dx / d, ny = dy / d; o.x = arena.cx + nx * hi; o.y = arena.cy + ny * hi; }
+  }
   function defNpc(n, dt) {
     const R = defRun;
     if (n.down > 0) {
       if ((n.down -= dt) <= 0) {
-        n.down = 0; n.hp = Math.round(n.s.maxHp * 0.6); n.x = VW / 2 + (n.i - 1) * 80; n.y = 50; n.vx = 0; n.vy = 120; n.inv = 1.5; n.st = 'run';
+        const a = Math.atan2(hero.y - arena.cy, hero.x - arena.cx) + (n.i - 1) * 0.5;   // comes out of the village on your side
+        n.down = 0; n.hp = Math.round(n.s.maxHp * 0.6); n.x = arena.cx + Math.cos(a) * (DEF_VR + 30); n.y = arena.cy + Math.sin(a) * (DEF_VR + 30); n.vx = Math.cos(a) * 120; n.vy = Math.sin(a) * 120; n.inv = 1.5; n.st = 'run';
         popText(n.x, n.y + 40, `${n.name} ふっかつ！`, n.col, 14, 1.2); burst(n.x, n.y, 16, '#8af07a', 160, 0.5); A.sfx('heal');
       }
       return;
@@ -2477,61 +2458,94 @@
     const Wh = R.whistle;
     let gx = null, gy = null, foe = null;
     if (Wh) {   // ふえ: run to the spot; fight what is around it
-      const ox = Wh.x + (n.i - 1) * 46, oy = Wh.y + (n.i === 1 ? 30 : -10), dW = hyp(ox - n.x, oy - n.y);
-      let bd = 1e9; for (const e of live) { const d = hyp(e.x - Wh.x, e.y - Wh.y); if (d < 170 && d < bd) { bd = d; foe = e; } }
+      const ox = Wh.x + Math.cos(n.i * 2.1) * 40, oy = Wh.y + Math.sin(n.i * 2.1) * 40, dW = hyp(ox - n.x, oy - n.y);
+      let bd = 1e9; for (const e of live) { const d = hyp(e.x - Wh.x, e.y - Wh.y); if (d < 180 && d < bd) { bd = d; foe = e; } }
       if (dW > 60 && !(foe && hyp(foe.x - n.x, foe.y - n.y) < 110)) { gx = ox; gy = oy; foe = null; }
-    } else {   // the monster nearest the village matters most
-      let bs = 1e9; for (const e of live) { const s2 = e.y * 0.7 + hyp(e.x - n.x, e.y - n.y); if (s2 < bs) { bs = s2; foe = e; } }
+    } else {   // the monster nearest the village matters most, then the nearest one
+      let bs = 1e9; for (const e of live) { const s2 = defDist(e) * 0.8 + hyp(e.x - n.x, e.y - n.y); if (s2 < bs) { bs = s2; foe = e; } }
     }
     let tx = 0, ty = 0, sp = 0;
     if (n.st === 'dash') { if ((n.dashT -= dt) <= 0) n.st = 'run'; }
     else if (gx != null) { tx = gx - n.x; ty = gy - n.y; sp = n.spd * 1.3; }
     else if (foe) {
-      const dx = foe.x - n.x, dy = foe.y - n.y, d = hyp(dx, dy) || 1;
-      if (d < 140 && n.cd <= 0) { n.st = 'dash'; n.dashT = 0.34; n.vx = dx / d * 440; n.vy = dy / d * 440; n.hitSet = new Set(); }
-      else { tx = dx; ty = dy; sp = d > 100 ? n.spd : n.spd * 0.4; }
-    } else { tx = VW / 2 + (n.i - 1) * 100 - n.x; ty = 190 - n.y; sp = hyp(tx, ty) > 20 ? n.spd * 0.6 : 0; }   // nothing to fight: guard the gate
+      const dx = foe.x - n.x, dy = foe.y - n.y, d = hyp(dx, dy) || 1, reach = 140 + (foe === boss ? foe.r : 0);
+      if (d < reach && n.cd <= 0) { n.st = 'dash'; n.dashT = 0.34 + (foe === boss ? 0.15 : 0); n.vx = dx / d * 440; n.vy = dy / d * 440; n.hitSet = new Set(); }
+      else { tx = dx; ty = dy; sp = d > 100 + (foe === boss ? foe.r : 0) ? n.spd : n.spd * 0.4; }
+    } else { const px = arena.cx + Math.cos(n.post) * (DEF_VR + 70), py = arena.cy + Math.sin(n.post) * (DEF_VR + 70); tx = px - n.x; ty = py - n.y; sp = hyp(tx, ty) > 20 ? n.spd * 0.6 : 0; }   // nothing to fight: guard the village
     if (n.st !== 'dash') {
       const l = hyp(tx, ty) || 1, k = 1 - Math.exp(-dt * 6);
       n.vx = lerp(n.vx, sp ? tx / l * sp : 0, k); n.vy = lerp(n.vy, sp ? ty / l * sp : 0, k);
     }
     for (const e of live) {
       const dx = e.x - n.x, dy = e.y - n.y, d = hyp(dx, dy), rr = e.r + n.r; if (d >= rr || d === 0) continue;
-      const nx = dx / d, ny = dy / d;
-      n.x -= nx * (rr - d) * (e === boss ? 1 : 0.7); n.y -= ny * (rr - d) * (e === boss ? 1 : 0.7); if (e !== boss && e.mass < 50) { e.x += nx * (rr - d) * 0.3; e.y += ny * (rr - d) * 0.3; }
+      const nx = dx / d, ny = dy / d, big = e === boss;
+      n.x -= nx * (rr - d) * (big ? 1 : 0.7); n.y -= ny * (rr - d) * (big ? 1 : 0.7); if (!big && e.mass < 50) { e.x += nx * (rr - d) * 0.3; e.y += ny * (rr - d) * 0.3; }
       if (n.st === 'dash' && !n.hitSet.has(e)) { n.hitSet.add(e); defNpcHit(n, e); n.vx = -nx * 230; n.vy = -ny * 230; n.st = 'run'; n.cd = rnd(0.8, 1.3); }
-      else if (n.inv <= 0 && e.atk > 0 && !(e.zap > 0)) defHurtUnit(n, e === boss ? e.atk * 0.7 : e.atk, e.x, e.y, e === boss ? 380 : 220);
+      else if (n.inv <= 0 && e.atk > 0 && !(e.zap > 0)) defHurtUnit(n, big ? e.atk * 0.7 : e.atk, e.x, e.y, big ? 380 : 220);
       if (n.down > 0) return;
     }
-    n.x += n.vx * dt; n.y += n.vy * dt;
-    const tn = tunnelAt(n.y); n.x = clamp(n.x, tn.cx - tn.w / 2 + n.r, tn.cx + tn.w / 2 - n.r); n.y = clamp(n.y, n.r + 4, goalY - 40);
+    n.x += n.vx * dt; n.y += n.vy * dt; defKeepOut(n, n.r);
     const s3 = hyp(n.vx, n.vy); n.walk += s3 * dt; if (s3 > 20) n.face = Math.atan2(n.vy, n.vx);
   }
   function defWhistle() {
-    const R = defRun; if (!R || R.end || state !== 'play' || paused || !hero || hero.hp <= 0 || R.whCD > 0) return;
-    R.whistle = { x: clamp(hero.x, 40, VW - 40), y: clamp(hero.y, 60, goalY - 80), t: 8 }; R.whCD = 0.8;
+    const R = defRun; if (!R || R.end || state !== 'boss' || paused || !hero || hero.hp <= 0 || R.whCD > 0) return;
+    R.whistle = { x: hero.x, y: hero.y, t: 8 }; R.whCD = 0.8;
     for (let i = 0; i < 3; i++) rings.push({ x: hero.x, y: hero.y, r: 6 + i * 14, max: 150, spd: 260, dmg: 0, w: 3, fx: true });
     popText(hero.x, hero.y + 56, 'ピーッ！ ここに あつまれ！', '#ffe680', 15, 1.1);
     for (const n of R.npcs) if (n.down <= 0) popText(n.x, n.y + 40, n.say, n.col, 12, 0.9);
     A.sfx('whistle');
   }
+  // a boss from this stretch of dungeons leads the last wave; it runs the normal boss AI around a "home" that creeps to the village
+  function defSpawnBoss(type) {
+    const R = defRun, lo = Math.max(0, R.di - 4), j = lo + Math.floor(Math.random() * (R.di - lo + 1)), d = DUNGEONS[j], T = type || d.boss, Bd = BOSSES[T];
+    const a = R.dirs.length ? R.dirs[0] : rnd(0, Math.PI * 2), r0 = DEF_R * 0.8, x = arena.cx + Math.cos(a) * r0, y = arena.cy + Math.sin(a) * r0;
+    const hp = Math.round(Bd.hp * DEF_BOSS_HP);   // 指示: ボスの たいりょく 1.5ばい
+    boss = { type: T, name: Bd.name, x, y, vx: 0, vy: 0, r: Math.round(Bd.r * 1.4), hp, maxHp: hp, atk: Bd.atk, def: Bd.def, col: Bd.col, wcol: Bd.wcol, fcol: Bd.fcol, ocol: Bd.ocol,
+      exp: Math.round(d.xp * 0.3), gold: Math.round(d.gp * 0.25), moves: Bd.moves, moves2: Bd.moves2, phase: 1, mv: null, mt: 0, cd: 2.2, last: '', hurt: 0, hitCD: 0, z: 0,
+      sweeps: [], intro: 2.6, face: a + Math.PI, dead: 0, rage: Bd.rage, waveT: 1e9, hx: x, hy: y, homeT: 0, alpha: 1, hardHomeX: x, hardHomeY: y - 20, defA: a, defR: r0 };
+    if (RIG[T]) rigInit(boss);
+    if (T === 'archmage') { boss.r0 = boss.r; boss.r1 = Math.round(boss.r * 0.68); boss.r = boss.r1; boss.sizeK = 0.68; boss.grow = -1; }
+    banner = { a: `${Bd.name} が せめてきた！`, b: `${dirName(a)}から ボスが 村を ねらっている`, t: 2.6, boss: true };
+    bestEncounter('boss:' + T); A.bgm(FARR.boss[T]); A.sfx('bossAppear');
+    flash = 0.5; flashCol = '255,255,255'; shake = 14;
+  }
+  function defBossTick(dt) {
+    const R = defRun, B = boss;
+    if (!B.dead && !(B.intro > 0)) B.defR = Math.max(DEF_VR + B.r * 0.4, B.defR - DEF_BOSS_MARCH * DEF_K * dt);   // 指示: しんこう そくど 0.7ばい
+    B.hardHomeX = arena.cx + Math.cos(B.defA) * B.defR; B.hardHomeY = arena.cy + Math.sin(B.defA) * B.defR - 20;
+    B.waveT = Math.max(B.waveT, 1e8);   // no endless reinforcements: the waves are the reinforcements
+    bossUpdate(dt);
+    if (!boss || B.dead) return;
+    if (defDist(B) < DEF_VR + B.r * 0.6 && (R.bossHitT || 0) < globalT) {   // at the fence: it smashes the village, then is driven back a little
+      R.bossHitT = globalT + 2.5; defVillageHit(20, B.x, B.y, `${B.name}が 村を こわしている！`); shake = Math.max(shake, 16); A.sfx('quake');
+      B.defR = Math.min(DEF_R * 0.8, B.defR + 170);
+    }
+  }
+  function defBossDown(B) {
+    B.dead = 0.01; A.sfx('bossKill');
+    hitStop = 0.2; slowMo = 1.1; shake = 24; flash = 0.9; flashCol = '255,255,255';
+    B.sweeps = []; zones = zones.filter(z => z.boss !== B);
+    craftDropBoss(B); gainExp(B.exp); gainGold(B.gold);
+    popText(B.x, B.y + B.r + 40, `${B.name}を たおした！`, '#f2c14e', 20, 1.6); popText(B.x, B.y + B.r + 16, `+${B.exp} EXP`, '#9fd0ff', 13, 1.2);
+    if (audioOn) FMusic.setRage(false); A.bgm(FARR.dungeon[defRun.di]);
+  }
   function defTick(dt) {
     const R = defRun; if (!R || R.end) return;
-    if (R.whCD > 0) R.whCD -= dt; if (R.vHitCD > 0) R.vHitCD -= dt; if (R.hitFlash > 0) R.hitFlash -= dt;
+    if (R.whCD > 0) R.whCD -= dt; if (R.vHitCD > 0) R.vHitCD -= dt; if (R.hitFlash > 0) R.hitFlash -= dt; if (R.hitAT > 0) R.hitAT -= dt;
     if (R.whistle && (R.whistle.t -= dt) <= 0) R.whistle = null;
     if (R.bossT > 0 && (R.bossT -= dt) <= 0) defSpawnBoss(R.forceBoss);
     if (boss) defBossTick(dt);
-    if (state !== 'play') return;
-    if (R.q > 0) { if ((R.qT -= dt) <= 0) { R.qT = 0.3; R.q--; defSpawnOne(); } }
+    if (state !== 'boss') return;
+    if (R.q > 0) { if ((R.qT -= dt) <= 0) { R.qT = 0.28; R.q--; defSpawnOne(); } }
     else if (R.spawned < R.total) {
       R.waveT -= dt;
-      if (R.waveT <= 0 || (R.wave > 0 && enemies.filter(e => !e.dead).length <= 2 && R.waveT < 26)) defNextWave();
-      else if (R.wave === 0 && R.waveT <= 0) defNextWave();
+      if (R.waveT <= 0 || (R.wave > 0 && enemies.filter(e => !e.dead).length <= 3 && R.waveT < 28)) defNextWave();
     }
-    for (const e of enemies) if (!e.dead && e.y - e.r < 22) {   // reached the gate: into the village
-      e.dead = true; e.escaped = true; burst(e.x, 20, 18, '#ff6a4a', 200, 0.5);
-      defVillageHit(Math.round(DEF_VHP * 0.08), e.x, `${EN[e.type].name}が 村に はいった！`);
+    for (const e of enemies) if (!e.dead && defDist(e) < DEF_VR + e.r * 0.3) {   // got over the fence: into the village
+      e.dead = true; e.escaped = true; burst(e.x, e.y, 18, '#ff6a4a', 200, 0.5);
+      defVillageHit(Math.round(DEF_VHP * 0.07), e.x, e.y, `${EN[e.type].name}が 村に はいった！`);
     }
+    if (hero.hp > 0) defKeepOut(hero, hero.r);
     for (const n of R.npcs) defNpc(n, dt);
     if (R.vHp <= 0) { defLose(); return; }
     if (R.spawned >= R.total && R.q <= 0 && !(R.bossT > 0) && !boss && !enemies.some(e => !e.dead)) defWin();
@@ -2584,52 +2598,46 @@
     const ok = defUnlocked(k), di = DEF_STAGES[k], d = DUNGEONS[di];
     return `<div class="row ui-stage-row ${ok ? '' : 'lock'}" style="background:rgba(232,160,74,.10);border-radius:6px"><span class="ui-stage-boss" style="display:flex;align-items:center;justify-content:center"><img src="${defIcon()}" width="56" height="48" alt="" style="image-rendering:pixelated"></span>
       <span class="nm">防衛戦：${ok ? DEF_NAMES[k] : '？？？'} ${defDone(k) ? '<span class="tag">★まもりきった</span>' : ''}</span>
-      <span class="sub">${ok ? `村を まもれ・1〜${di + 1}の まもの・なかま 3人・すいしょう Lv ${d.rec}${save.lv < d.rec ? '<span class="hpc">（きけん）</span>' : ''}` : `${di + 1}. を クリアすると 解放`}</span>
+      <span class="sub">${ok ? `まわりから くる まものから 村を まもれ・1〜${di + 1}の まものと ボス・なかま 3人・すいしょう Lv ${d.rec}${save.lv < d.rec ? '<span class="hpc">（きけん）</span>' : ''}` : `${di + 1}. を クリアすると 解放`}</span>
       <span class="act"><button class="sbtn" data-def="${k}" ${ok ? '' : 'disabled'}>いく</button></span></div>`;
   }
-  function defDrawVillage() {   // under the gate line (y < 0): fence, gate and houses
-    const R = defRun, y0 = q(sy(0)), x0 = -WX - 3, x1 = W - WX + 3, dmg = 1 - R.vHp / R.vMax;
-    if (y0 > H + 20) return;
-    ctx.fillStyle = '#41662f'; ctx.fillRect(x0, y0, x1 - x0, H - y0 + 10);
-    ctx.fillStyle = '#4f7a3a'; for (let y = y0 + 6; y < H; y += 12) for (let x = Math.floor(x0 / 18) * 18 + ((y / 12) % 2) * 9; x < x1; x += 18) ctx.fillRect(q(x), q(y), 4.5, 1.5);
-    ctx.fillStyle = '#9a8460'; ctx.fillRect(q(VW / 2 - 27), y0, 54, H - y0 + 10);   // the road through the gate
-    const houses = [[-46, 38, 46, '#b4503a'], [36, 66, 52, '#3a68b4'], [VW - 98, 40, 50, '#7a4ab0'], [VW - 20, 70, 44, '#b4503a'], [96, 92, 40, '#4a8a3a'], [VW - 150, 96, 46, '#b47a2a']];
-    houses.forEach(([hx, hy, hw, roof], i) => {
-      const x = q(hx), y = q(y0 + hy), hh = q(hw * 0.62);
+  function defDrawVillage() {   // the village in the middle: grass, a round palisade with four gates, houses and a well
+    const R = defRun, cx = q(arena.cx), cy = q(sy(arena.cy)), VR = DEF_VR, dmg = 1 - R.vHp / R.vMax;
+    if (cx < bcamX - W / 2 - VR - 60 || cx > bcamX + W / 2 + VR + 60 || cy < -VR - 80 || cy > H + VR + 60) return;
+    ctx.fillStyle = '#41662f'; ctx.beginPath(); ctx.arc(cx, cy, VR + 4, 0, 7); ctx.fill();
+    ctx.fillStyle = '#4f7a3a'; for (let y = -VR; y < VR; y += 12) for (let x = -VR + ((y / 12) & 1) * 9; x < VR; x += 18) if (x * x + y * y < (VR - 6) ** 2) ctx.fillRect(cx + x, cy + y, 4.5, 1.5);
+    ctx.fillStyle = '#9a8460'; ctx.fillRect(cx - 12, cy - VR, 24, VR * 2); ctx.fillRect(cx - VR, cy - 12, VR * 2, 24);   // the cross roads to the four gates
+    // stakes behind the houses (upper half), houses back to front, then the front stakes
+    const broken = Math.floor(dmg * 20);
+    const stakes = front => { for (let i = 0; i < 64; i++) {
+      const a = i / 64 * Math.PI * 2, sx = cx + Math.cos(a) * VR, syy = cy - Math.sin(a) * VR;
+      if ((syy > cy) !== front) continue;
+      if (Math.abs(Math.cos(a)) > 0.985 || Math.abs(Math.sin(a)) > 0.985) continue;   // the gates
+      if (broken && (i * 7) % 20 < broken) { ctx.fillStyle = '#6a4424'; ctx.fillRect(q(sx) - 3, q(syy) - 3, 7.5, 4.5); continue; }
+      ctx.fillStyle = '#8a5a30'; ctx.fillRect(q(sx) - 3, q(syy) - 21, 7.5, 24); ctx.fillStyle = '#b07a44'; ctx.fillRect(q(sx) - 3, q(syy) - 21, 3, 24);
+      ctx.fillStyle = '#8a5a30'; ctx.fillRect(q(sx) - 1.5, q(syy) - 24, 4.5, 3);
+    } };
+    stakes(false);
+    const houses = [[-58, 44, 40, '#b4503a'], [22, 58, 44, '#3a68b4'], [-74, -18, 38, '#7a4ab0'], [46, 0, 40, '#b47a2a'], [-34, -62, 42, '#4a8a3a'], [34, -56, 38, '#b4503a']];
+    houses.sort((a, b) => b[1] - a[1]).forEach(([hx, hy, hw, roof], i) => {
+      const x = q(cx + hx - hw / 2), y = q(cy - hy - hw * 0.3), hh = q(hw * 0.6);
       ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(x + 3, y + hh, hw, 4.5);
       ctx.fillStyle = '#e2d2a8'; ctx.fillRect(x, y, hw, hh); ctx.fillStyle = '#c4b088'; ctx.fillRect(x, y + hh - 4.5, hw, 4.5);
-      ctx.fillStyle = roof; ctx.beginPath(); ctx.moveTo(x - 6, y + 3); ctx.lineTo(x + hw / 2, y - q(hw * 0.42)); ctx.lineTo(x + hw + 6, y + 3); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.moveTo(x + hw / 2, y - q(hw * 0.42)); ctx.lineTo(x + hw + 6, y + 3); ctx.lineTo(x + hw / 2, y + 3); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = roof; ctx.beginPath(); ctx.moveTo(x - 5, y + 3); ctx.lineTo(x + hw / 2, y - q(hw * 0.4)); ctx.lineTo(x + hw + 5, y + 3); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.moveTo(x + hw / 2, y - q(hw * 0.4)); ctx.lineTo(x + hw + 5, y + 3); ctx.lineTo(x + hw / 2, y + 3); ctx.closePath(); ctx.fill();
       const lit = 0.7 + 0.3 * Math.sin(globalT * 2 + i);
-      ctx.fillStyle = `rgba(255,210,122,${lit})`; ctx.fillRect(x + 6, y + 6, 7.5, 6); ctx.fillRect(x + hw - 22, y + 6, 7.5, 6);
-      ctx.fillStyle = '#5a3a24'; ctx.fillRect(x + hw / 2 - 4.5, y + hh - 13.5, 9, 13.5);
-      if (dmg > 0.25 + i * 0.1) {   // the village burns as it takes damage
-        for (let k = 0; k < 2; k++) { const f = Math.floor(globalT * 10 + k * 3 + i) % 3, fx2 = x + 10 + k * (hw - 20); ctx.save(); ctx.translate(fx2, y + 4); ctx.scale(0.45, 0.45); SPR.draw(ctx, SPR.ENV.flame(f, true), 0, 0, 0.95); ctx.restore(); }
-        ctx.fillStyle = 'rgba(40,36,40,.35)'; for (let k = 0; k < 3; k++) { const kk = (globalT * 0.4 + k / 3 + i * 0.17) % 1; ctx.beginPath(); ctx.arc(x + hw / 2 + Math.sin(kk * 6 + i) * 8, y - 20 - kk * 50, 6 + kk * 10, 0, 7); ctx.fill(); }
+      ctx.fillStyle = `rgba(255,210,122,${lit})`; ctx.fillRect(x + 4.5, y + 6, 6, 6); ctx.fillRect(x + hw - 10.5, y + 6, 6, 6);
+      ctx.fillStyle = '#5a3a24'; ctx.fillRect(x + hw / 2 - 4.5, y + hh - 12, 9, 12);
+      if (dmg > 0.2 + i * 0.1) {   // the village burns as it takes damage
+        for (let k = 0; k < 2; k++) { const f = Math.floor(globalT * 10 + k * 3 + i) % 3, fx2 = x + 9 + k * (hw - 18); ctx.save(); ctx.translate(fx2, y + 2); ctx.scale(0.4, 0.4); SPR.draw(ctx, SPR.ENV.flame(f, true), 0, 0, 0.95); ctx.restore(); }
+        ctx.fillStyle = 'rgba(40,36,40,.35)'; for (let k = 0; k < 3; k++) { const kk = (globalT * 0.4 + k / 3 + i * 0.17) % 1; ctx.beginPath(); ctx.arc(x + hw / 2 + Math.sin(kk * 6 + i) * 8, y - 18 - kk * 46, 5 + kk * 9, 0, 7); ctx.fill(); }
       }
     });
-    // palisade along the gate line, with a gate in the middle
-    const broken = Math.floor(dmg * 14);
-    for (let x = Math.floor(x0 / 9) * 9, n = 0; x < x1; x += 9, n++) {
-      if (Math.abs(x + 4 - VW / 2) < 30) continue;
-      if (broken && (n * 7) % 14 < broken) { ctx.fillStyle = '#6a4424'; ctx.fillRect(q(x), y0 + 9, 7.5, 6); continue; }
-      ctx.fillStyle = '#8a5a30'; ctx.fillRect(q(x), y0 - 12, 7.5, 27); ctx.fillStyle = '#b07a44'; ctx.fillRect(q(x), y0 - 12, 3, 27);
-      ctx.fillStyle = '#8a5a30'; ctx.fillRect(q(x) + 1.5, y0 - 15, 4.5, 3);
-    }
-    ctx.fillStyle = '#6a4424'; ctx.fillRect(x0, y0 - 3, x1 - x0, 4.5);
-    const gx = q(VW / 2);
-    ctx.fillStyle = '#6a4424'; ctx.fillRect(gx - 36, y0 - 30, 9, 45); ctx.fillRect(gx + 27, y0 - 30, 9, 45); ctx.fillRect(gx - 39, y0 - 36, 78, 9);
-    ctx.fillStyle = '#b07a44'; ctx.fillRect(gx - 39, y0 - 36, 78, 3);
-    ctx.fillStyle = '#e2d2a8'; ctx.fillRect(gx - 12, y0 - 34.5, 24, 6); ctx.fillStyle = '#6a4424'; ctx.fillRect(gx - 6, y0 - 33, 12, 3);
-    if (R.hitFlash > 0) { ctx.fillStyle = `rgba(255,60,40,${R.hitFlash * 0.35})`; ctx.fillRect(x0, y0 - 20, x1 - x0, H - y0 + 30); }
-  }
-  function defDrawLair(dy) {   // the top of the field: the dark mouth the monsters pour out of
-    ctx.fillStyle = wallPat; ctx.fillRect(-WX - 3, dy - 400, W + 6, 400);
-    const cx = q(VW / 2), glow = 0.5 + 0.5 * Math.sin(globalT * 2.4);
-    ctx.fillStyle = `rgba(160,40,90,${0.2 + glow * 0.2})`; ctx.beginPath(); ctx.ellipse(cx, dy - 6, VW * 0.42, 54, 0, Math.PI, 0); ctx.fill();
-    ctx.fillStyle = '#0c060c'; ctx.beginPath(); ctx.ellipse(cx, dy, VW * 0.36, 44, 0, Math.PI, 0); ctx.fill();
-    for (let i = 0; i < 5; i++) { const ex = cx - 110 + i * 55 + Math.sin(i * 3) * 10, ey = dy - 20 + Math.cos(i * 2) * 8; if ((globalT * 0.7 + i * 0.37) % 2.2 < 0.15) continue;
-      ctx.fillStyle = '#ff3a3a'; ctx.fillRect(q(ex) - 6, q(ey), 4.5, 3); ctx.fillRect(q(ex) + 3, q(ey), 4.5, 3); }
+    // the well in the square
+    ctx.fillStyle = '#7a7a86'; ctx.beginPath(); ctx.ellipse(cx, cy, 13.5, 7.5, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#1a2a3a'; ctx.beginPath(); ctx.ellipse(cx, cy, 9, 4.5, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#6a4424'; ctx.fillRect(cx - 12, cy - 24, 3, 22); ctx.fillRect(cx + 9, cy - 24, 3, 22); ctx.fillStyle = '#b4503a'; ctx.fillRect(cx - 15, cy - 27, 30, 4.5);
+    stakes(true);
+    if (R.hitFlash > 0) { ctx.fillStyle = `rgba(255,60,40,${R.hitFlash * 0.3})`; ctx.beginPath(); ctx.arc(cx, cy, VR + 8, 0, 7); ctx.fill(); }
   }
   function defDrawNpcs() {
     const R = defRun, Wh = R.whistle;
@@ -2667,9 +2675,28 @@
     ctx.strokeStyle = R.hitFlash > 0 && Math.floor(globalT * 12) % 2 ? '#ff6a5a' : '#e8a04a'; ctx.lineWidth = 2; roundRect(x0, y0, bw, 42, 6); ctx.stroke();
     txt(`村 ${R.vHp}/${R.vMax}`, x0 + 8, y0 + 15, 12, k < 0.3 ? '#ff7a6a' : '#ffd9a0', 'left', false);
     bar(x0 + 70, y0 + 7, bw - 78, 8, k, k < 0.3 ? '#e5483c' : '#e8a04a');
-    const left = R.total - R.spawned + enemies.filter(e => !e.dead).length;
+    const left = R.total - R.spawned + enemies.filter(e => !e.dead).length + (boss && !boss.dead ? 1 : 0);
     const lab = R.q <= 0 && R.spawned < R.total && R.wave > 0 ? `つぎの波 ${Math.max(0, Math.ceil(R.waveT))}s・のこり ${left}` : R.wave === 0 ? `まもなく 襲来…` : `波 ${R.wave}/${DEF_WAVES}・のこり ${left}`;
     txt(lab, x0 + bw / 2, y0 + 34, 11, '#f3ecda', 'center', false);
+    // radar: the whole round field, the village in the middle
+    const mr = 37, mx = W - 8 - mr, my = y0 + 50 + mr, sc = mr / DEF_R;
+    ctx.fillStyle = 'rgba(10,12,30,.78)'; ctx.beginPath(); ctx.arc(mx, my, mr + 2, 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(243,236,218,.6)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(mx, my, mr + 2, 0, 7); ctx.stroke();
+    const P = (x, y) => [mx + (x - arena.cx) * sc, my - (y - arena.cy) * sc];
+    ctx.fillStyle = R.hitFlash > 0 ? '#ff6a5a' : '#e8a04a'; ctx.beginPath(); ctx.arc(mx, my, Math.max(3, DEF_VR * sc), 0, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; ctx.strokeRect(...(([a, b]) => [a - W / 2 * sc, b - H * 0.5 * sc])(P(bcamX, bcamY)), W * sc, H * sc);
+    ctx.fillStyle = '#ff5a5a'; for (const e of enemies) if (!e.dead) { const [a, b] = P(e.x, e.y); ctx.fillRect(a - 1, b - 1, 2.5, 2.5); }
+    for (const n of R.npcs) if (n.down <= 0) { const [a, b] = P(n.x, n.y); ctx.fillStyle = n.col; ctx.fillRect(a - 1.5, b - 1.5, 3.5, 3.5); }
+    if (boss && !boss.dead) { const [a, b] = P(boss.x, boss.y); ctx.fillStyle = Math.floor(globalT * 4) % 2 ? '#ff2a2a' : '#ffd0d0'; ctx.beginPath(); ctx.arc(a, b, 3.5, 0, 7); ctx.fill(); }
+    { const [a, b] = P(hero.x, hero.y); ctx.fillStyle = '#ffe14a'; ctx.beginPath(); ctx.arc(a, b, 2.5, 0, 7); ctx.fill(); }
+    if (R.whistle) { const [a, b] = P(R.whistle.x, R.whistle.y); ctx.strokeStyle = '#ffe680'; ctx.beginPath(); ctx.arc(a, b, 4, 0, 7); ctx.stroke(); }
+    // the village off screen: an arrow at the edge pointing to it (red while it is being hit)
+    const vx = arena.cx - bcamX + W / 2, vy = sy(arena.cy);
+    if (vx < -DEF_VR * 0.6 || vx > W + DEF_VR * 0.6 || vy < -DEF_VR * 0.6 || vy > H + DEF_VR * 0.6) {
+      const m = 40, ax = clamp(vx, m, W - m), ay = clamp(vy, 150, H - 140), an = Math.atan2(vy - ay, vx - ax), hot = R.hitAT > 0;
+      ctx.save(); ctx.translate(ax, ay); ctx.rotate(an); ctx.fillStyle = hot ? `rgba(255,80,60,${0.7 + 0.3 * Math.sin(globalT * 10)})` : 'rgba(232,160,74,.85)'; ctx.beginPath(); ctx.moveTo(16, 0); ctx.lineTo(-8, -11); ctx.lineTo(-8, 11); ctx.fill(); ctx.restore();
+      txt(hot ? '村が あぶない！' : '村', ax, ay + 24, hot ? 12 : 11, hot ? '#ff8a7a' : '#ffd9a0', 'center');
+    }
     // companions: bottom left, above the skill button
     const by = H - safeBottom() - 118;
     R.npcs.forEach((n, i) => {
@@ -2681,14 +2708,12 @@
     });
     if (R.whistle) txt(`ふえ：あつまれ！ ${Math.ceil(R.whistle.t)}`, 10, by - 52, 11, '#ffe680', 'left');
     if (boss && !boss.dead) {
-      const B = boss, yb = y0 + 62;
-      txt(B.name + (B.pers ? `（${PERS[B.pers][0]}がた）` : ''), W / 2, yb - 4, 13, '#fff', 'center');
-      bar(20, yb, W - 40, 9, B.hp / B.maxHp, B.phase === 2 ? '#ff3b6a' : '#e5483c');
-      const byy = sy(B.y); if (byy < 120) txt('▲ ボスが ちかづいている', W / 2, yb + 26, 12, '#ff9a8a', 'center');
-      else if (B.callout) { ctx.globalAlpha = Math.min(1, B.callout.t * 2); txt(B.callout.s, W / 2, yb + 26, 14, '#ffd24a', 'center'); ctx.globalAlpha = 1; }
+      const B = boss, yb = y0 + 62, bw2 = W - 8 - 2 * mr - 30;
+      txt(B.name + (B.pers ? `（${PERS[B.pers][0]}がた）` : ''), 16 + bw2 / 2, yb - 4, 13, '#fff', 'center');
+      bar(16, yb, bw2, 9, B.hp / B.maxHp, B.phase === 2 ? '#ff3b6a' : '#e5483c');
+      if (B.callout) { ctx.globalAlpha = Math.min(1, B.callout.t * 2); txt(B.callout.s, 16 + bw2 / 2, yb + 26, 14, '#ffd24a', 'center'); ctx.globalAlpha = 1; }
     }
   }
-
   function tutStart() { tut = { i: 0, t: 0, okT: 0, moved: 0, ramT: 0, slime: null, mark: 0 }; hint = 0; }
   function tutDone(g) { if (tut && !tut.okT && TUT[tut.i] && TUT[tut.i].g === g) { tut.okT = 1; A.sfx('chest'); } }
   function tutEnd(skip) { tut = null; save.tut = 1; persist(); if (!skip) { toast('チュートリアル クリア！ ボスを めざそう', '#f2c14e'); A.sfx('levelup'); } }
@@ -3100,7 +3125,8 @@
           break;
         }
         case 'march': {         // 魔物の大行進: they march down the corridor and leave if you let them
-          const tn = tunnelAt(e.y); want = defRun ? Math.max(1, DEF_MARCH * DEF_K / e.spd) : 1; wx = (tn.cx + e.lane * tn.w - e.x) / 60; wy = -1; e.st = 'idle';
+          if (defRun) { want = Math.max(1, DEF_MARCH * DEF_K / e.spd); [wx, wy] = defMarch(e); e.st = 'idle'; break; }
+          const tn = tunnelAt(e.y); want = 1; wx = (tn.cx + e.lane * tn.w - e.x) / 60; wy = -1; e.st = 'idle';
           if (e.y < h.y - H * 0.8) { e.dead = true; e.escaped = true; }
           break;
         }
@@ -4317,7 +4343,7 @@
     if (B.dead) {
       const was = B.dead; B.dead += dt;
       for (const k of [0.15, 0.3, 0.45, 0.6]) if (was < k && B.dead >= k) { burst(B.x + rnd(-30, 30), B.y + rnd(-30, 30), 40, pick([B.col, '#fff', '#f2c14e']), 380, 1); shake = 16; }
-      if (was < 1.2 && B.dead >= 1.2) { if (defRun) { boss = null; arena = null; } else showClear(); }
+      if (was < 1.2 && B.dead >= 1.2) { if (defRun) boss = null; else showClear(); }
       return;
     }
     if (RIG[B.type]) rigUpdate(B, dt);
@@ -5033,9 +5059,9 @@
       updateProps(dt);
       updateEvents(dt);
       updateZones(dt);   // lightning marks, bomb blasts, a basilisk's stare
-      camY = lerp(camY, Math.max(hero.y + 40, H * 0.38 - (defRun ? 150 : 30)), 1 - Math.exp(-dt * 6));
+      camY = lerp(camY, Math.max(hero.y + 40, H * 0.38 - 30), 1 - Math.exp(-dt * 6));
       camY = Math.min(camY, goalY + 60 - (H * 0.38) + 60);
-      if(defRun)defTick(dt);else if(hardRun)hardFieldTick(dt);else{
+      if(hardRun)hardFieldTick(dt);else{
       // boss door
       if (gateMsgT > 0) gateMsgT -= dt;
       if (gateKills < gateNeed && hero.y > goalY - 220) {   // waiting at the sealed door: the seal calls the monsters left behind, a few at a time
@@ -5055,7 +5081,7 @@
       updateProps(dt);
       updateEvents(dt);
       updateZones(dt);
-      if(hardRun)hardUpdateBosses(dt);else if (boss) bossUpdate(dt);
+      if(defRun)defTick(dt);else if(hardRun)hardUpdateBosses(dt);else if (boss) bossUpdate(dt);
       // camera follows the hero, kept inside the room
       const kx = arena.R + 30 - W / 2, ky = arena.R + 30 - H * 0.5;
       const tx = clamp(hero.x, arena.cx - kx, arena.cx + kx), ty = ky > 0 ? clamp(hero.y, arena.cy - ky, arena.cy + ky) : arena.cy;
@@ -5067,7 +5093,7 @@
   // ---------------------------------------------------------------
   //  RENDER
   // ---------------------------------------------------------------
-  const sy = y => (arena && !defRun ? H * 0.5 - (y - bcamY) : H * 0.62 - (y - camY));
+  const sy = y => (arena ? H * 0.5 - (y - bcamY) : H * 0.62 - (y - camY));
   let floorPat = null, wallPat = null, patFor = -1, patCtx = null, townPats = null;
   function makePatterns() {
     if (patFor === dIdx && floorPat && patCtx === ctx) return;
@@ -5096,12 +5122,10 @@
     ctx.beginPath(); L.forEach((p, i) => i ? ctx.lineTo(p[0] - 2, p[1]) : ctx.moveTo(p[0] - 2, p[1])); ctx.stroke();
     ctx.beginPath(); R.forEach((p, i) => i ? ctx.lineTo(p[0] + 2, p[1]) : ctx.moveTo(p[0] + 2, p[1])); ctx.stroke();
     // bottom wall at the entrance
-    if (defRun) defDrawVillage();
-    else if (sy(0) < H + 40) { ctx.fillStyle = wallPat; ctx.fillRect(-WX - 3, q(sy(0)), W + 6, H); ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(0, q(sy(0)), W, 4.5); }
+    if (sy(0) < H + 40) { ctx.fillStyle = wallPat; ctx.fillRect(-WX - 3, q(sy(0)), W + 6, H); ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(0, q(sy(0)), W, 4.5); }
     // boss door (pixel arch)
     const dy = q(sy(goalY + 20));
-    if (defRun) { if (dy > -80 && dy < H + 80) defDrawLair(dy); }
-    else if (dy > -80 && dy < H + 80) {
+    if (dy > -80 && dy < H + 80) {
       ctx.fillStyle = wallPat; ctx.fillRect(-WX - 3, dy - 400, W + 6, 400);
       const dw = 138, dx = q(VW / 2 - dw / 2);
       ctx.fillStyle = '#c9a24a'; ctx.fillRect(dx - 6, dy - 72, dw + 12, 72); ctx.fillRect(dx + 9, dy - 84, dw - 18, 12); ctx.fillRect(dx + 30, dy - 93, dw - 60, 9);
@@ -5568,7 +5592,7 @@
   function drawEnemy(e) {
     const x = e.x, y = sy(e.y), r = e.r;
     if (y < -70 || y > H + 70) return;
-    if (e.ai === 'shark' && e.sub) { if(y>=0&&y<=H&&x+(arena&&!defRun?W/2-bcamX:WX)>0&&x+(arena&&!defRun?W/2-bcamX:WX)<W)bestEncounter('enemy:'+e.type);drawFin(e, x, y); return; }
+    if (e.ai === 'shark' && e.sub) { if(y>=0&&y<=H&&x+(arena?W/2-bcamX:WX)>0&&x+(arena?W/2-bcamX:WX)<W)bestEncounter('enemy:'+e.type);drawFin(e, x, y); return; }
     ctx.save();
     if (e.ai === 'phase' || e.ai === 'assassin') ctx.globalAlpha = e.alpha;
     const fly = e.fly ? 6 + Math.sin(e.t * 5) * 3 : 0, lift = e.ai === 'shark' && e.st === 'leap' ? Math.sin(Math.min(1, e.t / 0.4) * Math.PI) * 26 : 0;
@@ -5601,7 +5625,7 @@
     // colour variants (フロストリザード…ゴールデンスライム) move exactly like the monster they are made from
     const em = view && zakoBase(e.type) !== e.type ? Object.assign({}, e, { type: zakoBase(e.type) }) : e;
     const spr = SPR.enemy(e.type, { view:view&&view.face, upSlash:view?skeletonUpSlash(em,view):null, motion:view?zakoMotion2(em,view):null, motion3:view?zakoMotion3(em,view):null, motion4:view?zakoMotion4(em,view):null, motion5:view?zakoMotion5(em,view):null, motion6:view?zakoMotion6(em,view):null, motion7:view?zakoMotion7(em,view):null, motion8:view?zakoMotion8(em,view):null, bodyX:view&&arm?Math.round(arm.lean*(view.face==='r'?1:view.face==='l'?-1:0)):0, bodyY:view&&arm?Math.round(arm.cr):0, pull:e.st==='aim'?easeIO(clamp(e.t/.55,0,1)):0, release:view&&view.prev==='aim'?Math.max(0,1-(globalT-view.changed)/.2):0, st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step: arm && arm.sp != null ? Math.round(arm.sp) : step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: !view && hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm });
-    if(!bestPainting&&e.alpha>=.15&&spr){const left=x+(arena&&!defRun?W/2-bcamX:WX)-spr.ax*SPR.SCALE,top=yy+r*.75-spr.ay*SPR.SCALE;if(left<W&&left+spr.c.width*SPR.SCALE>0&&top<H&&top+spr.c.height*SPR.SCALE>0)bestEncounter('enemy:'+e.type);}
+    if(!bestPainting&&e.alpha>=.15&&spr){const left=x+(arena?W/2-bcamX:WX)-spr.ax*SPR.SCALE,top=yy+r*.75-spr.ay*SPR.SCALE;if(left<W&&left+spr.c.width*SPR.SCALE>0&&top<H&&top+spr.c.height*SPR.SCALE>0)bestEncounter('enemy:'+e.type);}
     if(!ZAKO4.has(e.type)&&R3[e.type] && R3[e.type].enemy) drawR3Enemy(e,R3[e.type],x,yy+r*.75,hurt);
     else {
       const hop=['slime','fireslime','iceslime','goldslime','pinkdiamondslime'].includes(e.type)&&e.st==='hop'?Math.sin(clamp(e.t/.38,0,1)*Math.PI)*7:0;
@@ -6659,8 +6683,7 @@
       ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(s.s, s.x, sy(s.y)); ctx.fillStyle = s.col; ctx.fillText(s.s, s.x, sy(s.y));
     }
     ctx.globalAlpha = 1;
-    if (D && !hardRun && defRun) { const dy = sy(goalY + 20); if (dy > -80 && dy < H + 80) txt('まものの すみか', VW / 2, dy - 70, 13, '#ff8a9a', 'center'); }
-    else if (D && !arena && !hardRun) {
+    if (D && !arena && !hardRun) {
       const dy = sy(goalY + 20);
       if (dy > -80 && dy < H + 80) { const glow = 0.5 + 0.5 * Math.sin(globalT * 3); txt('BOSS', VW / 2, dy - 100, 16, `rgba(255,${80 + glow * 60},${80 + glow * 60},1)`, 'center'); if (gateKills < gateNeed) txt(`ふういん：あと ${gateNeed - gateKills}たい`, VW / 2, dy - 122, 13, '#d8b0ff', 'center'); }
     }
@@ -6722,7 +6745,7 @@
       txt(stop ? QB[k].name : '？？？', cx, cy + 54, 15, stop ? QB[k].col : '#e0d0ff', 'center');
     }
     craftDrawHud();if(!arenaRun)txt(`${save.gold} G`, 214, top + 18, 13, '#f2c14e', 'left');
-    if (defRun && state === 'play') defDrawHud(top, chargeH);
+    if (defRun && state === 'boss') defDrawHud(top, chargeH);
     if (state === 'play'&&!hardRun&&!defRun) {
       // depth meter
       const k = clamp(h.y / goalY, 0, 1);
@@ -6742,7 +6765,7 @@
         ctx.restore(); txt(hardRun?B.name:'BOSS', ax, ay + 24, 10, '#ff8a8a', 'center');
       }
     }
-    if (state === 'boss' && boss&&!hardRun) {
+    if (state === 'boss' && boss&&!hardRun&&!defRun) {
       const bw = W - 40, by = top + 76+chargeH;
       txt(boss.name + (boss.pers ? `（${PERS[boss.pers][0]}がた）` : ''), W / 2, by - 4, 14, '#fff', 'center');
       bar(20, by, bw, 10, boss.hp / boss.maxHp, boss.phase === 2 ? '#ff3b6a' : '#e5483c');
@@ -6752,13 +6775,13 @@
     }
     if (freezeT > 0) { ctx.fillStyle = `rgba(200,205,255,${0.16 * Math.min(1, freezeT * 3)})`; ctx.fillRect(0, 0, W, H); txt('TIME STOP', W / 2, H * 0.4, 22, '#e8ecff', 'center'); }
     toasts.forEach((q2, i) => {   // equipment found: short notices under the status bar
-      ctx.globalAlpha = Math.min(1, q2.t * 2); const y2 = top + (arenaRun?154+chargeH:hardRun&&state==='boss'?160:defRun?(boss?150:108)+chargeH:92) + i * 22;
+      ctx.globalAlpha = Math.min(1, q2.t * 2); const y2 = top + (arenaRun?154+chargeH:hardRun&&state==='boss'?160:defRun?196+chargeH:92) + i * 22;
       ctx.fillStyle = 'rgba(10,8,24,.75)'; ctx.fillRect(16, y2 - 15, W - 50, 20);
       txt(q2.s, W / 2 - 9, y2, 13, q2.col, 'center'); ctx.globalAlpha = 1;
     });
     if (combo >= 2) {
       const k = Math.min(1, comboT);
-      ctx.globalAlpha = k; const cy2 = top + (state === 'boss' ? 112+chargeH : 240); txt(`${combo} HIT!`, W - 16, cy2, 18 + Math.min(combo, 20) * 0.6, combo >= 10 ? '#ff6ad0' : '#f2c14e', 'right');
+      ctx.globalAlpha = k; const cy2 = top + (defRun ? 250 : state === 'boss' ? 112+chargeH : 240); txt(`${combo} HIT!`, W - 16, cy2, 18 + Math.min(combo, 20) * 0.6, combo >= 10 ? '#ff6ad0' : '#f2c14e', 'right');
       const cb = comboBonus(combo); if (cb > 0) txt(`いりょく +${Math.round(cb * 100)}%`, W - 16, cy2 + 20, 12, '#fff', 'right'); ctx.globalAlpha = 1;
     }
     if (tut && state === 'play') drawTut();
@@ -7071,10 +7094,10 @@
     beginPix();
     ctx.save();
     ctx.translate(shx, shy);
-    if (arena && !defRun) ctx.translate(q(W / 2 - bcamX), 0);   // boss room camera
+    if (arena) ctx.translate(q(W / 2 - bcamX), 0);   // boss room camera
     else ctx.translate(q(WX), 0);                    // corridor: the 360-wide field in the middle of a wider screen
-    if (arena && !defRun) {if(arenaRun)arenaDrawCombat();else drawArena();} else if(hardRun)hardDrawField();else drawDungeon();
-    if (state !== 'boss' && (!arena || defRun)) drawProps();
+    if (arena) {if(arenaRun)arenaDrawCombat();else{drawArena();if(defRun)defDrawVillage();}} else if(hardRun)hardDrawField();else drawDungeon();
+    if (state !== 'boss' && !arena) drawProps();
     pfxDrawEvents(true);pfxHero(true);
     drawEvents();
     drawDrops();
@@ -7091,7 +7114,7 @@
     if (D) lighting();
     ctx.restore();
     endPix();
-    ctx.save(); ctx.translate(shx, shy); ctx.translate(arena && !defRun ? q(W / 2 - bcamX) : q(WX), 0); drawWorldText(); if (defRun) defDrawTags(); ctx.restore();
+    ctx.save(); ctx.translate(shx, shy); ctx.translate(arena ? q(W / 2 - bcamX) : q(WX), 0); drawWorldText(); if (defRun) defDrawTags(); ctx.restore();
     camY = cam0; bcamX = bx0; bcamY = by0;
     if (flash > 0) { ctx.fillStyle = `rgba(${flashCol},${flash * 0.5})`; ctx.fillRect(0, 0, W, H); }
     drawHud();hardDrawHud();arenaDrawHud();
