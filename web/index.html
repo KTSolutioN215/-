@@ -109,6 +109,10 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
 #tray .tn { font-size: 12px; color: var(--muted); }
 #tray .tclose { display: block; text-align: center; border-top: 1px dashed rgba(243,236,218,.3); border-radius: 0; color: var(--muted); }
 #itemBtn b { font-size: 20px; font-weight: 400; color: var(--ok); }
+/* 防衛戦: the whistle calls the three companions to where you are */
+#whistleBtn { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); width: 56px; height: 56px; flex-direction: column; font-size: 11px; line-height: 1.1; border-color: #ffe680; }
+#whistleBtn b { font-size: 20px; font-weight: 400; color: #ffe680; }
+#whistleBtn:active { background: rgba(80,70,20,.9); }
 /* item cooldown: a dark sweep over the bag button that shrinks as it recharges */
 #itemBtn::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(rgba(5,4,12,.72) var(--cd, 0deg), transparent 0); pointer-events: none; }
 #itemBtn.cool { border-color: var(--muted); }
@@ -140,6 +144,7 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
 
   <button id="pauseBtn" class="hudBtn" aria-label="ポーズ" hidden>II</button>
   <button id="itemBtn" class="hudBtn" aria-label="どうぐを使う" hidden><span>どうぐ</span><b id="itemCount">0</b><i id="itemCd" aria-hidden="true"></i></button>
+  <button id="whistleBtn" class="hudBtn" aria-label="ふえを ふいて なかまを よぶ" hidden><b>♪</b><span>ふえ</span></button>
   <div id="tray" class="win" hidden></div>
 
   <div id="panelWrap" hidden>

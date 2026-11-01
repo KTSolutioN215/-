@@ -1679,7 +1679,7 @@
 
   const DEF_SAVE = () => ({ v: 1, lv: 1, exp: 0, gold: 40, hp: null, items: { herb: 5, potion: 0, hipotion: 0, megapotion: 0, lifewater: 0, lifedrop: 0, elixir: 0, power: 0, guard: 0 }, loadout: null, slots: null,
     eq: { weapon: 'w0', armor: 'a0', boots: 'b0', charm: null }, owned: ['w0', 'a0', 'b0'], cleared: Array(35).fill(false), layout10: true, layout15: true, layout25: true,
-    bestiary:{seen:{},obtained:{}}, kills: 0, skills: ['shock'], skill: 'shock', tut: 0, tutTown: 0, settings: { bgm: 0.8, sfx: 0.8, fps: 0, pad: 1 } });
+    bestiary:{seen:{},obtained:{}}, kills: 0, skills: ['shock'], skill: 'shock', tut: 0, tutTown: 0, defense: {}, settings: { bgm: 0.8, sfx: 0.8, fps: 0, pad: 1 } });
   let save = DEF_SAVE();
   function loadSave() {
     try {
@@ -1709,6 +1709,7 @@
       if (!Array.isArray(save.skills)) save.skills = [];
       if (!save.skills.includes('shock')) save.skills.unshift('shock');
       if (!save.skill) save.skill = save.skills[0];
+      if (!save.defense || typeof save.defense !== 'object') save.defense = {};
       // a save that has already been adventuring skips the tutorial
       if (s && s.tut == null && (save.lv > 1 || (save.cleared || []).some(Boolean))) { save.tut = 1; save.tutTown = 1; }
     } catch (e) { /* storage blocked: play without saving */ }
@@ -1951,12 +1952,14 @@
   const hurtLog = {};
   // put the hero to sleep / turn them to stone for a moment (no control); a short immunity follows so it can't chain
   function stunHero(t, kind) {
+    if (defAimT && defAimT !== hero) return;
     const h = hero; if (!h || h.hp <= 0 || h.roll > 0 || h.stunImm > 0 || (h.pw && h.pw.kind === 'giant')) return;
     h.stun = t; h.stunKind = kind; h.stunImm = t + 2.6; h.vx *= 0.3; h.vy *= 0.3;
     popText(h.x, h.y + 36, kind === 'stone' ? 'せきか！' : 'ねむってしまった…', kind === 'stone' ? '#e0dcd0' : '#e8c0ff', 15, 1.1);
     A.sfx(kind === 'stone' ? 'block' : 'magic2');
   }
   function hurtHero(dmg, fromX, fromY, power = 300, cause = '?', crit = false) {
+    if (defAimT && defAimT !== hero) { defHurtUnit(defAimT, dmg, fromX, fromY, power); return; }   // 防衛戦: the blow was aimed at a companion / the gate
     if(hero&&hero.roll>0&&!/patch:|spike|vent|poison/.test(cause))guildDodge();
     if(hero&&hero.roll>0&&craftState().rollAge<=.14&&!/patch:|spike|vent|poison/.test(cause))craftPerfect();
     if(craftFloorImmune()&&/patch:|spike|vent|crumble/.test(cause))return;
@@ -2281,7 +2284,7 @@
   //  START / END RUNS
   // ---------------------------------------------------------------
   function enterDungeon(di,hard=false) {
-    pfxClear();
+    pfxClear();defRun=null;
     if(arenaRun)arenaRestore();
     if(!hard)hardRun=null;
     closePanel(); deathT = 0;
@@ -2295,6 +2298,341 @@
     banner = { a: D.name, b: D.en, t: 2.4 };
     A.bgm(FARR.dungeon[di]);
     showHud(true);
+  }
+
+
+  // ---------------------------------------------------------------
+  //  防衛戦 (指示: 5ステージごとに、村を背に まものから まもる モード)
+  //  A wide straight field with the village at the bottom (y < 0). Monsters from every dungeon so far come in waves from
+  //  the top and march on the gate. Their HP and speed are x0.7 of the dungeon's. Three NPC heroes, a little under the
+  //  recommended level, fight with you; the whistle sends them to where you blew it.
+  // ---------------------------------------------------------------
+  const DEF_STAGES = [4, 9, 14, 19, 24, 29, 34];   // after every 5th dungeon (index of the dungeon it follows)
+  const DEF_NAMES = ['ひなたの村', 'かざぐるまの村', 'みなとの村', 'すなかぜの村', 'ほしみの村', 'こもれびの村', 'さいはての村'];
+  const DEF_K = 0.7, DEF_LEN = 1000, DEF_WAVES = 5, DEF_VHP = 100, DEF_MARCH = 90;
+  const DEF_NPC = [
+    { name: 'アレン', col: '#8ac4ff', hp: 1.25, atk: 0.9, def: 1.2, spd: 0.95, wo: 0, ao: 1, say: 'まかせろ！' },
+    { name: 'リナ', col: '#ff9ad0', hp: 0.85, atk: 1.2, def: 0.85, spd: 1.12, wo: 1, ao: -1, say: 'いくよ！' },
+    { name: 'ガルド', col: '#a8f0a0', hp: 1, atk: 1, def: 1, spd: 1, wo: -1, ao: 0, say: 'おう！' },
+  ];
+  let defRun = null, defAimT = null;
+  const defUnlocked = k => !!save.cleared[DEF_STAGES[k]];
+  const defDone = k => !!(save.defense && save.defense[k]);
+  function defPool(di) {   // every monster met so far; the newer dungeons a little more often
+    const P = {};
+    for (let j = 0; j <= di; j++) {
+      const w = 0.4 + 0.6 * j / Math.max(1, di);
+      for (const [t, v] of Object.entries(DUNGEONS[j].pool)) if (EN[t] && !['goldslime', 'pinkdiamondslime'].includes(t)) P[t] = (P[t] || 0) + v * w;
+    }
+    return P;
+  }
+  function defNpcs(di) {
+    const rec = DUNGEONS[di].rec, L = Math.max(1, rec - Math.max(1, Math.round(rec * 0.12))), g = Math.round(di * 0.6);
+    return DEF_NPC.map((p, i) => {
+      const w = EQ['w' + clamp(g + p.wo, 0, 22)], a = EQ['a' + clamp(g + p.ao, 0, 21)];
+      const s = { maxHp: Math.round((60 + (L - 1) * 10) * 1.6 * p.hp), atk: Math.round((8 + (L - 1) * 2 + w.atk) * p.atk), def: Math.round((2 + (L - 1) + a.def) * p.def) };
+      return { npc: true, i, name: p.name, col: p.col, say: p.say, lv: L, s, hp: s.maxHp, x: VW / 2 + (i - 1) * 90, y: 170, vx: 0, vy: 0, r: HERO_R, face: Math.PI / 2,
+        walk: 0, inv: 0, cd: rnd(0.3, 1), st: 'run', dashT: 0, down: 0, spd: 200 * p.spd, w: visOf(w.id), a: visOf(a.id), slow: 0, ramSafe: 0, pw: null, hitSet: null };
+    });
+  }
+  function defGen(di) {
+    D = DUNGEONS[di]; dIdx = di; goalY = DEF_LEN;
+    nodes = [{ y: -600, cx: VW / 2, w: VW * 0.92 }, { y: goalY + 600, cx: VW / 2, w: VW * 0.92 }];
+    enemies = []; bullets = []; drops = []; props = []; fx = []; texts = []; rings = []; anims = []; evs = []; ev = {};
+    gateNeed = 0; gateKills = 0; gateMsgT = 0; gateCallT = 0;
+    for (let i = 0; i < 3; i++) props.push({ type: 'rock', x: VW / 2 + (i - 1) * 112 + rnd(-16, 16), y: rnd(430, 720), r: rnd(14, 19), seed: Math.random() });
+    for (let ty = 200; ty < goalY; ty += 230) props.push({ type: 'torch', side: (ty / 230) % 2 < 1 ? -1 : 1, y: ty });
+    props.sort((a, b) => a.y - b.y);
+  }
+  function defEnter(k) {
+    pfxClear(); if (arenaRun) arenaRestore(); hardRun = null;
+    closePanel(); deathT = 0;
+    bag = fillBag(Array.isArray(save.slots) ? slotsLoadout(getSlots()) : save.loadout || autoLoadout());
+    const di = DEF_STAGES[k];
+    defGen(di);
+    hero = newHero(VW / 2, 110); WX = (W - VW) / 2; camY = hero.y + 40;
+    boss = null; arena = null; zones = []; freezeT = 0; darkT = 0; shades = []; twisters = []; combo = 0; runExp = 0; runGold = 0; runKills = 0; runLoot = []; toasts = []; runMaterials = {};
+    guildRunStart(); state = 'play'; paused = false; hint = 0; tut = null;
+    const total = 24 + k * 4;
+    defRun = { k, di, vHp: DEF_VHP, vMax: DEF_VHP, total, spawned: 0, q: 0, qT: 0, wave: 0, waveT: 3.5, npcs: defNpcs(di), whistle: null, whCD: 0, vHitCD: 0, hitFlash: 0, end: 0,
+      pool: defPool(di), vPt: { village: true, x: VW / 2, y: -10, vx: 0, vy: 0, r: 24, slow: 0, ramSafe: 0, pw: null } };
+    banner = { a: `防衛戦：${DEF_NAMES[k]}`, b: 'DEFEND THE VILLAGE', t: 2.6 };
+    A.bgm(FARR.dungeon[di]); A.sfx('bossAppear');
+    showHud(true);
+  }
+  function defNextWave() {
+    const R = defRun; R.wave++;
+    const left = R.total - R.spawned, n = R.wave >= DEF_WAVES ? left : Math.min(left, Math.ceil(R.total / DEF_WAVES));
+    R.q = n; R.qT = 0; R.waveT = 30;
+    banner = { a: R.wave >= DEF_WAVES ? 'さいごの 波が くる！' : `だい${R.wave}波 が くる！`, b: `WAVE ${R.wave} / ${DEF_WAVES}`, t: 1.8 };
+    A.sfx('summon');
+  }
+  function defSpawnOne() {
+    const R = defRun, type = wpick(R.pool), x = VW / 2 + rnd(-0.4, 0.4) * VW * 0.92, y = goalY - rnd(60, 150);
+    const e = spawnEnemy(type, x, y, true);
+    e.hp = e.maxHp = Math.max(1, Math.round(e.maxHp * DEF_K));   // 指示: たいりょく 0.7ばい
+    e.spd = Math.max(20, e.spd) * DEF_K; e.dashSpd *= DEF_K;      // 指示: しんこう そくど 0.7ばい
+    e.lane = rnd(-0.38, 0.38); e.march = true;
+    e.exp = Math.max(1, Math.round(D.xp * 0.8 / R.total)); e.gold = Math.max(1, Math.round(D.gp * 0.6 / R.total));
+    R.spawned++;
+    anims.push({ kind: 'poof', x: e.x, y: e.y, t: 0, dur: 0.4, frames: 5 }); burst(e.x, e.y, 12, '#c8a0ff', 150, 0.4);
+  }
+  // who a monster is after: you or a companion close by, otherwise the gate below it
+  function defAim(e) {
+    const R = defRun; let best = null, bd = e.engaged ? 330 : 230;
+    if (hero.hp > 0) { const d = hyp(hero.x - e.x, hero.y - e.y); if (d < bd) { bd = d; best = hero; } }
+    for (const n of R.npcs) if (n.down <= 0) { const d = hyp(n.x - e.x, n.y - e.y); if (d < bd) { bd = d; best = n; } }
+    e.engaged = !!best;
+    e.march = !best && e.y > 230;   // far from the village: walk straight down
+    if (best) return best;
+    R.vPt.x = clamp(e.x, 20, VW - 20); return R.vPt;
+  }
+  function defVillageHit(d, x, msg) {
+    const R = defRun; if (!R || R.end) return;
+    R.vHp = Math.max(0, R.vHp - d); R.hitFlash = 0.6; shake = Math.max(shake, 6);
+    if (msg && (R.msgT || 0) > globalT) msg = null;   // one big message at a time; the rest just show the damage
+    if (msg) R.msgT = globalT + 1.2;
+    popText(x, msg ? 70 : 40 + rnd(0, 20), msg || `村 -${d}`, '#ff7a6a', msg ? 15 : 12, 0.9);
+    if (msg || d >= 4) A.sfx('hurt');
+  }
+  // an enemy's attack (redirected from hurtHero) lands on a companion or the gate
+  function defHurtUnit(u, dmg, fx2, fy2, power) {
+    const R = defRun; if (!R) return;
+    if (u.village) { if (R.vHitCD <= 0) { R.vHitCD = 0.35; defVillageHit(2, u.x); } return; }
+    if (u.down > 0 || u.inv > 0) return;
+    const d = Math.max(1, Math.round(dmg - u.s.def * 0.5));
+    u.hp -= d; u.inv = 0.6;
+    const dx = u.x - fx2, dy = u.y - fy2, l = hyp(dx, dy) || 1; u.vx += dx / l * power * 0.8; u.vy += dy / l * power * 0.8; if (u.st === 'dash') u.st = 'run';
+    popText(u.x, u.y + 20, '-' + d, '#ff9a7a', 14, 0.7);
+    if (u.hp <= 0) {
+      u.hp = 0; u.down = 12; burst(u.x, u.y, 20, u.col, 200, 0.6); anims.push({ kind: 'poof', x: u.x, y: u.y, t: 0, dur: 0.4, frames: 5 });
+      popText(u.x, u.y + 46, `${u.name}は たおれた… 村で てあて中`, u.col, 13, 1.6); A.sfx('down');
+    }
+  }
+  function defBulletHit(b) {
+    const R = defRun;
+    for (const n of R.npcs) if (n.down <= 0 && n.inv <= 0 && hyp(b.x - n.x, b.y - n.y) < b.r + n.r * 0.6) { defHurtUnit(n, b.dmg, b.x - b.vx * 0.05, b.y - b.vy * 0.05, 200); if (!b.pierce) { b.life = 0; return; } }
+    if (b.y < 14) { b.life = 0; burst(b.x, 14, 6, '#ffb070', 100, 0.3); if (R.vHitCD <= 0) { R.vHitCD = 0.35; defVillageHit(1, b.x); } }
+  }
+  function defNpcHit(n, e) {
+    const dmg = Math.max(1, Math.round(n.s.atk * rnd(1.0, 1.3) - e.def * 0.5));
+    burst(e.x, e.y, 10, n.col, 180, 0.35); A.sfx('hit');
+    hazardHit(e, dmg, n.x, n.y, 300);
+  }
+  function defNpc(n, dt) {
+    const R = defRun;
+    if (n.down > 0) {
+      if ((n.down -= dt) <= 0) {
+        n.down = 0; n.hp = Math.round(n.s.maxHp * 0.6); n.x = VW / 2 + (n.i - 1) * 80; n.y = 50; n.vx = 0; n.vy = 120; n.inv = 1.5; n.st = 'run';
+        popText(n.x, n.y + 40, `${n.name} ふっかつ！`, n.col, 14, 1.2); burst(n.x, n.y, 16, '#8af07a', 160, 0.5); A.sfx('heal');
+      }
+      return;
+    }
+    if (n.inv > 0) n.inv -= dt; if (n.cd > 0) n.cd -= dt;
+    const live = enemies.filter(e => !e.dead && !e.sub && !(e.ai === 'phase' && e.alpha < 0.5));
+    const Wh = R.whistle;
+    let gx = null, gy = null, foe = null;
+    if (Wh) {   // ふえ: run to the spot; fight what is around it
+      const ox = Wh.x + (n.i - 1) * 46, oy = Wh.y + (n.i === 1 ? 30 : -10), dW = hyp(ox - n.x, oy - n.y);
+      let bd = 1e9; for (const e of live) { const d = hyp(e.x - Wh.x, e.y - Wh.y); if (d < 170 && d < bd) { bd = d; foe = e; } }
+      if (dW > 60 && !(foe && hyp(foe.x - n.x, foe.y - n.y) < 110)) { gx = ox; gy = oy; foe = null; }
+    } else {   // the monster nearest the village matters most
+      let bs = 1e9; for (const e of live) { const s2 = e.y * 0.7 + hyp(e.x - n.x, e.y - n.y); if (s2 < bs) { bs = s2; foe = e; } }
+    }
+    let tx = 0, ty = 0, sp = 0;
+    if (n.st === 'dash') { if ((n.dashT -= dt) <= 0) n.st = 'run'; }
+    else if (gx != null) { tx = gx - n.x; ty = gy - n.y; sp = n.spd * 1.3; }
+    else if (foe) {
+      const dx = foe.x - n.x, dy = foe.y - n.y, d = hyp(dx, dy) || 1;
+      if (d < 140 && n.cd <= 0) { n.st = 'dash'; n.dashT = 0.34; n.vx = dx / d * 440; n.vy = dy / d * 440; n.hitSet = new Set(); }
+      else { tx = dx; ty = dy; sp = d > 100 ? n.spd : n.spd * 0.4; }
+    } else { tx = VW / 2 + (n.i - 1) * 100 - n.x; ty = 190 - n.y; sp = hyp(tx, ty) > 20 ? n.spd * 0.6 : 0; }   // nothing to fight: guard the gate
+    if (n.st !== 'dash') {
+      const l = hyp(tx, ty) || 1, k = 1 - Math.exp(-dt * 6);
+      n.vx = lerp(n.vx, sp ? tx / l * sp : 0, k); n.vy = lerp(n.vy, sp ? ty / l * sp : 0, k);
+    }
+    for (const e of live) {
+      const dx = e.x - n.x, dy = e.y - n.y, d = hyp(dx, dy), rr = e.r + n.r; if (d >= rr || d === 0) continue;
+      const nx = dx / d, ny = dy / d;
+      n.x -= nx * (rr - d) * 0.7; n.y -= ny * (rr - d) * 0.7; if (e.mass < 50) { e.x += nx * (rr - d) * 0.3; e.y += ny * (rr - d) * 0.3; }
+      if (n.st === 'dash' && !n.hitSet.has(e)) { n.hitSet.add(e); defNpcHit(n, e); n.vx = -nx * 230; n.vy = -ny * 230; n.st = 'run'; n.cd = rnd(0.8, 1.3); }
+      else if (n.inv <= 0 && e.atk > 0 && !(e.zap > 0)) defHurtUnit(n, e.atk, e.x, e.y, 220);
+      if (n.down > 0) return;
+    }
+    n.x += n.vx * dt; n.y += n.vy * dt;
+    const tn = tunnelAt(n.y); n.x = clamp(n.x, tn.cx - tn.w / 2 + n.r, tn.cx + tn.w / 2 - n.r); n.y = clamp(n.y, n.r + 4, goalY - 40);
+    const s3 = hyp(n.vx, n.vy); n.walk += s3 * dt; if (s3 > 20) n.face = Math.atan2(n.vy, n.vx);
+  }
+  function defWhistle() {
+    const R = defRun; if (!R || R.end || state !== 'play' || paused || !hero || hero.hp <= 0 || R.whCD > 0) return;
+    R.whistle = { x: clamp(hero.x, 40, VW - 40), y: clamp(hero.y, 60, goalY - 80), t: 8 }; R.whCD = 0.8;
+    for (let i = 0; i < 3; i++) rings.push({ x: hero.x, y: hero.y, r: 6 + i * 14, max: 150, spd: 260, dmg: 0, w: 3, fx: true });
+    popText(hero.x, hero.y + 56, 'ピーッ！ ここに あつまれ！', '#ffe680', 15, 1.1);
+    for (const n of R.npcs) if (n.down <= 0) popText(n.x, n.y + 40, n.say, n.col, 12, 0.9);
+    A.sfx('whistle');
+  }
+  function defTick(dt) {
+    const R = defRun; if (!R || R.end) return;
+    if (R.whCD > 0) R.whCD -= dt; if (R.vHitCD > 0) R.vHitCD -= dt; if (R.hitFlash > 0) R.hitFlash -= dt;
+    if (R.whistle && (R.whistle.t -= dt) <= 0) R.whistle = null;
+    if (R.q > 0) { if ((R.qT -= dt) <= 0) { R.qT = 0.3; R.q--; defSpawnOne(); } }
+    else if (R.spawned < R.total) {
+      R.waveT -= dt;
+      if (R.waveT <= 0 || (R.wave > 0 && enemies.filter(e => !e.dead).length <= 2 && R.waveT < 26)) defNextWave();
+      else if (R.wave === 0 && R.waveT <= 0) defNextWave();
+    }
+    for (const e of enemies) if (!e.dead && e.y - e.r < 22) {   // reached the gate: into the village
+      e.dead = true; e.escaped = true; burst(e.x, 20, 18, '#ff6a4a', 200, 0.5);
+      defVillageHit(Math.round(DEF_VHP * 0.08), e.x, `${EN[e.type].name}が 村に はいった！`);
+    }
+    for (const n of R.npcs) defNpc(n, dt);
+    if (R.vHp <= 0) { defLose(); return; }
+    if (R.spawned >= R.total && R.q <= 0 && !enemies.some(e => !e.dead)) defWin();
+  }
+  function defWin() {
+    const R = defRun; R.end = 1; R.whistle = null;
+    const first = !defDone(R.k); (save.defense = save.defense || {})[R.k] = true;
+    const kx = first ? 2 : 1, safe = R.vHp / R.vMax;
+    gainExp(Math.round(D.xp * 0.3 * kx)); gainGold(Math.round(D.gp * 0.4 * kx * (0.5 + 0.5 * safe)));
+    save.hp = null; persist(); A.jingle('clear'); state = 'over';
+    openPanel('村を まもりきった！', `
+      <p>${DEF_NAMES[R.k]}は ぶじだ！ 村の人たちが てを ふっている。</p>
+      <dl class="stat" style="margin-top:10px">
+        <dt>村の のこりHP</dt><dd>${R.vHp} / ${R.vMax}</dd>
+        <dt>けいけんち</dt><dd>+${runExp}</dd>
+        <dt>ゴールド</dt><dd class="gold">+${runGold} G</dd>
+        <dt>たおした数</dt><dd>${runKills}</dd>
+        <dt>レベル</dt><dd>Lv ${save.lv}</dd>
+      </dl>
+      ${lootHtml()}
+      ${first ? '<p style="margin-top:10px" class="gold">はじめての ぼうえい せいこう！ ほうしゅうが 2ばい！</p>' : ''}
+      <p style="color:var(--muted);font-size:13px;margin-top:6px">ほうしゅうの ゴールドは 村が ぶじなほど ふえる。</p>`,
+      [['街へもどる', () => goTown(), true]]);
+  }
+  function defLose() {
+    const R = defRun; R.end = 1; R.whistle = null;
+    save.hp = null; persist(); A.jingle('defeat'); state = 'over';
+    openPanel('村が おとされた…', `
+      <p>まものたちが 村に なだれこんだ。<br>村の人たちは なんとか にげのびた。</p>
+      <dl class="stat" style="margin-top:10px">
+        <dt>この たたかいで ひろった</dt><dd class="gold">${runGold} G</dd>
+        <dt>たおした数</dt><dd>${runKills}</dd>
+      </dl>
+      ${lootHtml()}
+      <p style="color:var(--muted);font-size:14px;margin-top:8px">レベル・けいけんち・ひろった ものは そのまま。<br>ふえで なかまを うごかして もう一度 まもろう。</p>`,
+      [['街へもどる', () => goTown(), true]]);
+  }
+  // ---- drawing ----
+  let defIconUrl = null;
+  function defIcon() {   // a little village for the dungeon list
+    if (defIconUrl) return defIconUrl;
+    const c = document.createElement('canvas'); c.width = 28; c.height = 24; const g = c.getContext('2d');
+    g.fillStyle = '#4f7a3a'; g.fillRect(0, 18, 28, 6);
+    const house = (x, y, w, h, roof) => { g.fillStyle = '#e2d2a8'; g.fillRect(x, y, w, h); g.fillStyle = roof; g.beginPath(); g.moveTo(x - 2, y + 1); g.lineTo(x + w / 2, y - 6); g.lineTo(x + w + 2, y + 1); g.fill(); g.fillStyle = '#ffd27a'; g.fillRect(x + 2, y + 3, 2, 2); g.fillStyle = '#5a3a24'; g.fillRect(x + w - 4, y + h - 4, 2, 4); };
+    house(3, 11, 9, 8, '#b4503a'); house(15, 9, 10, 10, '#3a68b4');
+    g.fillStyle = '#8a5a30'; for (let x = 0; x < 28; x += 3) g.fillRect(x, 17, 2, 6); g.fillStyle = '#c8945a'; g.fillRect(0, 19, 28, 1);
+    return (defIconUrl = c.toDataURL());
+  }
+  function defGateRow(k) {
+    const ok = defUnlocked(k), di = DEF_STAGES[k], d = DUNGEONS[di];
+    return `<div class="row ui-stage-row ${ok ? '' : 'lock'}" style="background:rgba(232,160,74,.10);border-radius:6px"><span class="ui-stage-boss" style="display:flex;align-items:center;justify-content:center"><img src="${defIcon()}" width="56" height="48" alt="" style="image-rendering:pixelated"></span>
+      <span class="nm">防衛戦：${ok ? DEF_NAMES[k] : '？？？'} ${defDone(k) ? '<span class="tag">★まもりきった</span>' : ''}</span>
+      <span class="sub">${ok ? `村を まもれ・1〜${di + 1}の まもの・なかま 3人・すいしょう Lv ${d.rec}${save.lv < d.rec ? '<span class="hpc">（きけん）</span>' : ''}` : `${di + 1}. を クリアすると 解放`}</span>
+      <span class="act"><button class="sbtn" data-def="${k}" ${ok ? '' : 'disabled'}>いく</button></span></div>`;
+  }
+  function defDrawVillage() {   // under the gate line (y < 0): fence, gate and houses
+    const R = defRun, y0 = q(sy(0)), x0 = -WX - 3, x1 = W - WX + 3, dmg = 1 - R.vHp / R.vMax;
+    if (y0 > H + 20) return;
+    ctx.fillStyle = '#41662f'; ctx.fillRect(x0, y0, x1 - x0, H - y0 + 10);
+    ctx.fillStyle = '#4f7a3a'; for (let y = y0 + 6; y < H; y += 12) for (let x = Math.floor(x0 / 18) * 18 + ((y / 12) % 2) * 9; x < x1; x += 18) ctx.fillRect(q(x), q(y), 4.5, 1.5);
+    ctx.fillStyle = '#9a8460'; ctx.fillRect(q(VW / 2 - 27), y0, 54, H - y0 + 10);   // the road through the gate
+    const houses = [[-46, 38, 46, '#b4503a'], [36, 66, 52, '#3a68b4'], [VW - 98, 40, 50, '#7a4ab0'], [VW - 20, 70, 44, '#b4503a'], [96, 92, 40, '#4a8a3a'], [VW - 150, 96, 46, '#b47a2a']];
+    houses.forEach(([hx, hy, hw, roof], i) => {
+      const x = q(hx), y = q(y0 + hy), hh = q(hw * 0.62);
+      ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.fillRect(x + 3, y + hh, hw, 4.5);
+      ctx.fillStyle = '#e2d2a8'; ctx.fillRect(x, y, hw, hh); ctx.fillStyle = '#c4b088'; ctx.fillRect(x, y + hh - 4.5, hw, 4.5);
+      ctx.fillStyle = roof; ctx.beginPath(); ctx.moveTo(x - 6, y + 3); ctx.lineTo(x + hw / 2, y - q(hw * 0.42)); ctx.lineTo(x + hw + 6, y + 3); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.beginPath(); ctx.moveTo(x + hw / 2, y - q(hw * 0.42)); ctx.lineTo(x + hw + 6, y + 3); ctx.lineTo(x + hw / 2, y + 3); ctx.closePath(); ctx.fill();
+      const lit = 0.7 + 0.3 * Math.sin(globalT * 2 + i);
+      ctx.fillStyle = `rgba(255,210,122,${lit})`; ctx.fillRect(x + 6, y + 6, 7.5, 6); ctx.fillRect(x + hw - 22, y + 6, 7.5, 6);
+      ctx.fillStyle = '#5a3a24'; ctx.fillRect(x + hw / 2 - 4.5, y + hh - 13.5, 9, 13.5);
+      if (dmg > 0.25 + i * 0.1) {   // the village burns as it takes damage
+        for (let k = 0; k < 2; k++) { const f = Math.floor(globalT * 10 + k * 3 + i) % 3, fx2 = x + 10 + k * (hw - 20); ctx.save(); ctx.translate(fx2, y + 4); ctx.scale(0.45, 0.45); SPR.draw(ctx, SPR.ENV.flame(f, true), 0, 0, 0.95); ctx.restore(); }
+        ctx.fillStyle = 'rgba(40,36,40,.35)'; for (let k = 0; k < 3; k++) { const kk = (globalT * 0.4 + k / 3 + i * 0.17) % 1; ctx.beginPath(); ctx.arc(x + hw / 2 + Math.sin(kk * 6 + i) * 8, y - 20 - kk * 50, 6 + kk * 10, 0, 7); ctx.fill(); }
+      }
+    });
+    // palisade along the gate line, with a gate in the middle
+    const broken = Math.floor(dmg * 14);
+    for (let x = Math.floor(x0 / 9) * 9, n = 0; x < x1; x += 9, n++) {
+      if (Math.abs(x + 4 - VW / 2) < 30) continue;
+      if (broken && (n * 7) % 14 < broken) { ctx.fillStyle = '#6a4424'; ctx.fillRect(q(x), y0 + 9, 7.5, 6); continue; }
+      ctx.fillStyle = '#8a5a30'; ctx.fillRect(q(x), y0 - 12, 7.5, 27); ctx.fillStyle = '#b07a44'; ctx.fillRect(q(x), y0 - 12, 3, 27);
+      ctx.fillStyle = '#8a5a30'; ctx.fillRect(q(x) + 1.5, y0 - 15, 4.5, 3);
+    }
+    ctx.fillStyle = '#6a4424'; ctx.fillRect(x0, y0 - 3, x1 - x0, 4.5);
+    const gx = q(VW / 2);
+    ctx.fillStyle = '#6a4424'; ctx.fillRect(gx - 36, y0 - 30, 9, 45); ctx.fillRect(gx + 27, y0 - 30, 9, 45); ctx.fillRect(gx - 39, y0 - 36, 78, 9);
+    ctx.fillStyle = '#b07a44'; ctx.fillRect(gx - 39, y0 - 36, 78, 3);
+    ctx.fillStyle = '#e2d2a8'; ctx.fillRect(gx - 12, y0 - 34.5, 24, 6); ctx.fillStyle = '#6a4424'; ctx.fillRect(gx - 6, y0 - 33, 12, 3);
+    if (R.hitFlash > 0) { ctx.fillStyle = `rgba(255,60,40,${R.hitFlash * 0.35})`; ctx.fillRect(x0, y0 - 20, x1 - x0, H - y0 + 30); }
+  }
+  function defDrawLair(dy) {   // the top of the field: the dark mouth the monsters pour out of
+    ctx.fillStyle = wallPat; ctx.fillRect(-WX - 3, dy - 400, W + 6, 400);
+    const cx = q(VW / 2), glow = 0.5 + 0.5 * Math.sin(globalT * 2.4);
+    ctx.fillStyle = `rgba(160,40,90,${0.2 + glow * 0.2})`; ctx.beginPath(); ctx.ellipse(cx, dy - 6, VW * 0.42, 54, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#0c060c'; ctx.beginPath(); ctx.ellipse(cx, dy, VW * 0.36, 44, 0, Math.PI, 0); ctx.fill();
+    for (let i = 0; i < 5; i++) { const ex = cx - 110 + i * 55 + Math.sin(i * 3) * 10, ey = dy - 20 + Math.cos(i * 2) * 8; if ((globalT * 0.7 + i * 0.37) % 2.2 < 0.15) continue;
+      ctx.fillStyle = '#ff3a3a'; ctx.fillRect(q(ex) - 6, q(ey), 4.5, 3); ctx.fillRect(q(ex) + 3, q(ey), 4.5, 3); }
+  }
+  function defDrawNpcs() {
+    const R = defRun, Wh = R.whistle;
+    if (Wh) {   // the whistle spot: a little flag and a pulsing ring
+      const x = q(Wh.x), y = q(sy(Wh.y)), k = (globalT * 1.5) % 1;
+      ctx.strokeStyle = `rgba(255,230,128,${0.8 * (1 - k)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(x, y + 8, 20 + k * 30, (20 + k * 30) * 0.42, 0, 0, 7); ctx.stroke();
+      ctx.fillStyle = '#8a5a30'; ctx.fillRect(x - 1.5, y - 30, 3, 39);
+      ctx.fillStyle = '#ffe680'; ctx.beginPath(); ctx.moveTo(x + 1.5, y - 30); ctx.lineTo(x + 21 + Math.sin(globalT * 8) * 3, y - 24); ctx.lineTo(x + 1.5, y - 18); ctx.fill();
+    }
+    for (const n of R.npcs) {
+      if (n.down > 0) continue;
+      const sp = hyp(n.vx, n.vy), c = Math.cos(n.face), s = Math.sin(n.face), x = n.x, y = sy(n.y);
+      const dir = Math.abs(c) > Math.abs(s) * 1.1 ? (c > 0 ? 'right' : 'left') : (s > 0 ? 'up' : 'down');
+      const moving = sp > 30, ph = n.walk * 0.07, step = moving ? (Math.sin(ph) > 0.3 ? 1 : Math.sin(ph) < -0.3 ? -1 : 0) : 0;
+      const spr = SPR.hero({ dir, step, dash: n.st === 'dash' && dir !== 'down', hurt: n.inv > 0.4, blink: false, bob: !moving && (globalT + n.i * 0.37) % 1.1 < 0.55 ? 1 : 0, wave: Math.floor(globalT * 10) % 2, w: n.w, a: n.a });
+      shadow(x, y, n.r);
+      ctx.strokeStyle = n.col; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y + n.r * 0.75, n.r * 0.95, n.r * 0.4, 0, 0, 7); ctx.stroke();
+      if (n.st === 'dash') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = 'rgba(255,170,70,.32)'; ctx.beginPath(); ctx.ellipse(x, y, n.r * 1.6, n.r * 1.8, 0, 0, 7); ctx.fill(); ctx.restore(); }
+      if (n.inv > 0) ctx.globalAlpha = 0.6 + 0.3 * Math.cos(n.inv * 18);
+      SPR.draw(ctx, spr, x, y + n.r * 0.75);
+      ctx.globalAlpha = 1;
+    }
+  }
+  function defDrawTags() {   // names and HP over the companions (sharp text layer)
+    for (const n of defRun.npcs) {
+      if (n.down > 0) continue;
+      const x = n.x, y = sy(n.y);
+      txt(n.name, x, y - 50, 10, n.col, 'center');
+      bar(x - 16, y - 46, 32, 4, n.hp / n.s.maxHp, n.hp < n.s.maxHp * 0.3 ? '#e5483c' : '#6fd38a');
+    }
+  }
+  function defDrawHud(top, chargeH) {
+    const R = defRun, bw = 150, x0 = W - 8 - bw, y0 = top + 56 + chargeH, k = R.vHp / R.vMax;
+    ctx.fillStyle = 'rgba(19,24,58,.86)'; roundRect(x0, y0, bw, 42, 6); ctx.fill();
+    ctx.strokeStyle = R.hitFlash > 0 && Math.floor(globalT * 12) % 2 ? '#ff6a5a' : '#e8a04a'; ctx.lineWidth = 2; roundRect(x0, y0, bw, 42, 6); ctx.stroke();
+    txt(`村 ${R.vHp}/${R.vMax}`, x0 + 8, y0 + 15, 12, k < 0.3 ? '#ff7a6a' : '#ffd9a0', 'left', false);
+    bar(x0 + 70, y0 + 7, bw - 78, 8, k, k < 0.3 ? '#e5483c' : '#e8a04a');
+    const left = R.total - R.spawned + enemies.filter(e => !e.dead).length;
+    const lab = R.q <= 0 && R.spawned < R.total && R.wave > 0 ? `つぎの波 ${Math.max(0, Math.ceil(R.waveT))}s・のこり ${left}` : R.wave === 0 ? `まもなく 襲来…` : `波 ${R.wave}/${DEF_WAVES}・のこり ${left}`;
+    txt(lab, x0 + bw / 2, y0 + 34, 11, '#f3ecda', 'center', false);
+    // companions: bottom left, above the skill button
+    const by = H - safeBottom() - 118;
+    R.npcs.forEach((n, i) => {
+      const yy = by - (2 - i) * 17;
+      ctx.fillStyle = 'rgba(19,24,58,.78)'; roundRect(8, yy - 12, 112, 15, 4); ctx.fill();
+      txt(`${n.name} Lv${n.lv}`, 13, yy, 10, n.down > 0 ? 'rgba(243,236,218,.45)' : n.col, 'left', false);
+      if (n.down > 0) txt(`てあて ${Math.ceil(n.down)}`, 116, yy, 9, '#ff9a8a', 'right', false);
+      else bar(76, yy - 7, 40, 4, n.hp / n.s.maxHp, n.hp < n.s.maxHp * 0.3 ? '#e5483c' : '#6fd38a');
+    });
+    if (R.whistle) txt(`ふえ：あつまれ！ ${Math.ceil(R.whistle.t)}`, 10, by - 52, 11, '#ffe680', 'left');
   }
 
   function tutStart() { tut = { i: 0, t: 0, okT: 0, moved: 0, ramT: 0, slime: null, mark: 0 }; hint = 0; }
@@ -2673,10 +3011,11 @@
   }
 
   function updateEnemies(dt) {
-    const h = hero;
+    const h0 = hero; let h = h0;
     for (const e of enemies) {
       if(arenaRun?.settled)break;
       if (e.dead) continue;
+      if (defRun) { h = defAim(e); defAimT = h; } else { h = h0; defAimT = null; }
       if(e.type==='pinkdiamondslime'){
         if(e.crystalPending){e.crystalRetry=(e.crystalRetry||0)-dt;if(e.crystalRetry<=0){e.crystalRetry=1;killEnemy(e);}continue;}
         if(e.hp<e.maxHp)e.active=true;
@@ -2706,7 +3045,7 @@
           break;
         }
         case 'march': {         // 魔物の大行進: they march down the corridor and leave if you let them
-          const tn = tunnelAt(e.y); want = 1; wx = (tn.cx + e.lane * tn.w - e.x) / 60; wy = -1; e.st = 'idle';
+          const tn = tunnelAt(e.y); want = defRun ? Math.max(1, DEF_MARCH * DEF_K / e.spd) : 1; wx = (tn.cx + e.lane * tn.w - e.x) / 60; wy = -1; e.st = 'idle';
           if (e.y < h.y - H * 0.8) { e.dead = true; e.escaped = true; }
           break;
         }
@@ -2901,6 +3240,7 @@
       }
       if (!['guard', 'swing', 'breath', 'shooter', 'web', 'roll', 'assassin', 'gaze'].includes(e.ai)) { if (sp > 20) e.face = Math.atan2(e.vy, e.vx); }
       // hero contact
+      h = h0; defAimT = null;
       if ((e.ai === 'phase' && e.alpha < 0.5) || e.sub) continue;
       const res = collide(e, e.mass);
       if (res && h.pw && h.pw.kind === 'giant') { res.kind = 'ram'; res.imp = Math.max(res.imp, PAD_MAX * h.s.ram); }   // きょだいか: everything you touch gets rammed
@@ -2909,6 +3249,7 @@
         else if (e.hitCD <= 0 && h.ramSafe <= 0 && !(e.zap > 0) && !['flee','pinkflee'].includes(e.ai)) { if (e.mod.chill) h.slow = Math.max(h.slow, e.mod.chill); const big = (e.ai === 'charge' && e.st === 'dash') || (e.ai === 'shark' && e.st === 'leap'); const hp0 = h.hp; hurtHero(Math.round(e.atk * (big ? 1.3 : 1)), e.x, e.y, big ? 520 : 260, 'touch:' + e.type); if (h.hp < hp0) thornsHit(e); if (e.ai === 'flutter' || e.ai === 'imp') { e.st = 'retreat'; e.t = 0; } }
       }
     }
+    defAimT = null;
     // enemies push each other apart
     for (let i = 0; i < enemies.length; i++) {
       const a = enemies[i]; if (a.dead || !a.active) continue;
@@ -3026,6 +3367,7 @@
         if (b.kind === 'web') { hero.slow = 1.8; popText(hero.x, hero.y + 30, 'クモの糸！', '#dfe8ff', 13, 0.9); }
         hurtHero(b.dmg, b.x - b.vx * 0.05, b.y - b.vy * 0.05, b.pierce ? 420 : 220, 'shot:' + b.kind); if (!b.pierce) b.life = 0;
       }
+      if (defRun && !b.harmless && b.life > 0) defBulletHit(b);
     }
     const dying = bullets.filter(b => b.life <= 0 && b.onDie);
     bullets = bullets.filter(b => b.life > 0);
@@ -4636,9 +4978,9 @@
       updateProps(dt);
       updateEvents(dt);
       updateZones(dt);   // lightning marks, bomb blasts, a basilisk's stare
-      camY = lerp(camY, Math.max(hero.y + 40, H * 0.38 - 30), 1 - Math.exp(-dt * 6));
+      camY = lerp(camY, Math.max(hero.y + 40, H * 0.38 - (defRun ? 150 : 30)), 1 - Math.exp(-dt * 6));
       camY = Math.min(camY, goalY + 60 - (H * 0.38) + 60);
-      if(hardRun)hardFieldTick(dt);else{
+      if(defRun)defTick(dt);else if(hardRun)hardFieldTick(dt);else{
       // boss door
       if (gateMsgT > 0) gateMsgT -= dt;
       if (gateKills < gateNeed && hero.y > goalY - 220) {   // waiting at the sealed door: the seal calls the monsters left behind, a few at a time
@@ -4699,10 +5041,12 @@
     ctx.beginPath(); L.forEach((p, i) => i ? ctx.lineTo(p[0] - 2, p[1]) : ctx.moveTo(p[0] - 2, p[1])); ctx.stroke();
     ctx.beginPath(); R.forEach((p, i) => i ? ctx.lineTo(p[0] + 2, p[1]) : ctx.moveTo(p[0] + 2, p[1])); ctx.stroke();
     // bottom wall at the entrance
-    if (sy(0) < H + 40) { ctx.fillStyle = wallPat; ctx.fillRect(-WX - 3, q(sy(0)), W + 6, H); ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(0, q(sy(0)), W, 4.5); }
+    if (defRun) defDrawVillage();
+    else if (sy(0) < H + 40) { ctx.fillStyle = wallPat; ctx.fillRect(-WX - 3, q(sy(0)), W + 6, H); ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.fillRect(0, q(sy(0)), W, 4.5); }
     // boss door (pixel arch)
     const dy = q(sy(goalY + 20));
-    if (dy > -80 && dy < H + 80) {
+    if (defRun) { if (dy > -80 && dy < H + 80) defDrawLair(dy); }
+    else if (dy > -80 && dy < H + 80) {
       ctx.fillStyle = wallPat; ctx.fillRect(-WX - 3, dy - 400, W + 6, 400);
       const dw = 138, dx = q(VW / 2 - dw / 2);
       ctx.fillStyle = '#c9a24a'; ctx.fillRect(dx - 6, dy - 72, dw + 12, 72); ctx.fillRect(dx + 9, dy - 84, dw - 18, 12); ctx.fillRect(dx + 30, dy - 93, dw - 60, 9);
@@ -6260,7 +6604,8 @@
       ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.85)'; ctx.strokeText(s.s, s.x, sy(s.y)); ctx.fillStyle = s.col; ctx.fillText(s.s, s.x, sy(s.y));
     }
     ctx.globalAlpha = 1;
-    if (D && !arena && !hardRun) {
+    if (D && !arena && !hardRun && defRun) { const dy = sy(goalY + 20); if (dy > -80 && dy < H + 80) txt('まものの すみか', VW / 2, dy - 70, 13, '#ff8a9a', 'center'); }
+    else if (D && !arena && !hardRun) {
       const dy = sy(goalY + 20);
       if (dy > -80 && dy < H + 80) { const glow = 0.5 + 0.5 * Math.sin(globalT * 3); txt('BOSS', VW / 2, dy - 100, 16, `rgba(255,${80 + glow * 60},${80 + glow * 60},1)`, 'center'); if (gateKills < gateNeed) txt(`ふういん：あと ${gateNeed - gateKills}たい`, VW / 2, dy - 122, 13, '#d8b0ff', 'center'); }
     }
@@ -6322,7 +6667,8 @@
       txt(stop ? QB[k].name : '？？？', cx, cy + 54, 15, stop ? QB[k].col : '#e0d0ff', 'center');
     }
     craftDrawHud();if(!arenaRun)txt(`${save.gold} G`, 214, top + 18, 13, '#f2c14e', 'left');
-    if (state === 'play'&&!hardRun) {
+    if (defRun && state === 'play') defDrawHud(top, chargeH);
+    if (state === 'play'&&!hardRun&&!defRun) {
       // depth meter
       const k = clamp(h.y / goalY, 0, 1);
       ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(W - 14, top + 72, 6, 150);
@@ -6351,7 +6697,7 @@
     }
     if (freezeT > 0) { ctx.fillStyle = `rgba(200,205,255,${0.16 * Math.min(1, freezeT * 3)})`; ctx.fillRect(0, 0, W, H); txt('TIME STOP', W / 2, H * 0.4, 22, '#e8ecff', 'center'); }
     toasts.forEach((q2, i) => {   // equipment found: short notices under the status bar
-      ctx.globalAlpha = Math.min(1, q2.t * 2); const y2 = top + (arenaRun?154+chargeH:hardRun&&state==='boss'?160:92) + i * 22;
+      ctx.globalAlpha = Math.min(1, q2.t * 2); const y2 = top + (arenaRun?154+chargeH:hardRun&&state==='boss'?160:defRun?108+chargeH:92) + i * 22;
       ctx.fillStyle = 'rgba(10,8,24,.75)'; ctx.fillRect(16, y2 - 15, W - 50, 20);
       txt(q2.s, W / 2 - 9, y2, 13, q2.col, 'center'); ctx.globalAlpha = 1;
     });
@@ -6681,6 +7027,7 @@
     list.sort((a, b) => b.y - a.y);
     for (const e of list) drawEnemy(e);
     if(hardRun&&arena){for(const B of fightBosses().slice().sort((a,b)=>b.y-a.y))withFightBoss(B,()=>{drawBoss();drawSigFx();});}else{if (boss) drawBoss();if (boss) drawSigFx();}
+    if (defRun) defDrawNpcs();
     if (hero.hp > 0 || slowMo > 0) drawHero();craftDraw();guildDraw();arenaDrawMarks();
     if (darkT > 0) drawDark();
     drawZones();
@@ -6689,7 +7036,7 @@
     if (D) lighting();
     ctx.restore();
     endPix();
-    ctx.save(); ctx.translate(shx, shy); ctx.translate(arena ? q(W / 2 - bcamX) : q(WX), 0); drawWorldText(); ctx.restore();
+    ctx.save(); ctx.translate(shx, shy); ctx.translate(arena ? q(W / 2 - bcamX) : q(WX), 0); drawWorldText(); if (defRun) defDrawTags(); ctx.restore();
     camY = cam0; bcamX = bx0; bcamY = by0;
     if (flash > 0) { ctx.fillStyle = `rgba(${flashCol},${flash * 0.5})`; ctx.fillRect(0, 0, W, H); }
     drawHud();hardDrawHud();arenaDrawHud();
@@ -6924,7 +7271,7 @@
     $('navL').disabled = $('navR').disabled = false;   // the town loops
   }
 
-  function showHud(on) { $('pauseBtn').hidden = !on; $('itemBtn').hidden = !on; if (!on && trayOpen) closeTray(); updateNav(); updateHudButtons(); }
+  function showHud(on) { $('pauseBtn').hidden = !on; $('itemBtn').hidden = !on; $('whistleBtn').hidden = !(on && defRun); if (!on && trayOpen) closeTray(); updateNav(); updateHudButtons(); }
   function updateHudButtons() {
     $('itemCount').textContent = Object.keys(bag).reduce((a, k) => a + (bag[k] || 0), 0);
     itemCdShow(hero && hero.itemCD > 0 ? hero.itemCD : 0);
@@ -6960,7 +7307,7 @@
     pfxClear();
     const fromArena=!!arenaRun;if(arenaRun)arenaRestore();
     tut = null;
-    closePanel();hardRun=null;WX=(W-VW)/2; state = 'town'; D = null; arena = null; boss = null; enemies = []; bullets = []; hero = null; paused = false;
+    closePanel();hardRun=null;defRun=null;WX=(W-VW)/2; state = 'town'; D = null; arena = null; boss = null; enemies = []; bullets = []; hero = null; paused = false;
     save.hp = null;   // back in town = fully healed
     townPage = fromArena?TOWN_PAGES.findIndex(p=>p.id==='arena'):1; townX = townPage;
     A.bgm(FARR.town, { layer: curPage().id==='arena'?'house':curPage().id });
@@ -7117,10 +7464,10 @@
     return sl;
   }
   const slotsLoadout = sl => { const lo = {}; for (const x of sl) if (x && x.n > 0) lo[x.id] = x.n; return lo; };
-  function openPrep(di,hardPair=null) {
+  function openPrep(di,hardPair=null,defK=null) {
     const d = DUNGEONS[di], mh = stats().maxHp, sl = getSlots().map(x => x && Object.assign({}, x));
     const shown = x => Math.min(x.n, ITEMS[x.id].carry, save.items[x.id] || 0);
-    const go = () => { if(hardPair!=null&&(!hardUnlocked(hardPair)||hardDone(hardPair))){openGate();return;}save.slots = sl; save.loadout = slotsLoadout(sl); persist(); transition = { t: 0, mid: 0.4, gate:{hard:hardPair!=null}, fn: () => hardPair==null?enterDungeon(di):hardEnter(hardPair) }; A.sfx('warp'); closePanel(); };
+    const go = () => { if(hardPair!=null&&(!hardUnlocked(hardPair)||hardDone(hardPair))){openGate();return;}save.slots = sl; save.loadout = slotsLoadout(sl); persist(); transition = { t: 0, mid: 0.4, gate:{hard:hardPair!=null}, fn: () => defK!=null?defEnter(defK):hardPair==null?enterDungeon(di):hardEnter(hardPair) }; A.sfx('warp'); closePanel(); };
     const keep = fn => () => { const sc = panelBody.scrollTop; fn(); panelBody.scrollTop = sc; };
     const slotsView = () => {
       const html = sl.map((x, i) => {
@@ -7129,7 +7476,7 @@
         return `<div class="slot"><button class="slotpick" data-pick="${i}">${icon(x.id, 36)}<span class="sn">${I.name}<small>${effOf(x.id, mh)}<br>もちもの ×${have}・さいだい ${I.carry}こ${n < w ? ` <span class="hpc">${w - n}こ たりない</span>` : ''}</small></span></button>
           <div class="slotnum"><button class="sbtn" data-m="${i}" ${n > 0 ? '' : 'disabled'}>−</button><b>${n}</b><button class="sbtn" data-p="${i}" ${n >= I.carry || n >= have ? 'disabled' : ''}>＋</button></div></div>`;
       }).join('');
-      openPanel(`じゅんび：${hardPair==null?d.name:'ハード '+(hardPair*2+1)+'–'+(hardPair*2+2)}`, `${uiBossButton(hardPair==null?[di]:HARD_PAIRS[hardPair])}
+      openPanel(`じゅんび：${defK!=null?'防衛戦・'+DEF_NAMES[defK]:hardPair==null?d.name:'ハード '+(hardPair*2+1)+'–'+(hardPair*2+2)}`, `${defK!=null?'<p class="ui-summary" style="line-height:1.7">村を背に、まものの 波を 5かい しのごう。<br>なかまの 勇者 3人が いっしょに たたかう。<br>「ふえ」で なかまを よびよせられる。</p>':uiBossButton(hardPair==null?[di]:HARD_PAIRS[hardPair])}
         <div class="slots">${html}</div>
         <p class="ui-summary">さいだいHP ${mh}</p>`,
         [['しゅっぱつ', go, true], ['もどる', openGate]], 'gate');
@@ -7168,11 +7515,12 @@
       const ok = unlocked(i), warn = save.lv < d.rec;
       return `<div class="row ui-stage-row ${ok ? '' : 'lock'}" ${i === cur ? 'data-cur="1" style="background:rgba(242,193,78,.14);border-radius:6px"' : ''}>${uiBossButton([i],ok)}<span class="nm">${i + 1}. ${ok ? d.name : '？？？'} ${save.cleared[i] ? '<span class="tag">★せいは</span>' : ''}</span>
         <span class="sub">${ok ? `${d.en}・すいしょう Lv ${d.rec}${warn ? '<span class="hpc">（きけん）</span>' : ''}` : '未解放'}</span>
-        <span class="act"><button class="sbtn" data-go="${i}" ${ok ? '' : 'disabled'}>いく</button></span></div>`;
+        <span class="act"><button class="sbtn" data-go="${i}" ${ok ? '' : 'disabled'}>いく</button></span></div>` + (DEF_STAGES.includes(i) ? defGateRow(DEF_STAGES.indexOf(i)) : '');
     }).join(''),
       [['街に もどる', closePanel]], 'gate');
     craftBind('[data-mode]',b=>{gateMode=b.dataset.mode;openGate();});
     panelBody.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { A.sfx('confirm'); const i = +b.dataset.go; save.lastGate = i; persist(); openPrep(i); }));
+    panelBody.querySelectorAll('[data-def]').forEach(b => b.addEventListener('click', () => { A.sfx('confirm'); const k = +b.dataset.def; save.lastGate = DEF_STAGES[k]; persist(); openPrep(DEF_STAGES[k], null, k); }));
     uiBindStages();
     const row = panelBody.querySelector('[data-cur]');   // open the list where you left off: that row in the middle
     if (row) { panelBody.scrollTop = Math.max(0, row.offsetTop - panelBody.offsetTop - (panelBody.clientHeight - row.offsetHeight) / 2); const bt = row.querySelector('[data-go]'); if (bt && !bt.disabled) bt.focus({ preventScroll: true }); }
@@ -7328,6 +7676,7 @@
   $('navR').addEventListener('click', () => { if (state === 'town' && !panelOpen) townSwipeTo(townPage + 1); });
   $('pauseBtn').addEventListener('click', () => { if (state === 'play' || state === 'boss') { if (trayOpen) closeTray(); A.sfx('select'); openPause(); } });
   $('itemBtn').addEventListener('click', e => { e.stopPropagation(); if (trayOpen) closeTray(); else openTray(); });
+  $('whistleBtn').addEventListener('click', e => { e.stopPropagation(); if (trayOpen) closeTray(); defWhistle(); });
   // audio: made at load (the app's WebView may play at once); a browser lets it sound from the first touch on
   function startAudio() {
     try { if (!audioOn) { audioOn = FMusic.init(); FMusic.setVolume(save.settings.bgm, save.settings.sfx); } FMusic.resume(); } catch (e) { audioOn = false; }
@@ -7485,5 +7834,6 @@
   requestAnimationFrame(frame);
   // test hooks
   window.__yusha = { pixelfx:{emit:pfxEmit,clear:pfxClear,get data(){return {effects:Object.keys(pfxData?.effects||{}),decodedBytes:pfxData?.decodedBytes||0,loaded:pfxLoaded,images:pfxImages.length,calls:pfxCalls,events:pfxEvents.length,used:[...pfxUsed]};}},saveTransfer:{validate:transferValidate,open:openSaveTransfer,encode:transferEncode,parse:transferParse,preview:transferPreview,commit:transferCommit,export:transferExportFile,get pending(){return transferPending;}},arenaMode:{ruleVersion:ARENA_RULE,ruleFor:id=>arenaTrialRule(arenaTrial(id)),open:openArena,trial:openArenaTrial,chain:openArenaChain,startTrial:arenaStartTrial,startChain:arenaStartChain,trials:ARENA_TRIALS,classes:ARENA_CLASSES,pool:arenaPool,canChain:arenaCanChain,rewards:ARENA_REWARDS,gear:arenaGear,claim:arenaClaim,normalize:arenaNormalize,supply:arenaSupply,rest:arenaRest,withdraw:arenaWithdraw,finish:arenaFinish,win:arenaBattleWon,next:arenaNextBattle,get run(){return arenaRun;},hudBox:arenaHudBox,hudLines:arenaHudLines,get circle(){return arena;}},enterBuilding,townSwipeTo, hard:{enter:hardEnter,pairs:HARD_PAIRS,normalize:hardNormalize,done:hardDone,unlocked:hardUnlocked,settle:hardSettle,contains:hardContains,confine:hardConfine,allBosses:fightBosses,hit:skillHit,openGate,get run(){return hardRun;},get arena(){return arena;}},facilities:{enter:facilityEnter,help:facilityShowHelp,closeHelp:facilityCloseHelp,stage:uiStageEnemies,get config(){return FACILITIES;},get active(){return{room:facilityRoom,tab:facilityTab};}},smith:{open:openSmith,detail:openSmithItem,confirm:openSmithConfirm,quote:smithQuote,upgrade:smithUpgrade,value:smithValue,keys:smithKeys,boots:smithBootEffects},forge:{open:openForge,confirm:openForgeConfirm,inherit:forgeInherit,check:forgeCheck,fx:forgeFx,normalize:forgeNormalize,grant:forgeGrantCrystals,hasEffect:forgeHasEffect},guild:{open:openGuild,detail:openGuildMission,missions:GUILD,claim:guildClaim,progress:guildProgress,choices:guildChoices,daily:guildDaily,normalize:guildNormalize,value:guildValue,inc:guildInc,clear:guildClear,sample:guildSampleBoss,dodge:guildDodge,ram:guildRam,wall:guildWall,hit:guildHit,heal:guildHeal,tick:guildTick,gear:guildGear,damage:ramDamage,hurt:hurtHero,rollScale:guildRollScale,get run(){return guildRun;}},bestiary:{open:openBestiary,detail:openBestiaryEntry,entries:bestEntries,drops:bestDrops,places:bestPlaces,normalize:bestNormalize,frame:bestFrame,playback:bestPlayback,get preview(){return bestPreview;}},crafting:{materials:craftMats,recipes:craftRecipes,make:craftMake,can:craftCanMake,open:openCraftShop,detail:openCraftRecipe,inventory:openCraftMaterials,exchange:craftExchange,normalize:craftNormalize,has:craftHas,ram:craftOnRam,roll:craftOnRoll,tick:craftTick,potion:craftUsePotion,skill:craftOnSkill,drop:craftDropEnemy,bossDrop:craftDropBoss,hasState:craftState,damage:craftDamageAdjust,gauges:craftGauges,feedback:craftFeedback},startRoll,useSkill,useItem, get tut() { return tut; }, get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
+    defense: { enter: defEnter, whistle: defWhistle, stages: DEF_STAGES, get run() { return defRun; } },
     enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN, ITEMS, EQUIP }, get bag() { return bag; }, openPrep, charmHit, stats, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, get gate() { return [gateKills, gateNeed]; }, killE: e => killEnemy(e), hitE:hitEnemy, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt, openOptions };
 })();
