@@ -8225,6 +8225,7 @@
   function guideSet(stage){if(!save.guide)save.guide={};save.guide.stage=stage;guideKey='';guideBlocksCombat=false;persist();}
   function guideInit(){
     if(!save.guide){save.guide={stage:save.tut||save.lv>1||save.kills>0?'done':'welcome',combatStep:0};persist();}
+    if(save.guide.stage==='retry'){save.tut=1;save.guide.stage='done';persist();}   // older saves stopped at the removed retry step
   }
   function guideResult(won){
     if(!guideActive()||!['combat','fight','result'].includes(save.guide.stage))return;
@@ -8247,11 +8248,27 @@
     guideUI.innerHTML='<div id="guideSpot"></div><button id="guideTownTap" aria-label="案内されている建物に入る"></button><div id="guideArrow">▼</div><section id="guideCard" aria-label="冒険ガイド"><strong id="guideHeading"></strong><p id="guideText"></p><button id="guideNext"></button><button id="guideSkip">ガイドを終了</button></section>';
     document.body.appendChild(guideUI);
     $('guideSkip').onclick=()=>{save.tut=1;tut=null;guideSet('done');guideTick();};
+    // 指示: ガイド中は 光っている ボタンいがいは おせない（ガイドを終了するか、終えるまで）
+    const allowed=t=>{
+      if(!guideActive()||!guideUI||guideUI.hidden)return true;
+      if(t.closest&&t.closest('#guideCard,#guideTownTap'))return true;
+      if(!$('helpWrap').hidden&&t.closest&&t.closest('#helpWrap'))return true;
+      const el=typeof guideTarget==='string'&&document.querySelector(guideTarget);
+      return !!(el&&el.contains(t)&&!$('guideSpot').hidden);
+    };
+    const guard=e=>{if(!allowed(e.target)){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();}};
+    for(const ev of ['pointerdown','pointerup','click','dblclick'])document.addEventListener(ev,guard,true);
+    document.addEventListener('keydown',e=>{if(guideActive()&&guideUI&&!guideUI.hidden&&!allowed(document.activeElement||document.body)&&!['Tab'].includes(e.key)){e.preventDefault();e.stopImmediatePropagation();}},true);
   }
   function guideShow(key,title,message,target=null,label='',action=null,modal=false,town=false){
     guideMount();guideUI.hidden=false;guideTarget=target;
     if(guideKey!==key){guideKey=key;$('guideHeading').textContent=title;$('guideText').textContent=message;$('guideNext').textContent=label;$('guideNext').hidden=!label;$('guideNext').onclick=action;}
-    const r=typeof target==='string'?document.querySelector(target)?.getBoundingClientRect():target;
+    let r=typeof target==='string'?document.querySelector(target)?.getBoundingClientRect():target;
+    const box=typeof target==='string'&&document.querySelector(target)?.closest('#panelBody,#tray');
+    if(r&&box){   // inside a scrolling list: the frame stays inside the list and disappears when the row scrolls out
+      const b=box.getBoundingClientRect(),L=Math.max(r.left,b.left),T=Math.max(r.top,b.top),R2=Math.min(r.right,b.right),B=Math.min(r.bottom,b.bottom);
+      r=R2-L>8&&B-T>8?{left:L,top:T,width:R2-L,height:B-T,right:R2,bottom:B}:null;
+    }
     const spot=$('guideSpot'),arrow=$('guideArrow'),tap=$('guideTownTap'),card=$('guideCard');
     const vw=innerWidth,vh=innerHeight,cw=Math.min(360,vw-24);
     card.style.width=cw+'px';card.style.left=(vw-cw)/2+'px';
@@ -8271,7 +8288,6 @@
     guideShow('building-'+id,title,message+'\n光っている建物をタップ！',{left:c.left+(r.x)*S,top:c.top+r.y*S,width:r.w*S,height:r.h*S},'',null,false,true);
   }
   function guideTick(){
-    const now=performance.now();if(now<guideClock)return;guideClock=now+100;
     guideBlocksCombat=false;
     if(!guideActive()||state==='title'){if(guideUI)guideUI.hidden=true;return;}
     const g=save.guide,st=g.stage;
@@ -8297,7 +8313,7 @@
       }else guideBuilding('smith','装備を整えよう','集めたお金を使う場所は「かじや」です。'+(g.bonus?'\n初回サポートで '+g.bonus+' G を受け取りました。':''));
       return;
     }
-    if(st==='upgraded'){guideShow(st,'勇者が強くなった！',(g.change||'新しい装備を身につけました。')+'\nこの装備で、もう一度ダンジョンへ挑戦しよう。',null,'再挑戦へ',()=>{closePanel();townSwipeTo(1);guideSet('retry');},true);return;}
+    if(st==='upgraded'){guideShow(st,'勇者が強くなった！',(g.change||'新しい装備を身につけました。')+'\nこれで ガイドは おしまい。\nお金を集めて 装備を整え、ボスを目指そう！',null,'ガイドを終える',()=>{save.tut=1;tut=null;guideSet('done');closePanel();townSwipeTo(1);guideTick();},true);return;}   // 指示: 再挑戦の ステップは なし
     if(guideUI)guideUI.hidden=true;
   }
 
