@@ -1627,7 +1627,9 @@ const BEAST3 = (() => {
     return function (B, P, T, p2, E) {
       const R = q => pitch(yaw(q, P.yaw), -P.pitch), hip = [0, D.hipY + P.drop, P.sz], up = q => V.add(hip, R(q));
       const shS = up([D.shX, D.shY, 0]), shO = up([-D.shX, D.shY, 0]);
-      const [elS, hS] = ik(shS, V.add(shS, R(P.hd)), D.A1, D.A2, R([0.7, 0.6, -0.4])), [elO, hO] = ik(shO, V.add(shO, R(P.oh)), D.A1, D.A2, R([-0.7, 0.6, -0.4]));
+      let [elS,hS]=P.kayArms?[V.add(shS,V.mul(P.kayArms.upperR,D.A1)),V.add(shS,P.hd)]:ik(shS,V.add(shS,R(P.hd)),D.A1,D.A2,R([.7,.6,-.4]));
+      const [elO,hO]=P.kayArms?[V.add(shO,V.mul(P.kayArms.upperL,D.A1)),V.add(shO,P.oh)]:ik(shO,V.add(shO,R(P.oh)),D.A1,D.A2,R([-.7,.6,-.4]));
+      if(P.kaySweep==='single'&&P.sweeping){const a=phiOf(B.sweeps[0].ang),d=gdir(null,a),H=[d[0]*30,hip[1]+D.shY+7,d[1]*30];[elS,hS]=ik(shS,H,D.A1,D.A2,R([.7,.6,-.4]));}
       // the cape hangs from the shoulders to the floor behind; legs / arms behind its surface go under it (指示: マントから足や腕がはみ出ない)
       // the cape (指示: 背中や腕のつけねがマントにめり込まない): it sits over the shoulders and wraps round the back, so it is a
       // curved sheet — top edge over the shoulders and round the back of the neck, hem on the floor flaring behind
@@ -1646,7 +1648,8 @@ const BEAST3 = (() => {
         const L = D.legs, hipS = V.add(hip, yaw([L.hipX, 0, 0], P.yaw * 0.5)), hipO = V.add(hip, yaw([-L.hipX, 0, 0], P.yaw * 0.5));
         const ftO = [-P.wid * L.k, L.ank - P.lf, (P.stride / 2 + P.fz + P.sz * 0.4) * L.k], ftS = [P.wid * L.k, L.ank - P.lb, (-P.stride / 2 + P.nz + P.sz * 0.4) * L.k];
         for (const [hp, ft, s] of [[hipO, ftO, -1], [hipS, ftS, 1]]) {
-          const [kn, an] = ik(hp, ft, L.L1, L.L2, [s * 0.15, 0, 1]);
+          const side=s===1?'R':'L',knee=P.kayLegs?V.add(hp,V.mul(P.kayLegs['thigh'+side],L.L1)):null;
+          const [kn,an]=P.kayLegs?[knee,V.add(knee,V.mul(P.kayLegs['shin'+side],L.L2))]:ik(hp,ft,L.L1,L.L2,[s*.15,0,1]);
           segT(hp, kn, [L.r1, L.r2], L.C, -1); segT(kn, an, [L.r2, L.r3], L.C2 || L.C, -1);
           const fn = dp(an) - 0.9;
           piece(an, (legHid(an) ? capeD(fn) : fn) - dp(an), (x, y) => { const f = VIEW === 's' ? DIRX : 0, w = L.foot; g.ell(x + f * w * 0.4, y + 1, w + 1, 3.6, (L.boot || L.C).d); g.ell(x + f * w * 0.4 - 0.5, y, w, 2.6, (L.boot || L.C).m); });
@@ -1673,7 +1676,7 @@ const BEAST3 = (() => {
       };
       const hidO = arm(shO, elO, hO, -1, dp(elO) + 1), hidS = arm(shS, elS, hS, 1, dp(elS) + 1.1);
       const wd = (hid, d, H, dir, len) => { if (!hid) return d; const mid = (dp(V.add(H, V.mul(dir, 3))) + dp(V.add(H, V.mul(dir, len)))) / 2, nat = mid + d; return capeD(nat, true) - mid; };
-      const swd = norm(R(P.sw));
+      const swd = norm(P.kayArms?P.sw:R(P.sw));
       if (P.sweeping && B.sweeps && E && E.fy != null) {
         // spinning attacks (指示: 剣は手に持ったまま、体ごと回る): each blade is held fixed in the body's frame — the body turns
         // (spinPsi) so the blade lies along its sweep; it reaches out to the sweep's length, its tip on the hit circle
@@ -1681,6 +1684,13 @@ const BEAST3 = (() => {
         B.sweeps.forEach((sw, i) => {
           const W = i && D.weapon2 ? D.weapon2 : D.weapon, ph = phiOf(sw.ang), d = gdir(null, ph), pf = Math.hypot(Math.cos(ph), SL * Math.sin(ph));
           const Lm = sw.len / kz / pf, tip = [d[0] * Lm, hc, d[1] * Lm];
+          if(P.kaySweep){
+            const magic=P.kaySweep==='magic',H=magic?[d[0]*Lm*.55,hc,d[1]*Lm*.55]:i===0?hS:hO;
+            const v=V.sub(tip,H),len=V.len(v)||1,dir=V.mul(v,1/len);
+            if(magic)kayGeneralMagicBlade(H,tip,p2);else drawWeapon({...W,len},H,dir,wd(i===0?hidS:hidO,1.25,H,dir,len),p2,T);
+            if(B.kayVisual)B.kayVisual.blades.push({source:magic?'rune':i===0?'rightHand':'leftHand',root:H,tip,angle:sw.ang,reach:sw.len});
+            return;
+          }
           // the hand on that side holds it; any extra blade (the demon general's third) hangs in the air beside the body
           let H = null, hid = false;
           if (!used.S && d[0] > 0.5) { H = hS; hid = hidS; used.S = 1; } else if (!used.O && d[0] < -0.5) { H = hO; hid = hidO; used.O = 1; }
@@ -1688,12 +1698,19 @@ const BEAST3 = (() => {
           const v = V.sub(tip, H), L = V.len(v) || 1, dir = V.mul(v, 1 / L), Wl = Object.assign({}, W, { len: Math.max(W.len * 0.6, L) });
           drawWeapon(Wl, H, dir, wd(hid, 1.25, H, dir, Wl.len), p2, T);
         });
+        if(P.kaySweep==='single')drawWeapon(D.weapon2||D.weapon,hO,norm(R(P.osw)),wd(hidO,1.2,hO,norm(R(P.osw)),(D.weapon2||D.weapon).len),p2,T);
+        if(P.kaySweep==='magic'){
+          kayGeneralRune(B,E,Math.min(...B.sweeps.map(sw=>sw.len))/kz*.55,hc,T);
+          drawWeapon({...D.weapon,len:20},hS,norm(R(P.sw)),wd(hidS,1.2,hS,norm(R(P.sw)),20),p2,T);
+          drawWeapon({...D.weapon,len:20},hO,norm(R(P.osw)),wd(hidO,1.2,hO,norm(R(P.osw)),20),p2,T);
+        }
       } else if (!P.sweeping) {
         drawWeapon(D.weapon, hS, swd, wd(hidS, 1.25, hS, swd, D.weapon.len), p2, T);
-        if (D.off === 'sword') { const d2 = norm(R([-P.sw[0], P.sw[1], P.sw[2]])); drawWeapon(D.weapon2 || D.weapon, hO, d2, wd(hidO, 1.2, hO, d2, (D.weapon2 || D.weapon).len), p2, T); }
+        if (D.off === 'sword') { const d2=norm(P.osw?(P.kayArms?P.osw:R(P.osw)):R([-P.sw[0],P.sw[1],P.sw[2]])); drawWeapon(D.weapon2 || D.weapon, hO, d2, wd(hidO, 1.2, hO, d2, (D.weapon2 || D.weapon).len), p2, T); }
       }
       if (D.off === 'shield') { const sa = V.add(hO, R([-2, 0, 3])); drawShield(D.shield, sa, norm(R([-0.3, 0, 1])), hidO ? capeD(dp(sa) + 1.4, true) - dp(sa) : 1.4); }
       ANCHS[0] = hS; ANCHS[1] = hO;
+      if(P.kayGeneral&&B.kayVisual){B.kayVisual.hands=[hS,hO];B.kayVisual.heldWeapons=2;}
       MOUTHS[0] = D.mouthAt === 'weapon' ? V.add(hS, V.mul(swd, D.weapon.len)) : null;
       // head
       const hc = up([0, D.neckY, 1]);
@@ -1995,14 +2012,182 @@ const BEAST3 = (() => {
     }
     cx.putImageData(img, 0, 0);
   }
+  // KAYKIT ARMED BOSSES BEGIN
+  // Draw-only action state. Timelines follow live sweeps/zones, not the faster phase-two move clock.
+  const kayGeneralStates=new WeakMap();
+  function kayGeneralPose(B,base,T,E){
+    let S=kayGeneralStates.get(B);
+    if(!S){S={mv:null,actions:[],seenZones:new Set(),seenSweeps:new Set()};kayGeneralStates.set(B,S);}
+    const mv=B.mv,n=mvName(B),zones=E.zones||[],sweeps=B.sweeps||[],cl=x=>clamp(x,0,1);
+    if(mv!==S.mv){
+      S.mv=mv;
+      if(mv)S.actions.push({mv,name:n,start:T,face:E.look,zones:[],sweeps:[],end:null});
+    }
+    const current=S.actions.find(a=>a.mv===mv);
+    if(current){
+      for(const z of zones)if(!S.seenZones.has(z)&&((z.boss===B&&z.type==='beam')||(z.type==='circle'&&z.kind===(n==='rain'?'meteor':n==='mines'?'mine':null))))current.zones.push(z);
+      for(const sw of sweeps)if(!S.seenSweeps.has(sw))current.sweeps.push(sw);
+    }
+    // A boss can re-enter the viewport after the move object has already gone away.
+    const orphanBeams=zones.filter(z=>z.boss===B&&z.type==='beam'&&!z.dead&&!S.actions.some(a=>a.zones.includes(z)));
+    if(orphanBeams.length)S.actions.push({mv:{},name:orphanBeams.length===4?'cross':orphanBeams.length===3?'laser3':'laser',start:T-orphanBeams[0].t,face:E.look,zones:orphanBeams,sweeps:[],end:null});
+    const orphanSweeps=sweeps.filter(sw=>sw.left>0&&!S.actions.some(a=>a.sweeps.includes(sw)));
+    if(orphanSweeps.length)S.actions.push({mv:{},name:orphanSweeps.some(sw=>sw.grow)?'whirlblade':orphanSweeps.length===2?'twin':'sweep',start:T-orphanSweeps[0].t,face:E.look,zones:[],sweeps:orphanSweeps,end:null});
+    S.seenZones=new Set(zones);S.seenSweeps=new Set(sweeps);
+    const liveZones=a=>a.zones.filter(z=>!z.dead&&zones.includes(z));
+    const liveSweeps=a=>a.sweeps.filter(sw=>sw.left>0&&sweeps.includes(sw));
+    for(const a of S.actions){
+      const alive=a.mv===mv||liveZones(a).length||liveSweeps(a).length||(a.name==='summon'&&T-a.start<1.05);
+      if(alive)a.end=null;else if(a.end==null)a.end=T;
+    }
+    S.actions=S.actions.filter(a=>a.end==null||T-a.end<.30);
+    // A still-live weapon/beam owns its pose even after B.mv has cleared or changed.
+    const action=S.actions.find(a=>liveSweeps(a).length&&['twin','whirlblade','sweep'].includes(a.name))||S.actions.find(a=>liveZones(a).some(z=>z.type==='beam'))||current||S.actions.at(-1);
+    const mode=action?.name||n||'idle',age=action?T-action.start:0,az=action?liveZones(action):[],sw=action?liveSweeps(action):[],first=sw[0],beams=az.filter(z=>z.type==='beam');
+    const activeSweep=first&&first.t>=first.tele,release=action?.end!=null?cl((T-action.end)/.30):0;
+    let clip='largeIdle',at=T%1.966667,phase='idle',face=null;
+    if(mode==='stalk'){clip='largeWalk';at=(T*1.2)%1.066667;}
+    if(/charge|dash3|firetrail/.test(mode)&&mv===action?.mv){
+      phase=mv.ph==='go'?'dash':mv.ph==='rest'?'recover':'aim';
+      clip=phase==='dash'?'largeRun':'largeStab';at=phase==='dash'?((mv.pt||0)*1.8)%1.066667:phase==='recover'?.8:.25+.2*cl((mv.pt||0)/.4);
+      const moving=Math.hypot(B.vx||0,B.vy||0)>1;
+      face=phiOf(phase==='dash'&&moving?Math.atan2(B.vy,B.vx):(mv.a0??action.face));
+    }else if(['twin','whirlblade','sweep'].includes(mode)){
+      clip=mode==='twin'?'largeCombo':'largeDual';at=activeSweep?.55:.38*cl(age/.4);phase=first?(activeSweep?'swing':'windup'):release?'recover':'windup';
+      face=mode==='sweep'?phiOf(action?.face??E.look):first?phiOf(first.ang)+PI/2:phiOf(action?.face??E.look);
+    }else if(['laser','laser3','cross','rain','summon'].includes(mode)){
+      clip='largeDual';at=.38;phase=release?'recover':beams.length?(beams.some(z=>z.t>=z.tele)?'channel':'windup'):'channel';
+      face=['rain','summon'].includes(mode)?-PI/2:phiOf(action?.face??E.look);
+    }else if(['triple','mines'].includes(mode)){
+      clip='largeSlam';face=phiOf(action?.face??E.look);
+      const mt=mv===action?.mv?mv.t:99;
+      const hit=mode==='triple'?([.4,.72,1.04].find(h=>mt<h+.10)??1.04):null;
+      const nextMine=az.length?Math.min(...az.map(z=>z.tele-z.t)):0;
+      const before=mode==='triple'?hit-mt:nextMine;
+      phase=release?'recover':before>0?'windup':'plant';
+      at=before>0?.70*cl(1-before/(mode==='triple'?.23:1.1)):1.02;
+    }
+    const j=SPR.motionPose(clip,at),sub=(a,b)=>a.map((v,i)=>v-b[i]),cv=a=>[-a[0],-a[1],a[2]],dirs={};
+    for(const s of['R','L'])for(const[k,a,b]of[['upper','shoulder','elbow'],['fore','elbow','hand'],['thigh','hip','knee'],['shin','knee','foot']])dirs[k+s]=cv(norm(sub(j[b+s],j[a+s])));
+    const hand=s=>V.add(V.mul(dirs['upper'+s],DGEN.A1),V.mul(dirs['fore'+s],DGEN.A2));
+    let P={...base,hd:hand('R'),oh:hand('L'),sw:cv(j.sword),osw:cv(j.offSword),kayArms:dirs,kayLegs:dirs,pitch:clamp(Math.atan2(j.chest[2]-j.hip[2],j.chest[1]-j.hip[1]),-.35,.5),yaw:0,drop:DGEN.legs.ank-j.hip[1]*24/14-DGEN.hipY,sz:0};
+    const arms=o=>{Object.assign(P,o);P.kayArms=null;};
+    if(['twin','whirlblade'].includes(mode)){
+      // A fixed horizontal stance rotates with the *live* sweep angle. No independent slash cycle.
+      arms({hd:[23.5,-1,0],oh:[-23.5,-1,0],sw:[1,0,0],osw:[-1,0,0],pitch:.05,yaw:0,drop:1});
+      P.kayLegs=null;P.stride=7;P.wid=8;P.kaySweep=mode==='whirlblade'?'magic':'hands';
+      if(mode==='whirlblade'){P.sw=[0,-1,0];P.osw=[0,-1,0];}
+    }else if(mode==='sweep'){
+      arms({hd:[10,-4,16],oh:[-6,-10,10],sw:[0,-.85,.4],osw:[-.35,-.90,-.25],pitch:.15,yaw:0,drop:3});
+      P.kaySweep='single';P.kayLegs=null;
+    }else if(phase==='dash'){
+      arms({hd:[-2,-3,22],oh:[2,-3,22],sw:[0,.03,1],osw:[0,.03,1],pitch:.40,yaw:0});
+    }else if(['rain','summon'].includes(mode)){
+      arms({hd:[-4,-22,7],oh:[4,-22,7],sw:[.04,-1,.08],osw:[-.04,-1,.08],pitch:-.08,yaw:0,drop:0});
+      P.kayLegs=null;
+    }else if(['cross','laser','laser3'].includes(mode)){
+      arms({hd:[-20,-7,14],oh:[20,-7,14],sw:[.48,-.87,.1],osw:[-.48,-.87,.1],pitch:.06,yaw:0,drop:2});
+      P.kayLegs=null;P.kayFocus=beams;
+    }else if(['triple','mines'].includes(mode)){
+      const grounded=phase==='plant'||(mode==='mines'&&az.some(z=>z.fired));
+      const k=grounded?1:cl(at/.7);
+      arms(grounded?{hd:[-3,16,12],oh:[3,16,12],sw:[0,.98,.18],osw:[0,.98,.18],pitch:.24,drop:7}:{hd:[-4,-21*k,6],oh:[4,-21*k,6],sw:[.04,-1,.06],osw:[-.04,-1,.06],pitch:-.1*k,drop:0});
+      P.kayLegs=null;
+    }
+    P.sweeping=sw.length>0&&activeSweep&&!!P.kaySweep;
+    // Recover only after all owned visual effects end, never halfway through a live beam.
+    if(release){const q=APOSE.rest;for(const k of['hd','oh','sw'])P[k]=V.mix(P[k],q[k],sstep(release));P.osw=V.mix(P.osw,[-q.sw[0],q.sw[1],q.sw[2]],sstep(release));P.pitch=lerp(P.pitch,q.pitch,sstep(release));P.kayArms=null;}
+    P.kayFacing=face;P.kayGeneral={mode,phase,release,beams,sw,age};
+    B.kayMotion={clip,time:at,rig:'Rig_Large',revision:3,mode,phase};
+    return P;
+  }
+  function kayGeneralFocus(ctx,B,E,anchors){
+    const P=E.kayPose;if(!P?.kayFocus?.length||E.by==null)return;
+    const z=P.kayFocus.find(b=>Number.isFinite(b.x)&&Number.isFinite(b.y));if(!z)return;
+    const x=z.x,y=E.by-(z.y-B.y),hot=P.kayFocus.some(b=>b.t>=b.tele),gc=U.api(ctx);
+    ctx.save();ctx.scale(K,K);
+    for(const hand of anchors){if(!hand)continue;gc.line(hand[0]/K,hand[1]/K,x/K,y/K,.8,hot?'#ff8050':'#a63a4a');}
+    gc.ell(x/K,y/K,hot?4.2:3.2,hot?4.2:3.2,'#7a182a');gc.ell(x/K,y/K,hot?2.8:2,hot?2.8:2,'#ff7850');gc.ell(x/K,y/K,hot?1.3:.8,hot?1.3:.8,'#ffe8b0');ctx.restore();
+    B.kayVisual.focus={x,y,worldX:z.x,worldY:z.y,active:hot};
+  }
+
+  function kayGeneralMagicBlade(H,tip,p2){
+    op((dp(H)+dp(tip))/2+1.3,()=>{
+      const A=pr(H),Z=pr(tip),dx=Z[0]-A[0],dy=Z[1]-A[1],L=Math.hypot(dx,dy)||1,nx=-dy/L,ny=dx/L;
+      g.line(A[0],A[1],Z[0],Z[1],4.4,'#640d46');
+      g.poly([[A[0]+nx*1.7,A[1]+ny*1.7],[Z[0]-dx/L*6+nx*2,Z[1]-dy/L*6+ny*2],[Z[0],Z[1]],[Z[0]-dx/L*6-nx*2,Z[1]-dy/L*6-ny*2],[A[0]-nx*1.7,A[1]-ny*1.7]],'#ff376a');
+      g.line(A[0],A[1],Z[0]-dx/L*2,Z[1]-dy/L*2,.9,'#ffc8ed');g.ell(A[0],A[1],2.1,1.7,'#ffc8ed');
+    });
+  }
+  function kayGeneralRune(B,E,r,h,T){
+    const points=[];for(let i=0;i<=32;i++){const a=i/32*TAU;points.push(pr([Math.cos(a)*r,h,Math.sin(a)*r]));}
+    op(-1000,()=>{for(let i=1;i<points.length;i++)g.line(points[i-1][0],points[i-1][1],points[i][0],points[i][1],.8,'#dc3678');for(let i=0;i<6;i++){const a=i*TAU/6+T*1.2,p=pr([Math.cos(a)*r,h,Math.sin(a)*r]);g.ell(p[0],p[1],1.7,1.1,'#ff70a0');}});
+  }
+  // Imported KayKit poses for the actual BEAST3 boss renderer. Combat is read-only here.
+  function kayArmedPose(B,base,T,E) {
+    const large=B.type==='demongeneral',goblin=B.type==='goblinking';if(!large&&!goblin||!SPR.motionPose)return base;
+    if(large)return kayGeneralPose(B,base,T,E);
+    const D=large?DGEN:GOBK,mv=B.mv,n=mvName(B),t=mv?mv.t:0,sw=B.sweeps?.[0],cl=x=>clamp(x,0,1);
+    let clip=large?'largeIdle':'idle',at=T%(large?1.966667:1.066667);
+    const timed=(hit,pre=.3,recover=.32)=>{clip='largeSlam';at=t<hit?.70*cl((t-hit+pre)/pre):1.02+1.813333*cl((t-hit)/recover);};
+    if(n==='stalk'){clip=large?'largeWalk':'walk';at=T%1.066667;}
+    else if(/charge|dash3|firetrail/.test(n)){
+      if(mv.ph==='go'){clip=large?'largeRun':'run';at=T%(large?1.066667:.8);}
+      else {clip=large?'largeStab':'stab';at=mv.ph==='rest'?.75+.65*cl((mv.pt||0)/.5):.45*cl((mv.pt||0)/.35);}
+    } else if(((n==='sweep'||n==='twin'||n==='whirlblade')||sw?.t>=sw?.tele)&&sw){
+      clip=large?(n==='twin'?'largeCombo':'largeDual'):'largeSlash';
+      if(sw.t<sw.tele)at=(large?.38:.50)*cl(sw.t/sw.tele);
+      else if(large)at=n==='twin'?.38+(Math.max(0,sw.t-sw.tele)*.85)%1.10:.42+Math.min(.40,Math.max(0,sw.t-sw.tele)*.4);
+      else at=.50+.82*cl((sw.t-sw.tele)/.6);
+    } else if(n==='sweep'||n==='twin'||n==='whirlblade'){clip=large?'largeCombo':'largeSlash';at=.25*cl(t/.6);}
+    else if(n==='quake'){const next=[.45,1,1.55].find(a=>t<a+.18)||1.55;timed(next,.30,.32);}
+    else if(n==='ring'||n==='ringaimed')timed(.55,.38,.65);
+    else if(n==='triple'){const next=[.4,.72,1.04].find(a=>t<a+.11)||1.04;timed(next,.24,.21);}
+    else if(goblin&&n==='rocks'){const next=[.45,.90,1.35].find(a=>t<a+.16)||1.35;timed(next,.28,.28);}
+    else if(n==='mines'){timed(.25,.25,.7);}
+    else if(large&&/rain|summon|cross|laser|laser3/.test(n)) {
+      // Conjuration uses the crossed twin-blade lift. Keep authored firing sockets during the actual beam.
+      clip='largeDual';at=t<.40?.38*cl(t/.40):t<1.5?.38:.38*(1-cl((t-1.5)/.5));
+      if(/laser/.test(n))return base;
+    } else if(n&&n!=='idle')return base;
+    const j=SPR.motionPose(clip,at),sub=(a,b)=>a.map((v,i)=>v-b[i]),cv=a=>[-a[0],-a[1],a[2]],u=a=>{const l=Math.hypot(...a)||1;return a.map(v=>v/l);},dirs={};
+    for(const s of['R','L']){dirs['upper'+s]=cv(u(sub(j['elbow'+s],j['shoulder'+s])));dirs['fore'+s]=cv(u(sub(j['hand'+s],j['elbow'+s])));dirs['thigh'+s]=cv(u(sub(j['knee'+s],j['hip'+s])));dirs['shin'+s]=cv(u(sub(j['foot'+s],j['knee'+s])));}
+    const hand=s=>dirs['upper'+s].map((v,i)=>v*D.A1+dirs['fore'+s][i]*D.A2),lean=sub(j.chest,j.hip),P={...base,hd:hand('R'),oh:hand('L'),sw:cv(j.sword),osw:cv(j.offSword),kayArms:dirs,kayLegs:dirs};
+    P.pitch=clamp(Math.atan2(lean[2],lean[1]),-.45,.55);P.yaw=clamp(Math.atan2(j.bodyRight[2],-j.bodyRight[0]),-.7,.7);
+    P.drop=D.legs.ank-j.hip[1]*(D.legs.L1+D.legs.L2)/14-D.hipY;P.sz=0;
+    if(!large&&clip==='largeSlam'){
+      P.pitch=clamp(P.pitch+.10,-.35,.6);
+      // The original oversized head hides a source-rig backswing. Arc the club visibly above it,
+      // then toward the floor, while retaining the imported hands and unchanged hit times.
+      const fall=cl((at-.72)/.30),lift=cl(at/.35)*(1-fall),down=fall*(1-cl((at-1.1)/.9));
+      P.sw=u(P.sw.map((v,i)=>v*(1-lift)+[-.10,-.95,-.30][i]*lift));
+      P.sw=u(P.sw.map((v,i)=>v*(1-down)+[0,.82,.58][i]*down));
+    }
+    // Exactly the existing sweep state chooses blade count, angle, growth and reach in armedBuild.
+    P.sweeping=base.sweeping||!!(sw&&sw.t>=sw.tele&&sw.left>0);
+    B.kayMotion={clip,time:at,rig:clip.startsWith('large')?'Rig_Large':'Rig_Medium',revision:2};
+    return P;
+  }
+  // KAYKIT ARMED BOSSES END
   function draw(ctx, B, x, yFeet, hurt, E) {
     const R = RIGS[B.type]; if (!R) return false;
     E = Object.assign({}, E); E.look = Math.atan2(E.hero.y - B.y, E.hero.x - B.x);
     const f = faceOf(B, E); E.face = f;
-    const P = R[0](B, E.t, E);
+    const authoredPose=R[0](B,E.t,E),P=kayArmedPose(B,authoredPose,E.t,E),adapted=P!==authoredPose;
     useCanvas(P.sweeping && ARMED[B.type] ? 1 : 0);
     OPS = []; ANCHS = []; MOUTHS = []; cx.clearRect(0, 0, CW, CH);
     E.fy = yFeet; E.sz = (R[2] || 1) * (B.sizeK || 1); if (E.cy == null) E.cy = yFeet;
+    let firingWorldMouths=null;
+    if(adapted){
+      // Evaluate legacy sockets using its own raster origin too (identical floating-point operations).
+      useCanvas(authoredPose.sweeping&&ARMED[B.type]?1:0);
+      R[1](B,authoredPose,E.t,B.phase===2,E);
+      const oldX0=Math.round(x/K-OX)*K,oldY0=Math.round(yFeet/K-OY)*K,oldSz=(R[2]||1)*(B.sizeK||1);
+      firingWorldMouths=MOUTHS.filter(Boolean).map(a=>{const q=pr(a),sx=oldX0+(OX+(q[0]-OX)*oldSz)*K,sy=oldY0+(OY+(q[1]-OY)*oldSz)*K;return{x:sx,y:B.y-(sy-E.by)};});
+      useCanvas(P.sweeping&&ARMED[B.type]?1:0);OPS=[];ANCHS=[];MOUTHS=[];
+    }
+    if(P.kayFacing!=null){PSI=P.kayFacing;const vf=face4(PSI);VIEW=vf==='l'||vf==='r'?'s':vf;DIRX=Math.cos(PSI)>=0?1:-1;E.face=vf;}
+    if(P.kayGeneral){E.kayPose=P;B.kayVisual={revision:3,mode:P.kayGeneral.mode,phase:P.kayGeneral.phase,facing:PSI,face:E.face,sweepCount:P.kayGeneral.sw.length,beamCount:P.kayGeneral.beams.length,blades:[]};}
     R[1](B, P, E.t, B.phase === 2, E);
     OPS.sort((a, b) => a[0] - b[0]);
     const sz = (R[2] || 1) * (B.sizeK || 1); cx.setTransform(sz, 0, 0, sz, OX * (1 - sz), OY * (1 - sz));   // drawn bigger about the feet: more pixels, not bigger pixels
@@ -2019,12 +2204,13 @@ const BEAST3 = (() => {
     const X0 = Math.round(x / K - OX) * K, Y0 = Math.round(yFeet / K - OY) * K;
     const anchors = ANCHS.map(a => { if (!a) return null; const q = pr(a); return [X0 + (OX + (q[0] - OX) * sz) * K, Y0 + (OY + (q[1] - OY) * sz) * K]; });
     // where shots come out, in world coordinates, for the game to fire from (指示: ブレスや光弾は口から)
-    if (E.by != null) { B.mouths = MOUTHS.filter(Boolean).map(a => { const q = pr(a), sx = X0 + (OX + (q[0] - OX) * sz) * K, sy = Y0 + (OY + (q[1] - OY) * sz) * K; return { x: sx, y: B.y - (sy - E.by) }; }); B.mouthT = E.t; }
+    if (E.by != null) { B.mouths = firingWorldMouths || MOUTHS.filter(Boolean).map(a => { const q = pr(a), sx = X0 + (OX + (q[0] - OX) * sz) * K, sy = Y0 + (OY + (q[1] - OY) * sz) * K; return { x: sx, y: B.y - (sy - E.by) }; }); B.mouthT = E.t; }
     E.x = x; if (E.cy == null) E.cy = yFeet;
     sweepLimbs(ctx, B, E, anchors, true);
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(src, X0, Y0, CW * K, CH * K);
     sweepLimbs(ctx, B, E, anchors, false);
+    if(P.kayGeneral)kayGeneralFocus(ctx,B,E,anchors);
     return true;
   }
   return { has: t => !!RIGS[t], draw, types: Object.keys(RIGS) };

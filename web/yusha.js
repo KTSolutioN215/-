@@ -908,6 +908,11 @@
     return model;
   }
   const bestRaw=SPR.util.canvas(1024,768)[0],bestRawX=bestRaw.getContext('2d');
+  // The viewer owns facing even while the isolated model is stationary.
+  // Combat motion views may retain their last movement/attack direction.
+  function bestEnemyView(e,view){
+    return {...view,face:face4(e.face),kayAngle:e.face,infantryAngle:e.face,goblinAngle:e.face,wolfAngle:e.face,wyvernAngle:e.face,groundAngle:e.face};
+  }
   function bestDrawModel(e,model,time,face='f'){
     // Reuse the real game renderer with isolated draw objects. Never run combat AI.
     const previous={ctx,hero,boss,arena,camY,bcamX,bcamY,globalT,bullets,zones,state,random:Math.random,painting:bestPainting};
@@ -918,6 +923,8 @@
       const a={f:-Math.PI/2,r:0,b:Math.PI/2,l:Math.PI}[face];
       hero={x:Math.cos(a)*200,y:Math.sin(a)*200,r:HERO_R,face:a,hp:1};boss=e.boss?model:null;
       model.face=a;model.t=time;model.f3=face;model.f3s=null;
+      // A paused viewer has dt=0; bypass the boss renderer's combat turn smoothing.
+      if(e.boss)model.b3={...model.b3,psi:a,t:time};
       if(model.zakoView)model.zakoView.face=model.zakoView.candidate=face;
       if(e.boss&&RIG[e.type]){
         model.dir=a;model.an.walk=time*.3;model.an.ring=time*.35;model.an.flap=Math.sin(time*3.2);model.an.open=Math.max(0,Math.sin(time*2));
@@ -1759,7 +1766,7 @@
   const TUT = [
     { g: 'move', t: 'いどう', a: 'どこでも 指を おいて スライド', b: '勇者が その ほうこうに うごく' },
     { g: 'ram', t: 'とっしん', a: 'おおきく たおすと とっしん', b: 'オレンジに 光ったら こうげきの あいず' },
-    { g: 'hit', t: 'たいあたり', a: 'とっしんで スライムに ぶつかろう', b: 'ぶつかると こうげき！ そのあと はねかえる' },
+    { g: 'hit', t: 'たいあたり', a: '好きな敵を 1体 たおそう', b: 'どの敵でも OK！ スキルで倒しても進む' },
     { g: 'roll', t: 'かいひ', a: '指を すばやく はじくと ころがる', b: 'ころがって いる あいだは むてき' },
     { g: 'skill', t: 'スキル', a: 'がめんを すばやく 2かい タップ', b: 'スキル「しょうげきは」で ふきとばす' },
     { g: 'item', t: 'どうぐ', a: 'みぎしたの「どうぐ」を おしてみよう', b: 'やくそうで HPを かいふく できる' },
@@ -2052,6 +2059,28 @@
   // PIXELFX BEGIN — atlas playback only; no combat RNG, damage or physics.
   const pfxData=window.PIXELFX_ATLAS,pfxImages=[],pfxEvents=[],pfxUsed=new Set(),pfxImpactAt=new WeakMap();
   let pfxClock=0,pfxCalls=0,pfxSerial=0,pfxLoaded=0;
+  // Enemy breath particles keep their original physics; only their presentation is grouped.
+  const breathShots=new WeakMap(),breathSources=new WeakMap(),breathGroups=new Map(),breathDrawn=new Set(),breathFrameCache=new Map();
+  const BREATH_STYLE={wyvern:['fire/fire-breath','#ffac36'],icewyvern:['ice/frost-breath','#9aeaff'],bonewyvern:['shadow/ghost-breath','#76ffc0'],lizard:['fire/fire-breath','#ff582c'],frostlizard:['ice/frost-breath','#579dff'],chaosbeast:['shadow/void-breath','#c174ff']};
+  function markEnemyBreath(b,e){let g=breathSources.get(e);if(!g||globalT-g.last>.12){const style=BREATH_STYLE[e.type]||BREATH_STYLE.wyvern;g={owner:e,angle:e.face,id:style[0],color:style[1],last:globalT};breathSources.set(e,g);}g.last=globalT;breathShots.set(b,g);}
+  function prepareEnemyBreaths(){breathGroups.clear();breathDrawn.clear();for(const e of enemies)if(e.ai==='breath')e.breathVisual=null;for(const b of bullets){const g=breathShots.get(b);if(!g||b.life<=0)continue;if(!breathGroups.has(g))breathGroups.set(g,[]);breathGroups.get(g).push(b);}}
+  function breathFrame(g){
+    const e=pfxData?.effects[g.id];if(!e||!pfxEnabled())return null;const at=Math.min(e.frames.length-1,Math.floor((pfxClock%1.2)/1.2*e.frames.length)),r=e.frames[at],img=r&&pfxImages[r[0]];if(!r||!img?.complete||!img.width)return null;
+    const key=g.id+'|'+g.color+'|'+at;if(breathFrameCache.has(key))return breathFrameCache.get(key);
+    const c=document.createElement('canvas');c.width=r[3];c.height=r[4];const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(img,r[1],r[2],r[3],r[4],0,0,r[3],r[4]);const d=x.getImageData(0,0,c.width,c.height),rgb=[1,3,5].map(i=>parseInt(g.color.slice(i,i+2),16));
+    for(let i=0;i<d.data.length;i+=4){if(!d.data[i+3])continue;const v=Math.max(d.data[i],d.data[i+1],d.data[i+2])/255,white=Math.max(0,(v-.78)/.22)*.25;for(let k=0;k<3;k++)d.data[i+k]=Math.round((rgb[k]*(.28+.72*v))*(1-white)+255*white);}x.putImageData(d,0,0);const frame={c,ox:e.ox-r[5],oy:e.oy-r[6]};breathFrameCache.set(key,frame);while(breathFrameCache.size>160)breathFrameCache.delete(breathFrameCache.keys().next().value);return frame;
+  }
+  function drawEnemyBreath(g,shots,mouth){
+    if(!shots?.length||breathDrawn.has(g))return;breathDrawn.add(g);
+    const active=!!mouth&&!g.owner.dead&&g.owner.st==='fire'&&globalT-g.last<.12,points=[];
+    for(const b of shots){const y=sy(b.y),r=b.r+1;for(const[dx,dy]of[[-r,-r],[-r,r],[r,-r],[r,r]])points.push([b.x+dx,y+dy]);}
+    if(active)for(const[dx,dy]of[[-2,-3],[-2,3],[2,-3],[2,3]])points.push([mouth.x+dx,mouth.y+dy]);
+    points.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);const cross=(a,b,c)=>(b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0]),half=arr=>{const h=[];for(const p of arr){while(h.length>=2&&cross(h[h.length-2],h[h.length-1],p)<=0)h.pop();h.push(p);}return h;},lo=half(points),hi=half(points.slice().reverse()),hull=lo.slice(0,-1).concat(hi.slice(0,-1));
+    const co=Math.cos(g.angle),si=Math.sin(g.angle),project=p=>[p[0]*co-p[1]*si,p[0]*si+p[1]*co],local=points.map(project),u0=Math.min(...local.map(p=>p[0])),u1=Math.max(...local.map(p=>p[0])),centers=shots.map(b=>project([b.x,sy(b.y)])),v=centers.reduce((s,p)=>s+p[1],0)/centers.length,start=active?[mouth.x,mouth.y]:[u0*co+v*si,-u0*si+v*co],end=[u1*co+v*si,-u1*si+v*co],angle=Math.atan2(end[1]-start[1],end[0]-start[0]),ca=Math.cos(angle),sa=Math.sin(angle),relative=points.map(p=>[(p[0]-start[0])*ca+(p[1]-start[1])*sa,-(p[0]-start[0])*sa+(p[1]-start[1])*ca]),len=Math.max(2,...relative.map(p=>p[0])),width=Math.max(5,...relative.map(p=>Math.abs(p[1])*2)),frame=breathFrame(g);
+    ctx.save();ctx.beginPath();hull.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.clip();ctx.fillStyle=g.color;ctx.globalAlpha*=frame?.12:.34;ctx.fill();ctx.restore();
+    if(frame){ctx.save();ctx.beginPath();hull.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.clip();ctx.translate(start[0],start[1]);ctx.rotate(angle);ctx.imageSmoothingEnabled=false;ctx.globalAlpha*=.95;const sx=len/Math.max(1,frame.c.width-frame.ox),ys=width/Math.max(1,2*Math.max(frame.oy,frame.c.height-frame.oy));ctx.drawImage(frame.c,-frame.ox*sx,-frame.oy*ys,frame.c.width*sx,frame.c.height*ys);ctx.restore();pfxCalls++;pfxUsed.add(g.id);}
+    g.owner.breathVisual={type:g.owner.type,color:g.color,id:g.id,active,tail:!active,count:shots.length,length:len,width,hull,screenOffsetY:sy(0),legacyHidden:shots.length,origin:active?mouth:null};
+  }
   if(pfxData&&typeof Image!=='undefined')for(const src of pfxData.images){const img=new Image();img.onload=()=>{pfxLoaded++;};img.src=src;pfxImages.push(img);}
   const pfxEnabled=()=>!!pfxData&&save.settings.pixelfx!==false;
   function pfxSprite(id,x,y,u,width=100,angle=0,alpha=1,ys=1,attached=false,ui=false){
@@ -2067,7 +2096,7 @@
     if(pfxEvents.length>=28)pfxEvents.shift();pfxEvents.push({id,x,y,width,dur,angle,back,t:0,serial:++pfxSerial});
   }
   function pfxTick(dt){pfxClock+=dt;for(let i=pfxEvents.length-1;i>=0;i--){pfxEvents[i].t+=dt;if(pfxEvents[i].t>=pfxEvents[i].dur)pfxEvents.splice(i,1);}}
-  function pfxClear(){pfxEvents.length=0;}
+  function pfxClear(){pfxEvents.length=0;breathGroups.clear();breathDrawn.clear();}
   function pfxDrawEvents(back){for(const e of pfxEvents)if(e.back===back){const u=e.t/e.dur;pfxSprite(e.id,e.x,sy(e.y),u,e.width,e.angle,Math.min(1,(1-u)*5));}}
   function pfxCast(id){
     const h=hero;if(!h)return;const map={shock:['impacts/ground-slam',260,.65],cry:['fire/fire-ring',160,.7],heal:['holy/heal-aoe',165,1],frost:['ice/frost-nova',320,.85],sand:['arcane/time-stop',220,.8],holy:['holy/holy-pillar',140,.8],meteor:['arcane/magic-circle-cast',100,.6],thunder:['lightning/charge-up',100,.45]};const m=map[id];if(m)pfxEmit(m[0],h.x,h.y,m[1],m[2]);
@@ -2116,15 +2145,15 @@
     ctx.beginPath();ctx.moveTo(...point(-2,-5));ctx.lineTo(...point(len,-8-len*.35));ctx.lineTo(...point(len,8+len*.35));ctx.lineTo(...point(-2,5));ctx.closePath();ctx.clip();
     pfxSprite(id,x,y,(age%1.2)/1.2,width,-angle,Math.min(.8,remaining*8));ctx.restore();
   }
-  function pfxEnemyBreath(e,yy,view,back){
-    if(!pfxEnabled()||e.dead||e.ai!=='breath'||e.st!=='fire'||(view?.face==='b')!==back)return;
+  function pfxEnemyBreath(e,yy,view,back,sprite){
+    if(e.dead||e.ai!=='breath'||(view?.face==='b')!==back)return;
     const base=zakoBase(e.type),side=view?.face==='l'||view?.face==='r',sgn=view?.face==='l'?-1:1;
     // Mouth offsets from the existing pixel art (relative to the feet anchor); no model edits.
-    const pin=base==='lizard'?(side?[22,-9]:[0,view?.face==='b'?-19:-4]):base==='chaosbeast'?(side?[30,-23]:[0,-22]):(side?[27,-26]:[0,-23]);
-    const x=e.x+pin[0]*SPR.SCALE*sgn,y=yy+e.r*.75+pin[1]*SPR.SCALE;
-    // Join the mouth to the existing projectile lane, rather than moving its hitbox.
-    const tx=e.x+Math.cos(e.face)*(e.r+80),ty=yy-Math.sin(e.face)*(e.r+80),angle=-Math.atan2(ty-y,tx-x);
-    pfxJet(x,y,angle,e.t,.65-e.t,!!e.mod.ice,e.mod.void?'void':e.mod.ghost?'ghost':'fire');
+    const mouth=sprite?.groundRig?.mouth||sprite?.wyvernRig?.mouth;
+    const pin=mouth?[mouth[0]-sprite.ax,mouth[1]-sprite.ay]:base==='lizard'?(side?[22,-9]:[0,view?.face==='b'?-19:-4]):base==='chaosbeast'?(side?[30,-23]:[0,-22]):(side?[27,-26]:[0,-23]);
+    const x=e.x+pin[0]*SPR.SCALE*(mouth?1:sgn),y=yy+e.r*.75+pin[1]*SPR.SCALE;
+    if(mouth&&e.wyvernVisual)e.wyvernVisual.effectOrigin={x,y};if(mouth&&e.groundVisual)e.groundVisual.effectOrigin={x,y};
+    const stream=breathSources.get(e);if(stream)drawEnemyBreath(stream,breathGroups.get(stream),{x,y});
   }
   function pfxBossBreath(B){
     const m=B.mv;if(!pfxEnabled()||B.dead||!m)return;
@@ -2136,7 +2165,7 @@
       pfxJet(M.x+Math.cos(ang)*dist,sy(M.y+Math.sin(ang)*dist),ang,m.t-start,end-m.t,B.fcol==='water',B.fcol==='poison'?'poison':B.fcol==='ghost'?'ghost':'fire',270);
     }
   }
-  function pfxEnemyMelee(e,x,y){
+  function pfxEnemyMelee(e,x,y,sprite){
     if(!pfxEnabled()||e.dead)return;
     const slash=(e.ai==='swing'||e.ai==='assassin')&&e.st==='slash',thrust=(e.ai==='guard'||e.ai==='lunge')&&e.st==='dash';
     if(!slash&&!thrust)return;
@@ -2144,7 +2173,20 @@
     const id=thrust?'melee/thrust':e.mod.quake?'melee/hammer-smash':/mantis|werewolf|beast/.test(e.type)?'melee/claw-swipe':'melee/sword-slash';
     const u=clamp(e.t/(thrust?.3:e.ai==='assassin'?.18:.2),0,.99);
     ctx.save();ctx.beginPath();ctx.moveTo(x,y);ctx.arc(x,y,len,-e.face-span,-e.face+span);ctx.closePath();ctx.clip();
-    pfxSprite(id,x,y,u*.5,thrust?len*196/66:len*136/42,-e.face,.8,1,true);ctx.restore();
+    if(KAY_INFANTRY.has(e.type)&&sprite?.kayRig){const m=sprite.kayRig,a=m.grip,b=m.tip,k=SPR.SCALE,hx=x+(a[0]-sprite.ax)*k,hy=y+e.r*.75+(a[1]-sprite.ay)*k;if(e.kayInfantryVisual)e.kayInfantryVisual.effectOrigin={x:hx,y:hy};pfxSprite(id,hx,hy,u*.5,thrust?hyp(b[0]-a[0],b[1]-a[1])*k*196/66:len*136/42,thrust?Math.atan2(b[1]-a[1],b[0]-a[0]):-m.angle,.8,1,true);}
+    else if(e.type==='knight'&&sprite?.kayRig){const a=sprite.kayRig.grip,b=sprite.kayRig.tip,k=SPR.SCALE,hx=x+(a[0]-sprite.ax)*k,hy=y+e.r*.75+(a[1]-sprite.ay)*k,L=hyp(b[0]-a[0],b[1]-a[1])*k;if(e.kayKnightVisual)e.kayKnightVisual.effectOrigin={x:hx,y:hy};pfxSprite(id,hx,hy,u*.5,L*196/66,Math.atan2(b[1]-a[1],b[0]-a[0]),.8,1,true);}
+    else if(['goblin','hobgoblin'].includes(e.type)&&sprite?.goblinRig){const m=sprite.goblinRig,k=SPR.SCALE,hx=x+(m.grip[0]-sprite.ax)*k,hy=y+e.r*.75+(m.grip[1]-sprite.ay)*k,L=hyp(m.tip[0]-m.grip[0],m.tip[1]-m.grip[1])*k;if(e.kayGoblinVisual)e.kayGoblinVisual.effectOrigin={x:hx,y:hy};pfxSprite(id,hx,hy,u*.5,L*196/66,-m.angle,.8,1,true);}
+    else if(['wolf','snowwolf','hellhound'].includes(e.type)&&sprite?.wolfRig){const a=sprite.wolfRig.mouth,k=SPR.SCALE,hx=x+(a[0]-sprite.ax)*k,hy=y+e.r*.75+(a[1]-sprite.ay)*k,ang=-sprite.wolfRig.angle;if(e.kayWolfVisual)e.kayWolfVisual.effectOrigin={x:hx,y:hy};pfxSprite(id,hx,hy,u*.5,14*196/66,ang,.7,1,true);}
+    else pfxSprite(id,x,y,u*.5,thrust?len*196/66:len*136/42,-e.face,.8,1,true);ctx.restore();
+  }
+  function pfxQuadDream(e,yy,view,sprite,back){
+    const m=sprite?.wolfRig;if(e.type!=='baku'||!m||!pfxEnabled()||(view.face==='b')!==back||m.spell<=0)return;
+    const a=m.mouth,k=SPR.SCALE,from={x:e.x+(a[0]-sprite.ax)*k,y:yy+e.r*.75+(a[1]-sprite.ay)*k};
+    const focus=view.dreamFocus&&e.st!=='swell'?{x:view.dreamFocus.x,y:sy(view.dreamFocus.y)}:{x:e.x,y:yy};
+    // Connect the trunk to the real radial-shot focus. Projectile positions stay untouched.
+    ctx.save();ctx.globalAlpha=.55*m.spell;ctx.strokeStyle='#e2b0ff';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(from.x,from.y);ctx.quadraticCurveTo((from.x+focus.x)*.5,Math.min(from.y,focus.y)-10,focus.x,focus.y);ctx.stroke();
+    ctx.beginPath();ctx.ellipse(focus.x,focus.y,7+3*m.spell,3+2*m.spell,0,0,7);ctx.stroke();ctx.fillStyle='#fff0ff';ctx.beginPath();ctx.arc(from.x,from.y,2.5,0,7);ctx.fill();ctx.restore();
+    if(e.kayWolfVisual)e.kayWolfVisual.dreamEffect={from,focus,worldFocus:view.dreamFocus||{x:e.x,y:e.y},back};
   }
   function pfxBullet(b){
     let id;
@@ -2294,7 +2336,9 @@
     if(hard){hero.x=hardRun.maze.start.x;hero.y=hardRun.maze.start.y;hero.mazeX=hero.x;hero.mazeY=hero.y;hardRun.camX=hero.x;WX=W/2-hero.x;}else WX=(W-VW)/2;
     camY = hero.y; boss = null; arena = null; zones = []; freezeT = 0; darkT = 0; shades = []; twisters = []; combo = 0; runExp = 0; runGold = 0; runKills = 0; runLoot = []; toasts = []; runMaterials={};
     guildRunStart();state = 'play'; paused = false; hint = di === 0 ? 6 : 0; tut = null;
-    if (!hard && di === 0 && !save.tut) tutStart();
+    if(guideActive() && save.guide.stage==='retry'){guideSet('done');toast('基本の冒険は ばっちり！ 次はボスを目指そう','#6fd38a');}
+    else if(guideActive() && !hard){guideSet('combat');save.tut=0;tutStart();tut.i=Math.min(save.guide.combatStep||0,TUT.length-1);persist();}
+    else if (!hard && di === 0 && !save.tut) tutStart();
     banner = { a: D.name, b: D.en, t: 2.4 };
     A.bgm(FARR.dungeon[di]);
     showHud(true);
@@ -2725,17 +2769,17 @@
       if (B.callout) { ctx.globalAlpha = Math.min(1, B.callout.t * 2); txt(B.callout.s, 16 + bw2 / 2, yb + 26, 14, '#ffd24a', 'center'); ctx.globalAlpha = 1; }
     }
   }
-  function tutStart() { tut = { i: 0, t: 0, okT: 0, moved: 0, ramT: 0, slime: null, mark: 0 }; hint = 0; }
+  function tutStart() { guideAck=''; tut = { i: 0, t: 0, okT: 0, moved: 0, ramT: 0, slime: null, mark: 0, killBase: runKills }; hint = 0; }
   function tutDone(g) { if (tut && !tut.okT && TUT[tut.i] && TUT[tut.i].g === g) { tut.okT = 1; A.sfx('chest'); } }
-  function tutEnd(skip) { tut = null; save.tut = 1; persist(); if (!skip) { toast('チュートリアル クリア！ ボスを めざそう', '#f2c14e'); A.sfx('levelup'); } }
+  function tutEnd(skip) { if(guideActive() && skip) guideSet('done'); if(guideActive() && !skip) guideSet('fight'); tut = null; save.tut = 1; persist(); if (!skip) { toast('チュートリアル クリア！ ボスを めざそう', '#f2c14e'); A.sfx('levelup'); } }
   function updateTut(dt) {
     if (!tut || state !== 'play' || !hero) return;
     const h = hero, S = TUT[tut.i]; tut.t += dt;
-    if (tut.okT > 0) { if ((tut.okT -= dt) <= 0) { tut.okT = 0; tut.i++; tut.t = 0; if (tut.i >= TUT.length) tutEnd(); } return; }
+    if (tut.okT > 0) { if ((tut.okT -= dt) <= 0) { tut.okT = 0; tut.i++; tut.t = 0; tut.killBase = runKills; if(guideActive()){save.guide.combatStep=tut.i;persist();} if (tut.i >= TUT.length) tutEnd(); } return; }
     if (S.g === 'move') { if (drag.down) tut.moved += heroSpeed() * dt; if (tut.moved > 170) tutDone('move'); }
     else if (S.g === 'ram') { tut.ramT = heroSpeed() > RAM_MIN ? tut.ramT + dt : 0; if (tut.ramT > 0.2) tutDone('ram'); }
     else if (S.g === 'hit') {
-      if (tut.slime && tut.slime.dead) tutDone('hit');
+      if (runKills > tut.killBase) tutDone('hit');
       else if (!tut.slime || !enemies.includes(tut.slime)) {   // a slime to practise on, a little ahead
         const y2 = h.y + 150, tn = tunnelAt(y2), e = spawnEnemy('slime', tn.cx + rnd(-30, 30), y2); e.atk = 0; e.cd = 3; tut.slime = e; burst(e.x, e.y, 14, '#9ff0a8', 160, 0.4);
       } else if ((tut.mark -= dt) <= 0) { tut.mark = 0.9; popText(tut.slime.x, tut.slime.y + 40, '▼', '#f2c14e', 18, 0.8); }
@@ -2812,7 +2856,7 @@
       state = 'over'; A.jingle('defeat');
       // penalty: half of the gold picked up on THIS run is lost
       const lost = Math.min(save.gold, Math.floor(runGold / 2));
-      save.gold -= lost; save.hp = null; persist();
+      save.gold -= lost; save.hp = null; guideResult(false); persist();
       openPanel('ゆうしゃは ちからつきた…', `
         <p>街に はこばれ、目をさました。</p>
         <dl class="stat" style="margin-top:10px">
@@ -2845,7 +2889,7 @@
       const first = !save.cleared[dIdx];
       save.cleared[dIdx] = true; save.hp = null; persist();
       A.jingle('clear');
-      state = 'over';
+      state = 'over'; guideResult(true);
       openPanel('ダンジョン せいは！', `
         <p>${B.name} を たおした！</p>
         <dl class="stat" style="margin-top:10px">
@@ -3082,7 +3126,7 @@
   function killEnemy(e) {
     if(!e.dead&&/ghost|wraith|spirit/.test(e.type))pfxEmit('arcane/mana-burst',e.x,e.y,85,.7);else if(!e.dead&&/armor|golem|crystal/.test(e.type))pfxEmit('ice/ice-shatter',e.x,e.y,100,.6);
     if(e.dead)return;arenaEnemyKilled(e,craftOrigin);if(e.type==='pinkdiamondslime'&&!pinkCrystalDrop(e))return;guildKill(e);if(!arenaRun)craftDropEnemy(e);craftOnKill(e);
-    e.hp = 0; e.dead = true; runKills++; save.kills++;
+    e.hp = 0; e.dead = true; runKills++; save.kills++; tutDone('hit');
     if (state === 'play' && !['goldslime','pinkdiamondslime'].includes(e.type) && gateKills < gateNeed && ++gateKills >= gateNeed) {   // the seal on the boss door breaks
       toast('ボスの とびらの ふういんが とけた！', '#ff8a8a'); A.sfx('chest');
     }
@@ -3233,7 +3277,7 @@
         case 'breath':
           if (e.st === 'wind') { want = 0; e.face = Math.atan2(dy, dx); if (e.t > 0.42) { e.st = 'fire'; e.t = 0; } }
           else if (e.st === 'fire') {
-            if (e.t < 0.65) { e.fireAcc = (e.fireAcc || 0) + dt; while (e.fireAcc > 0.045) { e.fireAcc -= 0.045; const a = e.face + rnd(-0.32, 0.32); const fb = shoot(e.x + Math.cos(e.face) * e.r, e.y + Math.sin(e.face) * e.r, Math.cos(a), Math.sin(a), 210, e.atk, 'flame', 0.55); if (e.mod.ice) { fb.tint = 'water'; fb.slow = 0.8; } if (e.mod.void) fb.tint = 'void'; if (e.mod.ghost) fb.tint = 'ghost'; } }
+            if (e.t < 0.65) { e.fireAcc = (e.fireAcc || 0) + dt; while (e.fireAcc > 0.045) { e.fireAcc -= 0.045; const a = e.face + rnd(-0.32, 0.32); const fb = shoot(e.x + Math.cos(e.face) * e.r, e.y + Math.sin(e.face) * e.r, Math.cos(a), Math.sin(a), 210, e.atk, 'flame', 0.55); markEnemyBreath(fb,e); if (e.mod.ice) { fb.tint = 'water'; fb.slow = 0.8; } if (e.mod.void) fb.tint = 'void'; if (e.mod.ghost) fb.tint = 'ghost'; } }
             else { e.st = 'idle'; e.cd = rnd(1.4, 1.9); if (e.mod.void) for (let k = 0; k < 5; k++) shootFx(e, k / 5 * Math.PI * 2 + e.phase + e.t, 100, 'orb', 'void'); }   // chaos beast: the void it breathed bursts outward
           } else { want = d > 110 ? 1 : 0.2; wx = ux; wy = uy; e.face = Math.atan2(dy, dx); if (d < 170 && e.cd <= 0) { e.st = 'wind'; e.t = 0; } }
           break;
@@ -3243,7 +3287,7 @@
           break;
         case 'spore':   // swells up, then puffs a ring of slow spores
           if (e.st === 'swell') { want = 0; if (e.t > 0.55) { e.st = 'idle'; e.cd = rnd(2.4, 3.2); if (e.mod.dream) { for (let k = 0; k < 5; k++) { const a = k / 5 * Math.PI * 2 + e.phase; const sb = shoot(e.x, e.y, Math.cos(a), Math.sin(a), 75, Math.round(e.atk * 0.6), 'bubble', 2.8); sb.col = SHOTCOL.dream; sb.stun = 0.6; sb.stunKind = 'sleep'; } }   // baku: dream bubbles put you to sleep
-            else for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + e.phase; const sb = shoot(e.x, e.y, Math.cos(a), Math.sin(a), 85, e.atk, 'spore', 2.4); if (e.mod.sleep) sb.slow = 1.6; } } }
+            else for (let k = 0; k < 4; k++) { const a = k / 4 * Math.PI * 2 + e.phase; const sb = shoot(e.x, e.y, Math.cos(a), Math.sin(a), 85, e.atk, 'spore', 2.4); if (e.mod.sleep) sb.slow = 1.6; } } }
           else { want = 0.4; wx = ux + Math.sin(e.t + e.phase); wy = uy; if (e.cd <= 0 && d < 260) { e.st = 'swell'; e.t = 0; } }
           break;
         case 'shamble': // mummy: keeps walking at you, flings bandages that slow you down
@@ -5050,7 +5094,7 @@
     if (shake > 0) shake = Math.max(0, shake - dt * 40);
     if (state === 'town' && tdrag.id == null) townX = lerp(townX, townPage, 1 - Math.exp(-dt * 12));
     if (state !== 'play' && state !== 'boss') return;
-    if (paused) return;
+    if (paused || guideBlocksCombat) return;
     if(arenaRun&&arenaRun.phase!=='fight')return;
     if (hitStop > 0) { hitStop -= dt; return; }
     if (slowMo > 0) { slowMo -= dt; dt *= 0.3; }
@@ -5432,6 +5476,87 @@
   const ZAKO4 = new Set(['frostlizard','lavagolem','crimsonknight','snowwolf','sleepshroom','poisonspider','deepfishman','goldscorpion','cursemummy','iceimp','icewyvern','shadowarmor','goldslime','pinkdiamondslime','basilisk','clown','fireslime','iceslime','vampbat','hobgoblin','firearcher','generalskel','wraith','frostmage','darkpriest','archdemon','bomber','minotaur','mantis','snowman','assassin','stormeagle','dullahan','shark','chaosbeast','harpy','crossbow','clockwork','starspirit','fireelem','ghostpirate','dwarf','magicmirror','bonewyvern','book','armor','mimic','angler','jelly','hellhound','fairy','baku','gargoyle','angel','slime','bat','goblin','archer','skeleton','ghost','mage','lizard','golem','knight','imp','wolf','mushroom','spider','fishman','scorpion','mummy','toad','mandrake','wyvern']);
   function clockSpin6(e){return (Math.round(e.t*2.5*32)%32)*Math.PI*2/32;}
   function zakoBase(t) { return VARIANTS[t] ? VARIANTS[t][0] : ['goldslime','pinkdiamondslime'].includes(t) ? 'slime' : t; }
+  // Knight visual facing only. The guard AI continues to track during its wind-up.
+  const kayKnightViews=new WeakMap();
+  const GROUND_BEASTS=new Set(['lizard','frostlizard','chaosbeast']),groundViews=new WeakMap();
+  function groundBeastView(e,view){
+    let s=groundViews.get(e);if(!s){s={angle:e.face,lastT:globalT,lastX:e.x,lastY:e.y,distance:0,moving:false};groundViews.set(e,s);}
+    const dt=globalT-s.lastT,dx=e.x-s.lastX,dy=e.y-s.lastY,travel=hyp(dx,dy),recover=e.st==='idle'&&view.prev==='fire'&&globalT-view.changed<.30,free=e.st==='idle'&&!recover;
+    if(dt>0){s.moving=free&&travel/dt>1;if(s.moving){s.distance+=travel;s.angle=Math.atan2(dy,dx);}}
+    if(e.st==='wind'||e.st==='fire')s.angle=e.face;s.lastX=e.x;s.lastY=e.y;s.lastT=globalT;
+    return {...view,face:face4(s.angle),groundAngle:s.angle,groundMoving:s.moving,groundWalkPhase:s.distance/(e.type==='chaosbeast'?32:22)};
+  }
+  const WYVERNS=new Set(['wyvern','icewyvern','bonewyvern']),wyvernViews=new WeakMap();
+  function wyvernView(e,view){
+    let s=wyvernViews.get(e);if(!s){s={angle:e.face,lastT:globalT,flight:e.phase||0};wyvernViews.set(e,s);}
+    const dt=Math.max(0,globalT-s.lastT),recover=e.st==='idle'&&view.prev==='fire'&&globalT-view.changed<.30;
+    s.flight+=dt;s.lastT=globalT;
+    // The original breath AI tracks during wind-up, then fixes the actual shot angle.
+    if(e.st==='wind'||e.st==='fire')s.angle=e.face;
+    else if(!recover&&hyp(e.vx,e.vy)>1)s.angle=Math.atan2(e.vy,e.vx);
+    return {...view,face:face4(s.angle),wyvernAngle:s.angle,flightPhase:s.flight};
+  }
+  const KAY_INFANTRY=new Set(['crimsonknight','armor','shadowarmor']),kayInfantryViews=new WeakMap();
+  function kayInfantryView(e,view){
+    let s=kayInfantryViews.get(e);if(!s){s={st:null,angle:e.face,lastX:e.x,lastY:e.y,lastT:globalT,distance:0,moving:false};kayInfantryViews.set(e,s);}
+    const armored=e.type!=='crimsonknight',recovering=armored&&e.st==='idle'&&view.prev==='slash'&&globalT-view.changed<.30,free=e.st==='idle'&&!recovering;
+    const dx=e.x-s.lastX,dy=e.y-s.lastY,dt=globalT-s.lastT,travel=hyp(dx,dy);
+    if(dt>0){s.moving=free&&travel/dt>1;if(s.moving){s.distance+=travel;s.angle=Math.atan2(dy,dx);}}
+    if(e.st==='wind'&&s.st!=='wind')s.angle=e.face;
+    if(e.st==='dash'&&hyp(e.vx,e.vy)>1)s.angle=Math.atan2(e.vy,e.vx);
+    s.st=e.st;s.lastX=e.x;s.lastY=e.y;s.lastT=globalT;
+    return {...view,face:face4(s.angle),infantryAngle:s.angle,infantryMoving:s.moving,infantryWalkPhase:s.distance/24,infantryChain:e.st==='wind'&&view.prev===(armored?'slash':'dash')};
+  }
+  const kayGoblinViews=new WeakMap(),KAY_GOBLINS=new Set(['goblin','hobgoblin','archer','firearcher','bomber']);
+  function kayGoblinView(e,view){
+    let s=kayGoblinViews.get(e);if(!s){s={angle:e.face,st:null,lastX:e.x,lastY:e.y,lastT:globalT,distance:0,moving:false,origin:null};kayGoblinViews.set(e,s);}
+    const melee=e.type==='goblin'||e.type==='hobgoblin',bomb=e.type==='bomber',since=globalT-view.changed,recover=melee?view.prev==='dash'&&since<.24:!bomb&&view.prev==='aim'&&since<.28;
+    const dx=e.x-s.lastX,dy=e.y-s.lastY,dt=globalT-s.lastT,travel=hyp(dx,dy),free=e.st==='idle'&&!recover;
+    if(dt>0){s.moving=free&&travel/dt>1;if(s.moving){s.distance+=travel;s.angle=Math.atan2(dy,dx);}}
+    if(melee&&e.st==='wind')s.angle=Math.atan2(e.ly,e.lx);
+    else if(melee&&e.st==='dash'&&hyp(e.vx,e.vy)>1)s.angle=Math.atan2(e.vy,e.vx);
+    else if(e.st==='aim'){s.angle=bomb?Math.atan2(hero.y+hero.vy*.25-e.y-14,hero.x+hero.vx*.25-e.x):e.face;s.origin=null;}
+    const firing=!melee&&((bomb&&e.st==='throw'&&s.st!=='throw')||(!bomb&&e.st==='idle'&&view.prev==='aim'&&s.st==='aim'));
+    if(firing){
+      const group=bullets.filter(b=>b.kind===(bomb?'gbomb':'arrow')&&b.t<.12&&(bomb?b.dest:!b.dest)).map(b=>{
+        if(!bomb)return{b,x:b.x-b.vx*b.t,y:b.y-b.vy*b.t};const d=hyp(b.x-b.dest.x,b.y-b.dest.y)||1;return{b,x:b.dest.x+(b.x-b.dest.x)/d*b.d0,y:b.dest.y+(b.y-b.dest.y)/d*b.d0};
+      }).filter(p=>hyp(p.x-e.x,p.y-e.y-(bomb?14:0))<e.r+12).sort((a,b)=>a.b.t-b.b.t);
+      if(group.length){const first=group[0],same=group.filter(p=>Math.abs(p.b.t-first.b.t)<1e-6&&hyp(p.x-first.x,p.y-first.y)<1);s.origin={x:first.x,y:first.y};s.angle=bomb?Math.atan2(first.b.dest.y-first.y,first.b.dest.x-first.x):Math.atan2(same.reduce((n,p)=>n+p.b.vy,0),same.reduce((n,p)=>n+p.b.vx,0));}
+    }
+    // A world-space release point belongs to this shot, never to the next walk.
+    // Keeping it until the next aim drags both arms back toward the old arrow.
+    if(!firing&&!recover&&!(bomb&&e.st==='throw'))s.origin=null;
+    s.lastX=e.x;s.lastY=e.y;s.lastT=globalT;s.st=e.st;
+    return {...view,face:face4(s.angle),goblinAngle:s.angle,goblinMoving:s.moving,goblinWalkPhase:s.distance/18,goblinOrigin:s.origin?[(s.origin.x-e.x)/SPR.SCALE,(s.origin.y-e.y)/SPR.SCALE]:null};
+  }
+  const kayWolfViews=new WeakMap();
+  function kayWolfView(e,view){
+    let s=kayWolfViews.get(e);if(!s){s={angle:e.face,st:null,lastX:e.x,lastY:e.y,lastT:globalT,walkDistance:0,walking:false};kayWolfViews.set(e,s);}
+    const recovering=e.st!=='wind'&&e.st!=='dash'&&view.prev==='dash'&&globalT-view.changed<.2;
+    const dream=e.type==='baku',casting=dream&&(e.st==='swell'||view.prev==='swell'&&globalT-view.changed<.30);
+    const walkDX=e.x-s.lastX,walkDY=e.y-s.lastY,walkDT=globalT-s.lastT,travel=hyp(walkDX,walkDY);
+    if(dream&&walkDT>0){
+      s.walking=e.st==='idle'&&!casting&&travel/walkDT>1;
+      if(s.walking){s.walkDistance+=travel;s.angle=Math.atan2(walkDY,walkDX);}
+    }
+    if(dream&&e.st==='swell'&&s.st!=='swell'){s.angle=Math.atan2(hero.y-e.y,hero.x-e.x);s.focus=null;}
+    if(dream&&e.st!=='swell'&&view.prev==='swell'&&!s.focus){
+      const candidates=bullets.filter(b=>b.kind==='bubble'&&b.stunKind==='sleep'&&b.t<.30).map(b=>({x:b.x-b.vx*b.t,y:b.y-b.vy*b.t,age:b.t})).filter(p=>hyp(p.x-e.x,p.y-e.y)<e.r+8).sort((a,b)=>a.age-b.age);
+      if(candidates.length)s.focus={x:candidates[0].x,y:candidates[0].y};
+    }
+    if(e.st==='wind')s.angle=Math.atan2(e.ly,e.lx);
+    else if(e.st==='dash'&&hyp(e.vx,e.vy)>1)s.angle=Math.atan2(e.vy,e.vx);
+    else if(!recovering&&!casting&&!dream)s.angle=hyp(e.vx,e.vy)>18?Math.atan2(e.vy,e.vx):e.face;
+    s.lastX=e.x;s.lastY=e.y;s.lastT=globalT;s.st=e.st;
+    return {...view,face:face4(s.angle),wolfAngle:s.angle,dreamFocus:s.focus,walking:s.walking,walkPhase:s.walkDistance/24};
+  }
+  function kayKnightView(e,view){
+    let s=kayKnightViews.get(e);if(!s){s={st:e.st,angle:e.face};kayKnightViews.set(e,s);}
+    if(e.st==='wind'&&s.st!=='wind')s.angle=e.face;
+    if(e.st==='dash'&&hyp(e.vx,e.vy)>1)s.angle=Math.atan2(e.vy,e.vx);
+    if(e.st!=='wind'&&e.st!=='dash'&&e.st!=='tired')s.angle=e.face;
+    s.st=e.st;return {...view,face:face4(s.angle),kayAngle:s.angle};
+  }
   function zakoFacing(e) {
     let dx=hero.x-e.x,dy=hero.y-e.y;
     const locked=(e.ai==='shark'&&e.st==='leap')||(e.type==='clockwork'&&e.st==='spin')||(e.st==='wind'&&e.ai!=='slam')||e.st==='dash'||e.st==='slash'||e.st==='fire';
@@ -5600,13 +5725,28 @@
     phase.loop=(phase.loop+Math.max(0,globalT-phase.last)*(e.st==='aim'?2.5:1.25))%1;phase.last=globalT;
     return {ready:Math.round(ready*16)/16,loop:e.type==='clown'?Math.round(phase.loop*24)/24*Math.PI*2:0};
   }
+  // Dense fights reuse each enemy's raster pose at 30Hz, with staggered slots.
+  // Position, AI, collision, telegraphs and attached effects still update on
+  // every game frame. Attack/facing/flash changes and release anchors bypass it.
+  const enemyPoseFrames=new WeakMap();
+  let crowdedEnemyPoses=false;
+  function enemyPoseFrame(e,view,hurt,build){
+    if(!crowdedEnemyPoses)return build();
+    const since=view?globalT-view.changed:99,band=since<.08?0:since<.2?1:since<.24?2:since<.28?3:since<.30?4:5;
+    const key=[e.st,view?.face,hurt,!!e.guard,!!e.headOut,!!e.shine,!!e.critNext,!!e.awake,view?.goblinMoving,view?.walking,view?.infantryMoving,view?.groundMoving,band,e.st==='dash'&&e.t<.07].join('|');
+    const released=(['archer','firearcher'].includes(e.type)&&view?.prev==='aim'&&since<.08)||(e.type==='bomber'&&e.st==='throw'&&e.t<.08);
+    const slot=Math.floor((globalT+(e.phase||0)*.037)*30+1e-7),last=enemyPoseFrames.get(e);
+    if(!released&&last&&last.key===key&&last.slot===slot)return last.sprite;
+    const sprite=build();enemyPoseFrames.set(e,{key,slot,sprite});return sprite;
+  }
   function drawEnemy(e) {
     const x = e.x, y = sy(e.y), r = e.r;
-    if (y < -70 || y > H + 70) return;
+    const screenX=x+(arena?W/2-bcamX:WX);
+    if (y < -70 || y > H + 70 || screenX < -128 || screenX > W+128) return;
     if (e.ai === 'shark' && e.sub) { if(y>=0&&y<=H&&x+(arena?W/2-bcamX:WX)>0&&x+(arena?W/2-bcamX:WX)<W)bestEncounter('enemy:'+e.type);drawFin(e, x, y); return; }
     ctx.save();
     if (e.ai === 'phase' || e.ai === 'assassin') ctx.globalAlpha = e.alpha;
-    const fly = e.fly ? 6 + Math.sin(e.t * 5) * 3 : 0, lift = e.ai === 'shark' && e.st === 'leap' ? Math.sin(Math.min(1, e.t / 0.4) * Math.PI) * 26 : 0;
+    const fly = e.fly ? 6 + Math.sin((WYVERNS.has(e.type)?globalT+(e.phase||0):e.t) * 5) * 3 : 0, lift = e.ai === 'shark' && e.st === 'leap' ? Math.sin(Math.min(1, e.t / 0.4) * Math.PI) * 26 : 0;
     shadow(x, y, r * 0.8, e.fly ? 0.18 : 0.3);
     const yy = y - fly - lift;
     const hurt = e.hurt > 0;
@@ -5631,21 +5771,35 @@
     const f = Math.floor((globalT + e.phase) * (e.ai === 'flutter' || e.ai === 'imp' ? (e.type === 'jelly' ? 5 : 10) : e.type === 'clown' || e.type === 'stormeagle' ? 8 : 4));
     const step = moving ? (Math.sin((globalT + e.phase) * 11) > 0 ? 1 : -1) : 0;
     const arm = zakoArm(e), bx = arm ? x + arm.lean * SPR.SCALE * (hero.x < e.x - 2 ? -1 : 1) : x, byy = arm ? yy + arm.cr * SPR.SCALE : yy;   // the body leans back into the wind-up and steps into the blow
-    const view = ZAKO4.has(e.type) ? zakoFacing(e) : null;
-    pfxEnemyBreath(e,yy,view,true);
+    let view = ZAKO4.has(e.type) ? zakoFacing(e) : null;
+    if(e.type==='knight'&&view)view=kayKnightView(e,view);
+    if(KAY_INFANTRY.has(e.type)&&view)view=kayInfantryView(e,view);
+    if(KAY_GOBLINS.has(e.type)&&view)view=kayGoblinView(e,view);
+    if(['wolf','snowwolf','hellhound','baku'].includes(e.type)&&view)view=kayWolfView(e,view);
+    if(WYVERNS.has(e.type)&&view)view=wyvernView(e,view);
+    if(GROUND_BEASTS.has(e.type)&&view)view=groundBeastView(e,view);
+    if(bestPainting&&view)view=bestEnemyView(e,view);
     // colour variants (フロストリザード…ゴールデンスライム) move exactly like the monster they are made from
     const em = view && zakoBase(e.type) !== e.type ? Object.assign({}, e, { type: zakoBase(e.type) }) : e;
-    const spr = SPR.enemy(e.type, { view:view&&view.face, upSlash:view?skeletonUpSlash(em,view):null, motion:view?zakoMotion2(em,view):null, motion3:view?zakoMotion3(em,view):null, motion4:view?zakoMotion4(em,view):null, motion5:view?zakoMotion5(em,view):null, motion6:view?zakoMotion6(em,view):null, motion7:view?zakoMotion7(em,view):null, motion8:view?zakoMotion8(em,view):null, bodyX:view&&arm?Math.round(arm.lean*(view.face==='r'?1:view.face==='l'?-1:0)):0, bodyY:view&&arm?Math.round(arm.cr):0, pull:e.st==='aim'?easeIO(clamp(e.t/.55,0,1)):0, release:view&&view.prev==='aim'?Math.max(0,1-(globalT-view.changed)/.2):0, st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step: arm && arm.sp != null ? Math.round(arm.sp) : step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: !view && hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm });
-    if(!bestPainting&&e.alpha>=.15&&spr){const left=x+(arena?W/2-bcamX:WX)-spr.ax*SPR.SCALE,top=yy+r*.75-spr.ay*SPR.SCALE;if(left<W&&left+spr.c.width*SPR.SCALE>0&&top<H&&top+spr.c.height*SPR.SCALE>0)bestEncounter('enemy:'+e.type);}
+    const spr = enemyPoseFrame(e,view,hurt,()=>SPR.enemy(e.type, { groundKay:GROUND_BEASTS.has(e.type)&&view?{st:e.st,t:e.t,time:globalT+(e.phase||0),angle:view.groundAngle,moving:view.groundMoving,walkPhase:view.groundWalkPhase,prev:view.prev,since:globalT-view.changed}:null, wyvernKay:WYVERNS.has(e.type)&&view?{st:e.st,t:e.t,time:globalT+(e.phase||0),flightPhase:view.flightPhase,angle:view.wyvernAngle,moving:hyp(e.vx,e.vy)>8,speed:hyp(e.vx,e.vy),prev:view.prev,since:globalT-view.changed}:null, infantryKay:KAY_INFANTRY.has(e.type)&&view?{st:e.st,t:e.t,time:globalT+(e.phase||0),guard:!!e.guard,moving:view.infantryMoving,walkPhase:view.infantryWalkPhase,prev:view.prev,since:globalT-view.changed,chain:view.infantryChain,angle:view.infantryAngle}:null, goblinKay:KAY_GOBLINS.has(e.type)&&view?{st:e.st,t:e.t,windT:e.windT,time:globalT+(e.phase||0),moving:view.goblinMoving,walkPhase:view.goblinWalkPhase,prev:view.prev,since:globalT-view.changed,angle:view.goblinAngle,radius:e.r/SPR.SCALE,origin:view.goblinOrigin}:null, wolfKay:['wolf','snowwolf','hellhound','baku'].includes(e.type)&&view?{st:e.st,t:e.t,windT:e.windT,time:globalT+(e.phase||0),moving:e.type==='baku'?view.walking:hyp(e.vx,e.vy)>18,walkPhase:view.walkPhase,speed:hyp(e.vx,e.vy),prev:view.prev,since:globalT-view.changed,angle:view.wolfAngle}:null, kay:['skeleton','archer','knight'].includes(e.type)&&view?{st:e.st,t:e.t,guard:!!e.guard,time:globalT+(e.phase||0),moving:hyp(e.vx,e.vy)>18,prev:view.prev,since:globalT-view.changed,angle:view.kayAngle}:null, view:view&&view.face, upSlash:view?skeletonUpSlash(em,view):null, motion:view?zakoMotion2(em,view):null, motion3:view?zakoMotion3(em,view):null, motion4:view?zakoMotion4(em,view):null, motion5:view?zakoMotion5(em,view):null, motion6:view?zakoMotion6(em,view):null, motion7:view?zakoMotion7(em,view):null, motion8:view?zakoMotion8(em,view):null, bodyX:view&&arm?Math.round(arm.lean*(view.face==='r'?1:view.face==='l'?-1:0)):0, bodyY:view&&arm?Math.round(arm.cr):0, pull:e.st==='aim'?easeIO(clamp(e.t/.55,0,1)):0, release:view&&view.prev==='aim'?Math.max(0,1-(globalT-view.changed)/.2):0, st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step: arm && arm.sp != null ? Math.round(arm.sp) : step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: !view && hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm }));
+    if(GROUND_BEASTS.has(e.type)&&spr?.groundRig){const m=spr.groundRig;e.groundVisual={...m,face:view.face,time:globalT,drawMouth:{x:x+(m.mouth[0]-spr.ax)*SPR.SCALE,y:yy+e.r*.75+(m.mouth[1]-spr.ay)*SPR.SCALE}};}
+    if(WYVERNS.has(e.type)&&spr?.wyvernRig){const m=spr.wyvernRig;e.wyvernVisual={...m,face:view.face,time:globalT,drawMouth:{x:x+(m.mouth[0]-spr.ax)*SPR.SCALE,y:yy+e.r*.75+(m.mouth[1]-spr.ay)*SPR.SCALE}};}
+    pfxEnemyBreath(e,yy,view,true,spr);
+    if(KAY_INFANTRY.has(e.type)&&spr?.kayRig){const m=spr.kayRig;e.kayInfantryVisual={...m,face:view.face,time:globalT,drawGrip:{x:x+(m.grip[0]-spr.ax)*SPR.SCALE,y:yy+e.r*.75+(m.grip[1]-spr.ay)*SPR.SCALE}};}
+    if(e.type==='knight'&&spr?.kayRig)e.kayKnightVisual={...spr.kayRig,face:view.face,time:globalT,drawGrip:{x:x+(spr.kayRig.grip[0]-spr.ax)*SPR.SCALE,y:yy+e.r*.75+(spr.kayRig.grip[1]-spr.ay)*SPR.SCALE}};
+    if(KAY_GOBLINS.has(e.type)&&spr?.goblinRig){const m=spr.goblinRig;e.kayGoblinVisual={...m,time:globalT,face:view.face,drawGrip:{x:x+(m.grip[0]-spr.ax)*SPR.SCALE,y:yy+e.r*.75+(m.grip[1]-spr.ay)*SPR.SCALE},drawEmitter:m.emitter?{x:x+(m.emitter[0]-spr.ax)*SPR.SCALE,y:yy+e.r*.75+(m.emitter[1]-spr.ay)*SPR.SCALE}:null,shotOrigin:view.goblinOrigin?{x:e.x+view.goblinOrigin[0]*SPR.SCALE,y:e.y+view.goblinOrigin[1]*SPR.SCALE}:null};}
+    if(['wolf','snowwolf','hellhound','baku'].includes(e.type)&&spr?.wolfRig)e.kayWolfVisual={...spr.wolfRig,face:view.face,time:globalT,drawMouth:{x:x+(spr.wolfRig.mouth[0]-spr.ax)*SPR.SCALE,y:yy+e.r*.75+(spr.wolfRig.mouth[1]-spr.ay)*SPR.SCALE}};
+    if(!bestPainting&&e.alpha>=.15&&spr){const box=spr.encounterBounds||{ax:spr.ax,ay:spr.ay,width:spr.c.width,height:spr.c.height},left=x+(arena?W/2-bcamX:WX)-box.ax*SPR.SCALE,top=yy+r*.75-box.ay*SPR.SCALE;if(left<W&&left+box.width*SPR.SCALE>0&&top<H&&top+box.height*SPR.SCALE>0)bestEncounter('enemy:'+e.type);}
+    pfxQuadDream(e,yy,view,spr,true);
     if(!ZAKO4.has(e.type)&&R3[e.type] && R3[e.type].enemy) drawR3Enemy(e,R3[e.type],x,yy+r*.75,hurt);
     else {
       const hop=['slime','fireslime','iceslime','goldslime','pinkdiamondslime'].includes(e.type)&&e.st==='hop'?Math.sin(clamp(e.t/.38,0,1)*Math.PI)*7:0;
       SPR.draw(ctx, spr, view?x:bx, (view?yy:byy) + r * .75-hop);
     }
-    pfxEnemyBreath(e,yy,view,false);pfxEnemyMelee(e,x,yy);
-    if (e.ai === 'swing' && e.st === 'slash') { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(x, yy, (e.mod.reach || 72) - 8, -e.face - 1.25, -e.face + 1.25); ctx.stroke(); }
+    pfxQuadDream(e,yy,view,spr,false);pfxEnemyBreath(e,yy,view,false,spr);pfxEnemyMelee(e,x,yy,spr);
+    if (e.ai === 'swing' && e.st === 'slash' && (!KAY_INFANTRY.has(e.type)||!pfxEnabled())) { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(x, yy, (e.mod.reach || 72) - 8, -e.face - 1.25, -e.face + 1.25); ctx.stroke(); }
     if (e.ai === 'assassin' && e.st === 'slash') { ctx.strokeStyle = e.critNext ? 'rgba(255,220,90,.75)' : 'rgba(255,255,255,.55)'; ctx.lineWidth = e.critNext ? 12 : 9; ctx.beginPath(); ctx.arc(x, yy, 60, -e.face - 1.2, -e.face + 1.2); ctx.stroke(); }
-    if (telegraph && e.ai !== 'swing') { const top = yy + r * 0.75 - (spr ? spr.ay * SPR.SCALE : r * 2), mk2 = e.critNext ? '!!' : '!'; ctx.fillStyle = e.critNext ? '#ffd23a' : '#ff4040'; ctx.strokeStyle = '#1a1420'; ctx.lineWidth = 3; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'center'; ctx.strokeText(mk2, x, top - 2); ctx.fillText(mk2, x, top - 2); }
+    if (telegraph && e.ai !== 'swing') { const top = yy + r * 0.75 - (spr ? (spr.telegraphAy||spr.ay) * SPR.SCALE : r * 2), mk2 = e.critNext ? '!!' : '!'; ctx.fillStyle = e.critNext ? '#ffd23a' : '#ff4040'; ctx.strokeStyle = '#1a1420'; ctx.lineWidth = 3; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'center'; ctx.strokeText(mk2, x, top - 2); ctx.fillText(mk2, x, top - 2); }
     ctx.restore();
     if (e.st === 'spin') { ctx.strokeStyle = 'rgba(255,240,180,.55)'; ctx.lineWidth = 3; for (let k = 0; k < 2; k++) { const a = globalT * 20 + k * Math.PI; ctx.beginPath(); ctx.arc(x, yy, r + 14, a, a + 1.4); ctx.stroke(); } }
     if (e.shine) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(200,230,255,${0.18 + 0.12 * Math.sin(globalT * 20)})`; ctx.beginPath(); ctx.arc(x, yy - r * 0.4, r + 12, 0, 7); ctx.fill(); ctx.restore(); }
@@ -5662,7 +5816,7 @@
     const dir = Math.abs(c) > Math.abs(s) * 1.1 ? (c > 0 ? 'right' : 'left') : (s > 0 ? 'up' : 'down');
     const moving = sp > 30, ph = (h.walk || 0) * 0.07;
     const step = moving ? (Math.sin(ph) > 0.3 ? 1 : Math.sin(ph) < -0.3 ? -1 : 0) : 0;
-    return SPR.hero({ dir, step, dash: ram && dir !== 'down', hurt: h.inv > 0.55, blink: !moving && (globalT % 3.1) < 0.12, bob: !moving && (globalT % 1.1) < 0.55 ? 1 : 0, wave: Math.floor(globalT * 10) % 2, w: visOf(save.eq.weapon), a: visOf(save.eq.armor) });
+    return SPR.hero({ kay:{time:globalT,moving,running:ram,guard:h.guardT>0}, dir, step, dash: ram && dir !== 'down', hurt: h.inv > 0.55, blink: !moving && (globalT % 3.1) < 0.12, bob: !moving && (globalT % 1.1) < 0.55 ? 1 : 0, wave: Math.floor(globalT * 10) % 2, w: visOf(save.eq.weapon), a: visOf(save.eq.armor) });
   }
 
   function drawHero() {
@@ -6320,8 +6474,24 @@
     if(v!=='b')branch(1);
     part('canopy',[0,-67+drop],sway*.7+Math.sin(globalT*3)*.015,1+slam*.03,1);
   }
+  // KAYKIT BOSS BEGIN
+  // Adapt imported joint directions to the existing Goblin King's R3 parts. Draw-only.
+  function kayGoblinPose(B,original,def) {
+    const D=SPR.motionPose;if(!D)return original;const mv=B.mv,n=mv?mv.name.split(':')[0]:'idle',t=mv?mv.t:0,sw=B.sweeps.find(s=>s.kind==='club')||B.sweeps[0];let clip='idle',at=globalT%1.066667;
+    if(n==='stalk'){clip='walk';at=globalT%1.066667;}
+    else if((n==='charge'||n==='dash3')&&mv.ph==='go'){clip='run';at=globalT%.8;}
+    else if(sw&&(n==='sweep'||n==='twin')){clip='slash';at=sw.t<sw.tele?.24*clamp(sw.t/sw.tele,0,1):.24+.14*clamp((sw.t-sw.tele)/.45,0,1);}
+    else if(n==='quake'){clip='chop';const hit=[.45,1,1.55].find(a=>t<a+.22)||1.55;at=t<hit?.6*clamp((t-hit+.4)/.4,0,1):.6+.42*clamp((t-hit)/.22,0,1);}
+    else if(n!=='idle')return original; // Keep species-specific projectile/placement gestures and exact release sockets.
+    const j=D(clip,at),sub=(a,b)=>a.map((v,i)=>v-b[i]),unit=a=>{const l=Math.hypot(...a)||1;return a.map(v=>v/l);},cv=a=>[-a[0],-a[1],a[2]],dirs={};
+    for(const side of['R','L']){dirs['upper'+side]=cv(unit(sub(j['elbow'+side],j['shoulder'+side])));dirs['fore'+side]=cv(unit(sub(j['hand'+side],j['elbow'+side])));dirs['thigh'+side]=cv(unit(sub(j['knee'+side],j['hip'+side])));dirs['shin'+side]=cv(unit(sub(j['foot'+side],j['knee'+side])));}
+    const hd=s=>dirs['upper'+s].map((v,i)=>v*def.A1+dirs['fore'+s][i]*def.A2),p={...original,hd:hd('R'),oh:hd('L'),sw:cv(j.sword),kayArms:dirs,kayLegs:dirs};
+    const lean=sub(j.chest,j.hip);p.pitch=-Math.atan2(lean[2],lean[1]);p.yaw=Math.atan2(j.bodyRight[2],-j.bodyRight[0])-.086;p.drop=(13.318-j.hip[1])*1.2;p.sz=0;
+    return p;
+  }
+  // KAYKIT BOSS END
   function drawR3(B, def, x, yFeet, fl) {
-    const K = SPR.SCALE, p = r3Pose(B), f = r3Face(B, p), v = f === 'f' ? 'f' : f === 'b' ? 'b' : 's', mir = f === 'l' ? -1 : 1, P2 = B.phase === 2 ? 1 : 0;
+    const K = SPR.SCALE, originalPose = r3Pose(B), p = B.type==='goblinking'?kayGoblinPose(B,originalPose,def):originalPose, f = r3Face(B, p), v = f === 'f' ? 'f' : f === 'b' ? 'b' : 's', mir = f === 'l' ? -1 : 1, P2 = B.phase === 2 ? 1 : 0;
     if(def.creature) { drawCreatureBoss(B,def,x,yFeet,fl,f);return; }
     if(def.natural) { drawNaturalBoss(B,def,x,yFeet,fl,p,f);return; }
     const S = q => { const r = proj3(f, q); return [x + r[0] * K, yFeet + r[1] * K, r[2]]; }, dp = q => proj3(f, q)[2];
@@ -6337,12 +6507,13 @@
         const d=V3.sub(targetS,center),len=V3.len(d);if(len>reach)targetS=V3.add(center,V3.mul(d,reach/len));
       }
     }
-    const [elS, hS] = ik3(shS, targetS, def.A1, def.A2, R(def.twoHand?[0.2,0.6,1]:[0.7, 0.6, -0.4]));
+    const [elS, hS] = p.kayArms?[V3.add(shS,R(V3.mul(p.kayArms.upperR,def.A1))),targetS]:ik3(shS, targetS, def.A1, def.A2, R(def.twoHand?[0.2,0.6,1]:[0.7, 0.6, -0.4]));
     const offTarget = def.twoHand && !p.freeHand ? V3.add(hS,V3.mul(norm3(R(p.sw)),6)) : V3.add(shO,R(def.twoHand?[p.oh[0],p.oh[1],Math.max(6,p.oh[2])]:p.oh));
-    const [elO, hO] = ik3(shO, offTarget, def.A1, def.A2, R(def.twoHand?[-0.2,0.6,1]:[-0.7, 0.6, -0.4]));
+    const [elO, hO] = p.kayArms?[V3.add(shO,R(V3.mul(p.kayArms.upperL,def.A1))),offTarget]:ik3(shO, offTarget, def.A1, def.A2, R(def.twoHand?[-0.2,0.6,1]:[-0.7, 0.6, -0.4]));
     const hipS = V3.add(hip, rot3([def.hipX, 0, 0], p.yaw * 0.5, 0)), hipO = V3.add(hip, rot3([-def.hipX, 0, 0], p.yaw * 0.5, 0));
     const ftO = [-p.wid, def.ank - p.lf, p.stride / 2 + p.fz + p.sz * 0.4], ftS = [p.wid, def.ank - p.lb, -p.stride / 2 + p.nz + p.sz * 0.4];
-    const [knS, aS] = ik3(hipS, ftS, def.L1, def.L2, [0.15, 0, 1]), [knO, aO] = ik3(hipO, ftO, def.L1, def.L2, [-0.15, 0, 1]);
+    const kayLeg=(hip,side)=>{const knee=V3.add(hip,V3.mul(p.kayLegs['thigh'+side],def.L1));return[knee,V3.add(knee,V3.mul(p.kayLegs['shin'+side],def.L2))];};
+    const [knS, aS] = p.kayLegs?kayLeg(hipS,'R'):ik3(hipS, ftS, def.L1, def.L2, [0.15, 0, 1]), [knO, aO] = p.kayLegs?kayLeg(hipO,'L'):ik3(hipO, ftO, def.L1, def.L2, [-0.15, 0, 1]);
     const items = [], add = (d, fn) => items.push([d, fn]);
     const seg = (part, a, b, L, d) => add(d, () => { const A = S(a), Q = S(b); pd(P_(part, {}, fl), A[0], A[1], Math.atan2(Q[1] - A[1], Q[0] - A[0]), Math.max(0.3, Math.hypot(Q[0] - A[0], Q[1] - A[1]) / ((part===def.upper?(def.upperSpan||L):part===def.fore?(def.foreSpan||L):L) * K)), 1); });
     const spr = (part, P, at, rot, d, sy2 = 1) => add(d, () => { const A = S(at); pd(P_(part, P, fl), A[0], A[1], rot, mir, sy2); });
@@ -6464,7 +6635,7 @@
     const spr = SPR.boss(B.type, { f: Math.floor(globalT * (B.type === 'thunderbird' ? 8 : 4)), act: B.mv && B.mv.t < 0.7 ? 1 : 0, p2: B.phase === 2, look: lk, air: (B.z || 0) > 0.05, flash: hurt, noArm: WR[B.type] ? 1 : 0 });
     for (const d of B.decoys || []) { if (typeof BEAST3 !== 'undefined' && BEAST3.has(B.type)) { ctx.save(); ctx.globalAlpha *= 0.92; BEAST3.draw(ctx, Object.assign({}, B, { x: d.x, y: d.y, sweeps: [], b3: B.b3d || (B.b3d = {}) }), d.x, sy(d.y) + r * 0.7 - hov, false, { t: globalT, hero, cy: sy(d.y) }); ctx.restore(); } else SPR.draw(ctx, spr, d.x, sy(d.y) + r * 0.7 - hov, 0.92); }   // illusions (no shadow)
     if (B.regen) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(120,255,100,${0.18 + 0.12 * Math.sin(globalT * 9)})`; ctx.beginPath(); ctx.arc(x, y, r * 1.5, 0, 7); ctx.fill(); ctx.restore(); }
-    if (typeof BEAST3 !== 'undefined' && BEAST3.has(B.type)) BEAST3.draw(ctx, B, x, by + r * 0.7 - z - hov, hurt, { t: globalT, hero, cy: y, by, fistOut: B.type === 'colossus' && bullets.some(b => b.kind === 'fist') });   // beasts in three views (beasts3.js)
+    if (typeof BEAST3 !== 'undefined' && BEAST3.has(B.type)) BEAST3.draw(ctx, B, x, by + r * 0.7 - z - hov, hurt, { t: globalT, hero, cy: y, by, zones, fistOut: B.type === 'colossus' && bullets.some(b => b.kind === 'fist') });   // beasts in three views (beasts3.js)
     else if (B.type === 'cyclops') drawCyclops(B, x, by + r * 0.7 - z, y, hurt);
     else if (R3[B.type]) drawR3(B, R3[B.type], x, by + r * 0.7 - z - hov, hurt);
     else if (WR[B.type]) drawWeaponBoss(B, WR[B.type], x, by + r * 0.7 - z - hov, y, spr, hurt);
@@ -6595,11 +6766,15 @@
     }
   }
   function drawBullets() {
+    for(const[g,shots]of breathGroups)if(!breathDrawn.has(g))drawEnemyBreath(g,shots,null);
     const f = Math.floor(globalT * 12);
     for (const b of bullets) {
+      if(breathShots.has(b))continue;
       const x = b.x, y = sy(b.y), R = Math.max(2, Math.round(b.r / 1.5));
       if (b.delay && b.t < b.delay) continue;
       const lift = b.z || 0;
+      const screenX=x+(arena?W/2-bcamX:WX),margin=Math.max(160,b.r*2+48);
+      if(screenX < -margin || screenX > W+margin || Math.max(y,y-lift)<-margin || Math.min(y,y-lift)>H+margin)continue;
       pfxBullet(b);
       if (b.kind === 'web') { SPR.draw(ctx, SPR.ENV.web(), x, y - lift); continue; }
       if (b.kind === 'bomb') { ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.fillRect(q(x - 6), q(y + 4), 12, 3); SPR.draw(ctx, SPR.ENV.barrel(true, f), x, y + 8 - lift); continue; }
@@ -6668,7 +6843,8 @@
   }
   function drawFx() {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    for (const p of fx) { ctx.globalAlpha = Math.max(0, p.life / p.max); ctx.fillStyle = p.col; const s = p.r > 2.5 ? 3 : 1.5; ctx.fillRect(q(p.x) - s / 2, q(sy(p.y)) - s / 2, s, s); }
+    const offset=arena?W/2-bcamX:WX;
+    for (const p of fx) { const y=sy(p.y),x=p.x+offset;if(x < -6 || x > W+6 || y < -6 || y > H+6)continue;ctx.globalAlpha = Math.max(0, p.life / p.max); ctx.fillStyle = p.col; const s = p.r > 2.5 ? 3 : 1.5; ctx.fillRect(q(p.x) - s / 2, q(y) - s / 2, s, s); }
     ctx.restore(); ctx.globalAlpha = 1;
     // hit sparks / defeat puffs (pixel animations)
     for (const a of anims) {
@@ -7087,7 +7263,7 @@
   function render() {
     mainCtx.setTransform(dpr * S, 0, 0, dpr * S, 0, 0);
     mainCtx.clearRect(0, 0, W, H);
-    ctx = mainCtx;pfxCalls=0;
+    ctx = mainCtx;pfxCalls=0;prepareEnemyBreaths();
     if (state === 'title') { beginPix(); drawTitleBg(); endPix(); return; }
     if (state === 'town' || (state === 'over' && !D)) {
       const gateLeaving=transition?.gate&&!transition.done;
@@ -7114,6 +7290,7 @@
     drawDrops();
     const list = enemies.filter(e => !e.dead);
     list.sort((a, b) => b.y - a.y);
+    let visibleEnemies=0;for(const e of list){const y=sy(e.y),x=e.x+(arena?W/2-bcamX:WX);if(y>=-70&&y<=H+70&&x>=-128&&x<=W+128&&++visibleEnemies>=6)break;}crowdedEnemyPoses=visibleEnemies>=6;
     for (const e of list) drawEnemy(e);
     if(hardRun&&arena){for(const B of fightBosses().slice().sort((a,b)=>b.y-a.y))withFightBoss(B,()=>{drawBoss();drawSigFx();});}else{if (boss) drawBoss();if (boss) drawSigFx();}
     if (defRun) defDrawNpcs();
@@ -7299,7 +7476,7 @@
   function facilityEnter(room){
     if(!FACILITIES[room]||state!=='town')return;shopTab='item';equipTab='weapon';eqTab='weapon';craftTab='all';bestTab='all';bestScroll=0;
     facilityGo(room,FACILITIES[room].first);
-    if(!tut&&save.settings.facilityHelp?.[room]!==true)facilityShowHelp(room);
+    if(!tut&&!guideActive()&&save.settings.facilityHelp?.[room]!==true)facilityShowHelp(room);
   }
   function facilityShowHelp(room=facilityRoom){
     const config=FACILITIES[room];if(!config)return;
@@ -7395,6 +7572,9 @@
   function goTown() {
     pfxClear();
     const fromArena=!!arenaRun;if(arenaRun)arenaRestore();
+    guideInit();
+    if(state==='title'&&guideActive()&&['combat','fight'].includes(save.guide.stage))guideSet('gate');
+    if(guideActive()&&['combat','fight','result'].includes(save.guide.stage)){guideResult(null);guideSet('smith');}
     tut = null;
     closePanel();hardRun=null;defRun=null;WX=(W-VW)/2; state = 'town'; D = null; arena = null; boss = null; enemies = []; bullets = []; hero = null; paused = false;
     save.hp = null;   // back in town = fully healed
@@ -7533,7 +7713,9 @@
       panelBody.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => {
         const e = EQ[b.dataset.buy]; if (save.gold < e.price) return;
         const before = stats().maxHp;
+        const guideBefore=stats();
         save.gold -= e.price; save.owned.push(e.id); save.eq[e.slot] = e.id;
+        if(guideActive()&&save.guide.stage==='buy'){save.guide.change='こうげき '+guideBefore.atk+' → '+stats().atk+' ／ ぼうぎょ '+guideBefore.def+' → '+stats().def;guideSet('upgraded');}
         if (save.hp != null) save.hp += Math.max(0, stats().maxHp - before);
         persist(); A.sfx('buy'); const sc = panelBody.scrollTop; render2(); panelBody.scrollTop = sc;
       }));
@@ -7737,7 +7919,7 @@
       <div class="optg">技のエフェクト<div class="tabs" id="optFx"><button data-v="1" aria-pressed="${save.settings.pixelfx!==false}">新しい演出</button><button data-v="0" aria-pressed="${save.settings.pixelfx===false}">従来の演出</button></div></div>
       <div class="optg"><button class="btn" id="optSaveTransfer">セーブデータの管理</button></div>
       `,
-      [['もどる', openHouse, true], ['操作の説明',openHelp], ['操作練習をやり直す',()=>{save.tut=0;persist();toast('次に はじまりの洞窟へ入ると操作練習が始まります。','#f2c14e');}], ['データをけす', () => openPanel('ほんとうに けしますか？', '<p>冒険記録と端末内の読み込み前の控えを消し、すべて最初にもどします。</p>', [['けす', () => { localStorage.removeItem(TRANSFER_BACKUP); save = DEF_SAVE(); craftNormalize(); forgeNormalize(); bestNormalize(); guildNormalize(); hardNormalize(); arenaNormalize(); guildRun=null; persist(); goTown(); }], ['やめる', openOptions, true]], 'house')]], 'house');
+      [['もどる', openHouse, true], ['操作の説明',openHelp], ['冒険ガイドをやり直す',()=>{save.guide={stage:'welcome',combatStep:0,bonusUsed:!!save.guide?.bonusUsed};save.tut=0;persist();goTown();}], ['操作練習をやり直す',()=>{save.tut=0;persist();toast('次に はじまりの洞窟へ入ると操作練習が始まります。','#f2c14e');}], ['データをけす', () => openPanel('ほんとうに けしますか？', '<p>冒険記録と端末内の読み込み前の控えを消し、すべて最初にもどします。</p>', [['けす', () => { localStorage.removeItem(TRANSFER_BACKUP); save = DEF_SAVE(); craftNormalize(); forgeNormalize(); bestNormalize(); guildNormalize(); hardNormalize(); arenaNormalize(); guildRun=null; persist(); goTown(); }], ['やめる', openOptions, true]], 'house')]], 'house');
     const apply = () => { save.settings.bgm = +$('optBgm').value; save.settings.sfx = +$('optSfx').value; if (audioOn) FMusic.setVolume(save.settings.bgm, save.settings.sfx); persist(); };
     $('optBgm').addEventListener('input', apply); $('optSfx').addEventListener('input', apply);
     const seg = (id, key, after) => $(id).querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
@@ -8021,7 +8203,7 @@
     requestAnimationFrame(frame);
     const rd = now - lastRaf; lastRaf = now; if (rd > 2 && rd < 100) rafMs += (rd - rafMs) * 0.05;   // the display's own refresh interval
     if (sleeping) { last = now; return; }   // nothing runs while the app is hidden
-    const cap = save.settings.fps ? 1000 / save.settings.fps : 0;   // せってい: refresh rate cap
+    const cap = 1000 / (save.settings.fps || 60);   // Auto targets stable 60Hz; explicit 30/90/120 remain available.
     if (cap) { if (now < nextT - 1) return; nextT = Math.max(nextT + cap, now - cap); }
     const raw = now - last;
     const dt = Math.min(0.05, raw / 1000); last = now;
@@ -8035,15 +8217,106 @@
     }
     pollInput(dt);
     if (!manual) update(dt);
-    render();
+    render(); guideTick();
   }
+  // First-adventure guide. Progress lives in the regular save; no per-frame persistence.
+  let guideBlocksCombat=false,guideUI=null,guideKey='',guideAck='',guideTarget=null,guideClock=0;
+  function guideActive(){return !!save.guide&&save.guide.stage!=='done';}
+  function guideSet(stage){if(!save.guide)save.guide={};save.guide.stage=stage;guideKey='';guideBlocksCombat=false;persist();}
+  function guideInit(){
+    if(!save.guide){save.guide={stage:save.tut||save.lv>1||save.kills>0?'done':'welcome',combatStep:0};persist();}
+  }
+  function guideResult(won){
+    if(!guideActive()||!['combat','fight','result'].includes(save.guide.stage))return;
+    if(save.guide.stage!=='result'){
+      save.guide.won=won;save.guide.bonus=0;
+      const e=guideGear();
+      if(e&&!save.guide.bonusUsed){save.guide.bonus=Math.max(0,e.price-save.gold);save.gold+=save.guide.bonus;save.guide.bonusUsed=true;}
+      save.tut=1;tut=null;guideSet('result');
+    }
+  }
+  function guideGear(){return EQUIP.filter(e=>!e.drop&&e.slot==='weapon'&&e.price>0&&!save.owned.includes(e.id)&&e.atk>stats().atk-8-(save.lv-1)*2).sort((a,b)=>a.price-b.price)[0]||EQUIP.filter(e=>!e.drop&&e.price>0&&!save.owned.includes(e.id)).sort((a,b)=>a.price-b.price)[0];}
+  function guideMount(){
+    if(guideUI)return;
+    const css=document.createElement('style');css.textContent=`
+    #adventureGuide{position:fixed;inset:0;z-index:90;pointer-events:none;font-family:var(--font)}
+    #guideSpot{position:fixed;border:3px solid #f2c14e;box-shadow:0 0 0 200vmax rgba(5,8,20,.55);pointer-events:none;box-sizing:border-box}
+    #guideCard{position:fixed;box-sizing:border-box;background:#13183a;border:2px solid #f3ecda;padding:12px;color:#fff;pointer-events:auto;font-size:14px;line-height:1.65;max-height:72dvh;overflow:auto}
+    #guideCard p{margin:6px 0 10px;white-space:pre-line}#guideCard strong{color:#f2c14e}#guideCard button{border:1px solid #f3ecda;padding:8px 12px;background:#24365a;margin:3px 6px 0 0;min-height:40px}#guideSkip{font-size:11px;color:#c4c9dc}#guideArrow{position:fixed;font-size:26px;color:#ffe391;text-shadow:0 2px 3px #000}#guideTownTap{position:fixed;border:0;background:transparent;pointer-events:auto}`;
+    document.head.appendChild(css);guideUI=document.createElement('div');guideUI.id='adventureGuide';
+    guideUI.innerHTML='<div id="guideSpot"></div><button id="guideTownTap" aria-label="案内されている建物に入る"></button><div id="guideArrow">▼</div><section id="guideCard" aria-label="冒険ガイド"><strong id="guideHeading"></strong><p id="guideText"></p><button id="guideNext"></button><button id="guideSkip">ガイドを終了</button></section>';
+    document.body.appendChild(guideUI);
+    $('guideSkip').onclick=()=>{save.tut=1;tut=null;guideSet('done');guideTick();};
+  }
+  function guideShow(key,title,message,target=null,label='',action=null,modal=false,town=false){
+    guideMount();guideUI.hidden=false;guideTarget=target;
+    if(guideKey!==key){guideKey=key;$('guideHeading').textContent=title;$('guideText').textContent=message;$('guideNext').textContent=label;$('guideNext').hidden=!label;$('guideNext').onclick=action;}
+    const r=typeof target==='string'?document.querySelector(target)?.getBoundingClientRect():target;
+    const spot=$('guideSpot'),arrow=$('guideArrow'),tap=$('guideTownTap'),card=$('guideCard');
+    const vw=innerWidth,vh=innerHeight,cw=Math.min(360,vw-24);
+    card.style.width=cw+'px';card.style.left=(vw-cw)/2+'px';
+    spot.hidden=!r&&!modal;arrow.hidden=!r;tap.hidden=!town||!r;
+    if(r){
+      for(const el of [spot,tap])Object.assign(el.style,{left:(r.left-4)+'px',top:(r.top-4)+'px',width:(r.width+8)+'px',height:(r.height+8)+'px'});
+      arrow.style.left=(r.left+r.width/2-12)+'px';arrow.style.top=Math.max(0,r.top-36)+'px';
+      tap.onclick=town?()=>enterBuilding(curPage().id):null;
+    }else if(modal){Object.assign(spot.style,{left:'50%',top:'50%',width:'0',height:'0'});}
+    const ch=card.offsetHeight;
+    const top=r?(r.top>ch+36?Math.max(12,r.top-ch-40):Math.min(vh-ch-12,r.bottom+18)):Math.max(16,(vh-ch)/2);
+    card.style.top=Math.max(12,Math.min(vh-ch-12,top))+'px';
+  }
+  function guideBuilding(id,title,message){
+    if(panelOpen){guideShow('close-'+id,title,'まず「もどる」か「みせをでる」で街へ戻ろう。','#panelFoot button');return;}
+    if(curPage().id!==id){guideShow('nav-'+id,title,message+'\n右の矢印で建物を切り替えよう。','#navR');return;}
+    const r=townBuildingRect(),c=cv.getBoundingClientRect();
+    guideShow('building-'+id,title,message+'\n光っている建物をタップ！',{left:c.left+(r.x)*S,top:c.top+r.y*S,width:r.w*S,height:r.h*S},'',null,false,true);
+  }
+  function guideTick(){
+    const now=performance.now();if(now<guideClock)return;guideClock=now+100;
+    guideBlocksCombat=false;
+    if(!guideActive()||state==='title'){if(guideUI)guideUI.hidden=true;return;}
+    const g=save.guide,st=g.stage;
+    // Avoid interfering with help, pause, inventory, or the intro transition.
+    if(!$('helpWrap').hidden||trayOpen||transition||(panelOpen&&(state==='play'||state==='boss'))){if(guideUI)guideUI.hidden=true;return;}
+    if(st==='welcome'){guideShow(st,'はじめての冒険','ダンジョンでお金を集めて、勇者を育てよう！\n勝てなくても、装備を整えて再挑戦できます。\nまずは一緒に冒険へ出かけましょう。',null,'冒険をはじめる',()=>guideSet('gate'),true);return;}
+    if(['gate','retry'].includes(st)&&state==='town'){
+      if(facilityRoom==='gate'){
+        if(document.querySelector('[data-go="0"]'))guideShow(st+'choose','行き先をえらぼう','最初は「はじまりの洞窟」へ。光っている「いく」をタップ！','[data-go="0"]');
+        else guideShow(st+'prep','冒険のじゅんび','道具はこのままでも出発できます。\n「しゅっぱつ」をタップしよう。','#panelFoot button');
+      }else guideBuilding('gate',st==='retry'?'強くなった勇者で再挑戦！':'ダンジョンに入ろう','冒険の入口は「ダンジョンの門」です。');
+      return;
+    }
+    if(st==='combat'&&tut&&state==='play'){
+      const step=TUT[tut.i],key='combat-'+tut.i;
+      if(!step)return;
+      if(guideAck!==key){guideBlocksCombat=true;drag.down=false;drag.id=null;
+        const note={move:'画面の空いている場所に指を置き、そのまま動かそう。勇者がその方向へ進みます。',ram:'指を置いた場所から、大きくずらすと突進します。勇者がオレンジに光るのが攻撃の合図です。',hit:'好きな敵を1体倒してみよう！\n突進してぶつかると攻撃できます。どの敵でも、スキルで倒しても進みます。',roll:'指をすばやくはじくと、ころがって回避します。ころがっている間は無敵です。敵の攻撃が来たら逃げよう。',skill:'画面をすばやく2回タップすると、スキル「しょうげきは」を使えます。',item:'右下の「どうぐ」を開いてみよう。\nやくそうでHPを回復できます。',door:'道中の敵を7割倒すと、右上のボスの扉が開きます。\nこの先は自由に戦ってみよう。勝っても負けても、街へ戻ったら装備を整えます。'};
+        guideShow(key,`操作 ${tut.i+1}/${TUT.length}：${step.t}`,note[step.g],null,'やってみる',()=>{guideAck=key;guideKey='';guideBlocksCombat=false;guideUI.hidden=true;},true);
+      }else if(guideUI)guideUI.hidden=true;
+      return;
+    }
+    if(st==='result'&&state==='over'){guideShow(st,'冒険の結果を確認しよう',(g.won?'ボスを倒したね！':'今回はここまで。レベルや経験値は残ります。')+'\n集めたお金で装備を整えて、次の冒険へ！'+(g.bonus?'\n初回の装備購入サポート：＋'+g.bonus+' G':'')+'\n「街へもどる」をタップしよう。','#panelFoot button');return;}
+    if(['smith','buy'].includes(st)&&state==='town'){
+      if(facilityRoom==='smith'){
+        const e=guideGear();if(!e){guideSet('retry');return;}
+        if(st==='smith'){save.guide.gear=e.id;guideSet('buy');}
+        const b=document.querySelector(`[data-buy="${e.id}"]`);
+        if(b){if(guideTarget!==`[data-buy="${e.id}"]`)b.scrollIntoView({block:'center'});guideShow('buy-'+e.id,'お金で装備を強くしよう',`${e.name}を買ってみよう（${e.price} G）。\n購入すると、そのまま装備されます。\n${eqStats(e)}` ,`[data-buy="${e.id}"]`);}
+        else guideShow('shop-tab','装備をえらぼう','まずは武器の一覧を開こう。','[data-tab="weapon"]');
+      }else guideBuilding('smith','装備を整えよう','集めたお金を使う場所は「かじや」です。'+(g.bonus?'\n初回サポートで '+g.bonus+' G を受け取りました。':''));
+      return;
+    }
+    if(st==='upgraded'){guideShow(st,'勇者が強くなった！',(g.change||'新しい装備を身につけました。')+'\nこの装備で、もう一度ダンジョンへ挑戦しよう。',null,'再挑戦へ',()=>{closePanel();townSwipeTo(1);guideSet('retry');},true);return;}
+    if(guideUI)guideUI.hidden=true;
+  }
+
   let manual = false;
   loadSave(); craftNormalize(); forgeNormalize(); bestNormalize(); guildNormalize(); hardNormalize(); arenaNormalize(); resize();
   startAudio(); A.bgm(FARR.title);   // 勇者のテーマ on the title screen
   window.claude?.hot?.snapshot?.(() => arenaRun?arenaRun.home:save);
   requestAnimationFrame(frame);
   // test hooks
-  window.__yusha = { pixelfx:{emit:pfxEmit,clear:pfxClear,get data(){return {effects:Object.keys(pfxData?.effects||{}),decodedBytes:pfxData?.decodedBytes||0,loaded:pfxLoaded,images:pfxImages.length,calls:pfxCalls,events:pfxEvents.length,used:[...pfxUsed]};}},saveTransfer:{validate:transferValidate,open:openSaveTransfer,encode:transferEncode,parse:transferParse,preview:transferPreview,commit:transferCommit,export:transferExportFile,get pending(){return transferPending;}},arenaMode:{ruleVersion:ARENA_RULE,ruleFor:id=>arenaTrialRule(arenaTrial(id)),open:openArena,trial:openArenaTrial,chain:openArenaChain,startTrial:arenaStartTrial,startChain:arenaStartChain,trials:ARENA_TRIALS,classes:ARENA_CLASSES,pool:arenaPool,canChain:arenaCanChain,rewards:ARENA_REWARDS,gear:arenaGear,claim:arenaClaim,normalize:arenaNormalize,supply:arenaSupply,rest:arenaRest,withdraw:arenaWithdraw,finish:arenaFinish,win:arenaBattleWon,next:arenaNextBattle,get run(){return arenaRun;},hudBox:arenaHudBox,hudLines:arenaHudLines,get circle(){return arena;}},enterBuilding,townSwipeTo, hard:{enter:hardEnter,pairs:HARD_PAIRS,normalize:hardNormalize,done:hardDone,unlocked:hardUnlocked,settle:hardSettle,contains:hardContains,confine:hardConfine,allBosses:fightBosses,hit:skillHit,openGate,get run(){return hardRun;},get arena(){return arena;}},facilities:{enter:facilityEnter,help:facilityShowHelp,closeHelp:facilityCloseHelp,stage:uiStageEnemies,get config(){return FACILITIES;},get active(){return{room:facilityRoom,tab:facilityTab};}},smith:{open:openSmith,detail:openSmithItem,confirm:openSmithConfirm,quote:smithQuote,upgrade:smithUpgrade,value:smithValue,keys:smithKeys,boots:smithBootEffects},forge:{open:openForge,confirm:openForgeConfirm,inherit:forgeInherit,check:forgeCheck,fx:forgeFx,normalize:forgeNormalize,grant:forgeGrantCrystals,hasEffect:forgeHasEffect},guild:{open:openGuild,detail:openGuildMission,missions:GUILD,claim:guildClaim,progress:guildProgress,choices:guildChoices,daily:guildDaily,normalize:guildNormalize,value:guildValue,inc:guildInc,clear:guildClear,sample:guildSampleBoss,dodge:guildDodge,ram:guildRam,wall:guildWall,hit:guildHit,heal:guildHeal,tick:guildTick,gear:guildGear,damage:ramDamage,hurt:hurtHero,rollScale:guildRollScale,get run(){return guildRun;}},bestiary:{open:openBestiary,detail:openBestiaryEntry,entries:bestEntries,drops:bestDrops,places:bestPlaces,normalize:bestNormalize,frame:bestFrame,playback:bestPlayback,get preview(){return bestPreview;}},crafting:{materials:craftMats,recipes:craftRecipes,make:craftMake,can:craftCanMake,open:openCraftShop,detail:openCraftRecipe,inventory:openCraftMaterials,exchange:craftExchange,normalize:craftNormalize,has:craftHas,ram:craftOnRam,roll:craftOnRoll,tick:craftTick,potion:craftUsePotion,skill:craftOnSkill,drop:craftDropEnemy,bossDrop:craftDropBoss,hasState:craftState,damage:craftDamageAdjust,gauges:craftGauges,feedback:craftFeedback},startRoll,useSkill,useItem, get tut() { return tut; }, get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
+  window.__yusha = { guide:{tick:()=>{guideClock=0;guideTick();},get active(){return guideActive();},get blocked(){return guideBlocksCombat;}}, pixelfx:{emit:pfxEmit,clear:pfxClear,get data(){return {effects:Object.keys(pfxData?.effects||{}),decodedBytes:pfxData?.decodedBytes||0,loaded:pfxLoaded,images:pfxImages.length,calls:pfxCalls,events:pfxEvents.length,used:[...pfxUsed]};}},saveTransfer:{validate:transferValidate,open:openSaveTransfer,encode:transferEncode,parse:transferParse,preview:transferPreview,commit:transferCommit,export:transferExportFile,get pending(){return transferPending;}},arenaMode:{ruleVersion:ARENA_RULE,ruleFor:id=>arenaTrialRule(arenaTrial(id)),open:openArena,trial:openArenaTrial,chain:openArenaChain,startTrial:arenaStartTrial,startChain:arenaStartChain,trials:ARENA_TRIALS,classes:ARENA_CLASSES,pool:arenaPool,canChain:arenaCanChain,rewards:ARENA_REWARDS,gear:arenaGear,claim:arenaClaim,normalize:arenaNormalize,supply:arenaSupply,rest:arenaRest,withdraw:arenaWithdraw,finish:arenaFinish,win:arenaBattleWon,next:arenaNextBattle,get run(){return arenaRun;},hudBox:arenaHudBox,hudLines:arenaHudLines,get circle(){return arena;}},enterBuilding,townSwipeTo, hard:{enter:hardEnter,pairs:HARD_PAIRS,normalize:hardNormalize,done:hardDone,unlocked:hardUnlocked,settle:hardSettle,contains:hardContains,confine:hardConfine,allBosses:fightBosses,hit:skillHit,openGate,get run(){return hardRun;},get arena(){return arena;}},facilities:{enter:facilityEnter,help:facilityShowHelp,closeHelp:facilityCloseHelp,stage:uiStageEnemies,get config(){return FACILITIES;},get active(){return{room:facilityRoom,tab:facilityTab};}},smith:{open:openSmith,detail:openSmithItem,confirm:openSmithConfirm,quote:smithQuote,upgrade:smithUpgrade,value:smithValue,keys:smithKeys,boots:smithBootEffects},forge:{open:openForge,confirm:openForgeConfirm,inherit:forgeInherit,check:forgeCheck,fx:forgeFx,normalize:forgeNormalize,grant:forgeGrantCrystals,hasEffect:forgeHasEffect},guild:{open:openGuild,detail:openGuildMission,missions:GUILD,claim:guildClaim,progress:guildProgress,choices:guildChoices,daily:guildDaily,normalize:guildNormalize,value:guildValue,inc:guildInc,clear:guildClear,sample:guildSampleBoss,dodge:guildDodge,ram:guildRam,wall:guildWall,hit:guildHit,heal:guildHeal,tick:guildTick,gear:guildGear,damage:ramDamage,hurt:hurtHero,rollScale:guildRollScale,get run(){return guildRun;}},bestiary:{open:openBestiary,detail:openBestiaryEntry,entries:bestEntries,drops:bestDrops,places:bestPlaces,normalize:bestNormalize,frame:bestFrame,playback:bestPlayback,get preview(){return bestPreview;}},crafting:{materials:craftMats,recipes:craftRecipes,make:craftMake,can:craftCanMake,open:openCraftShop,detail:openCraftRecipe,inventory:openCraftMaterials,exchange:craftExchange,normalize:craftNormalize,has:craftHas,ram:craftOnRam,roll:craftOnRoll,tick:craftTick,potion:craftUsePotion,skill:craftOnSkill,drop:craftDropEnemy,bossDrop:craftDropBoss,hasState:craftState,damage:craftDamageAdjust,gauges:craftGauges,feedback:craftFeedback},startRoll,useSkill,useItem, get tut() { return tut; }, get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
     defense: { enter: defEnter, whistle: defWhistle, stages: DEF_STAGES, spawnBoss: defSpawnBoss, get run() { return defRun; }, get arena() { return arena; } },
     enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN, ITEMS, EQUIP }, get bag() { return bag; }, openPrep, charmHit, stats, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, get gate() { return [gateKills, gateNeed]; }, killE: e => killEnemy(e), hitE:hitEnemy, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt, openOptions };
 })();
