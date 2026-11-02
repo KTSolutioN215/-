@@ -2788,16 +2788,16 @@
   }
   function drawTut() {
     const st = TUT[tut.i]; if (!st) return;
-    const bw = Math.min(W - 20, 350), bx = W / 2 - bw / 2, bh = 76, ok = tut.okT > 0, T2 = tut.t;
+    const bw = Math.min(W - 34, 350), bx = Math.max(10, W / 2 - bw / 2 - 8), bh = 76, ok = tut.okT > 0, T2 = tut.t;
     // the card sits between the door counter (top right) and the hero (just below the middle)
-    const by = Math.round(Math.max(H * 0.4, safeTop() + 272));
+    const by = Math.round(safeTop() + 62);   // 指示: 画面の上（ステータスの すぐ下）に。プレイ画面に かぶらない
     ctx.fillStyle = 'rgba(12,10,30,.88)'; roundRect(bx, by, bw, bh, 10); ctx.fill();
     ctx.strokeStyle = ok ? '#6fd38a' : '#f2c14e'; ctx.lineWidth = 2; roundRect(bx, by, bw, bh, 10); ctx.stroke();
     const tx0 = bx + 70 + (bw - 78) / 2;   // text to the right of the little gesture picture
     txt(`チュートリアル ${tut.i + 1}/${TUT.length}　${st.t}`, tx0, by + 19, 12, ok ? '#6fd38a' : '#f2c14e', 'center');
     txt(st.a, tx0, by + 43, 13, '#fff', 'center');
     txt(st.b, tx0, by + 63, 11, '#d8d0e8', 'center');
-    if (ok) { ctx.globalAlpha = Math.min(1, tut.okT * 3); txt('できた！', W / 2, by - 12, 22, '#6fd38a', 'center'); ctx.globalAlpha = 1; }
+    if (ok) { ctx.globalAlpha = Math.min(1, tut.okT * 3); txt('できた！', bx + bw / 2, by + bh + 26, 22, '#6fd38a', 'center'); ctx.globalAlpha = 1; }
     // the gesture, drawn small at the left of the card
     const gx = bx + 38, gy = by + bh / 2;
     const pad = (dx, dy, hot) => { ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(gx, gy, 22, 0, 7); ctx.stroke();
@@ -8240,7 +8240,7 @@
     if(guideUI)return;
     const css=document.createElement('style');css.textContent=`
     #adventureGuide{position:fixed;inset:0;z-index:90;pointer-events:none;font-family:var(--font)}
-    #guideSpot{position:fixed;border:3px solid #f2c14e;box-shadow:0 0 0 200vmax rgba(5,8,20,.55);pointer-events:none;box-sizing:border-box}
+    #guideSpot{position:fixed;border:3px solid #f2c14e;box-shadow:0 0 12px rgba(242,193,78,.8);pointer-events:none;box-sizing:border-box}
     #guideCard{position:fixed;box-sizing:border-box;background:#13183a;border:2px solid #f3ecda;padding:12px;color:#fff;pointer-events:auto;font-size:14px;line-height:1.65;max-height:72dvh;overflow:auto}
     #guideCard p{margin:6px 0 10px;white-space:pre-line}#guideCard strong{color:#f2c14e}#guideCard button{border:1px solid #f3ecda;padding:8px 12px;background:#24365a;margin:3px 6px 0 0;min-height:40px}#guideSkip{font-size:11px;color:#c4c9dc}#guideArrow{position:fixed;font-size:26px;color:#ffe391;text-shadow:0 2px 3px #000}#guideTownTap{position:fixed;border:0;background:transparent;pointer-events:auto}`;
     document.head.appendChild(css);guideUI=document.createElement('div');guideUI.id='adventureGuide';
@@ -8261,9 +8261,8 @@
       arrow.style.left=(r.left+r.width/2-12)+'px';arrow.style.top=Math.max(0,r.top-36)+'px';
       tap.onclick=town?()=>enterBuilding(curPage().id):null;
     }else if(modal){Object.assign(spot.style,{left:'50%',top:'50%',width:'0',height:'0'});}
-    const ch=card.offsetHeight;
-    const top=r?(r.top>ch+36?Math.max(12,r.top-ch-40):Math.min(vh-ch-12,r.bottom+18)):Math.max(16,(vh-ch)/2);
-    card.style.top=Math.max(12,Math.min(vh-ch-12,top))+'px';
+    // 指示: 案内は 画面の上に（ステータスの すぐ下）。プレイ画面を かくさない
+    const c0=cv.getBoundingClientRect();card.style.top=Math.round(c0.top+(safeTop()+62)*S)+'px';card.style.maxHeight='34dvh';
   }
   function guideBuilding(id,title,message){
     if(panelOpen){guideShow('close-'+id,title,'まず「もどる」か「みせをでる」で街へ戻ろう。','#panelFoot button');return;}
@@ -8286,15 +8285,7 @@
       }else guideBuilding('gate',st==='retry'?'強くなった勇者で再挑戦！':'ダンジョンに入ろう','冒険の入口は「ダンジョンの門」です。');
       return;
     }
-    if(st==='combat'&&tut&&state==='play'){
-      const step=TUT[tut.i],key='combat-'+tut.i;
-      if(!step)return;
-      if(guideAck!==key){guideBlocksCombat=true;drag.down=false;drag.id=null;
-        const note={move:'画面の空いている場所に指を置き、そのまま動かそう。勇者がその方向へ進みます。',ram:'指を置いた場所から、大きくずらすと突進します。勇者がオレンジに光るのが攻撃の合図です。',hit:'好きな敵を1体倒してみよう！\n突進してぶつかると攻撃できます。どの敵でも、スキルで倒しても進みます。',roll:'指をすばやくはじくと、ころがって回避します。ころがっている間は無敵です。敵の攻撃が来たら逃げよう。',skill:'画面をすばやく2回タップすると、スキル「しょうげきは」を使えます。',item:'右下の「どうぐ」を開いてみよう。\nやくそうでHPを回復できます。',door:'道中の敵を7割倒すと、右上のボスの扉が開きます。\nこの先は自由に戦ってみよう。勝っても負けても、街へ戻ったら装備を整えます。'};
-        guideShow(key,`操作 ${tut.i+1}/${TUT.length}：${step.t}`,note[step.g],null,'やってみる',()=>{guideAck=key;guideKey='';guideBlocksCombat=false;guideUI.hidden=true;},true);
-      }else if(guideUI)guideUI.hidden=true;
-      return;
-    }
+    if(st==='combat'&&(state==='play'||state==='boss')){if(guideUI)guideUI.hidden=true;return;}   // 指示: バトルの案内は 既存の チュートリアルだけ
     if(st==='result'&&state==='over'){guideShow(st,'冒険の結果を確認しよう',(g.won?'ボスを倒したね！':'今回はここまで。レベルや経験値は残ります。')+'\n集めたお金で装備を整えて、次の冒険へ！'+(g.bonus?'\n初回の装備購入サポート：＋'+g.bonus+' G':'')+'\n「街へもどる」をタップしよう。','#panelFoot button');return;}
     if(['smith','buy'].includes(st)&&state==='town'){
       if(facilityRoom==='smith'){
