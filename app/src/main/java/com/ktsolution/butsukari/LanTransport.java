@@ -88,13 +88,13 @@ public final class LanTransport implements Closeable {
         new Thread(new Runnable() { // from class: com.ktsolution.butsukari.LanTransport$$ExternalSyntheticLambda0
             @Override // java.lang.Runnable
             public final void run() {
-                LanTransport.this.m0lambda$0$comktsolutionbutsukariLanTransport(i, serverSocket);
+                LanTransport.this.m9lambda$0$comktsolutionbutsukariLanTransport(i, serverSocket);
             }
         }, "lan-accept").start();
     }
 
     /* renamed from: lambda$0$com-ktsolution-butsukari-LanTransport, reason: not valid java name */
-    /* synthetic */ void m0lambda$0$comktsolutionbutsukariLanTransport(final int i, ServerSocket serverSocket) {
+    /* synthetic */ void m9lambda$0$comktsolutionbutsukariLanTransport(final int i, ServerSocket serverSocket) {
         while (!this.closed && this.generation == i) {
             try {
                 final Socket accept = serverSocket.accept();
@@ -104,7 +104,7 @@ public final class LanTransport implements Closeable {
                     new Thread(new Runnable() { // from class: com.ktsolution.butsukari.LanTransport$$ExternalSyntheticLambda2
                         @Override // java.lang.Runnable
                         public final void run() {
-                            LanTransport.this.m1lambda$1$comktsolutionbutsukariLanTransport(accept, i);
+                            LanTransport.this.m10lambda$1$comktsolutionbutsukariLanTransport(accept, i);
                         }
                     }, "lan-auth").start();
                 }
@@ -120,7 +120,7 @@ public final class LanTransport implements Closeable {
     }
 
     /* renamed from: lambda$1$com-ktsolution-butsukari-LanTransport, reason: not valid java name */
-    /* synthetic */ void m1lambda$1$comktsolutionbutsukariLanTransport(Socket socket, int i) {
+    /* synthetic */ void m10lambda$1$comktsolutionbutsukariLanTransport(Socket socket, int i) {
         try {
             accept(socket, i);
         } finally {
@@ -166,13 +166,13 @@ public final class LanTransport implements Closeable {
         new Thread(new Runnable() { // from class: com.ktsolution.butsukari.LanTransport$$ExternalSyntheticLambda1
             @Override // java.lang.Runnable
             public final void run() {
-                LanTransport.this.m2lambda$2$comktsolutionbutsukariLanTransport(str, i, str2, i2);
+                LanTransport.this.m11lambda$2$comktsolutionbutsukariLanTransport(str, i, str2, i2);
             }
         }, "lan-connect").start();
     }
 
     /* renamed from: lambda$2$com-ktsolution-butsukari-LanTransport, reason: not valid java name */
-    /* synthetic */ void m2lambda$2$comktsolutionbutsukariLanTransport(String str, int i, String str2, int i2) {
+    /* synthetic */ void m11lambda$2$comktsolutionbutsukariLanTransport(String str, int i, String str2, int i2) {
         Socket socket = new Socket();
         try {
             InetAddress byName = InetAddress.getByName(str);
@@ -269,7 +269,7 @@ public final class LanTransport implements Closeable {
         }
 
         /* renamed from: lambda$0$com-ktsolution-butsukari-LanTransport$Peer, reason: not valid java name */
-        /* synthetic */ void m3lambda$0$comktsolutionbutsukariLanTransport$Peer() {
+        /* synthetic */ void m12lambda$0$comktsolutionbutsukariLanTransport$Peer() {
             while (!this.done && LanTransport.this.generation == this.gen) {
                 try {
                     int readInt = this.in.readInt();
@@ -292,19 +292,19 @@ public final class LanTransport implements Closeable {
             new Thread(new Runnable() { // from class: com.ktsolution.butsukari.LanTransport$Peer$$ExternalSyntheticLambda0
                 @Override // java.lang.Runnable
                 public final void run() {
-                    LanTransport.Peer.this.m3lambda$0$comktsolutionbutsukariLanTransport$Peer();
+                    LanTransport.Peer.this.m12lambda$0$comktsolutionbutsukariLanTransport$Peer();
                 }
             }, "lan-read-" + this.id).start();
             new Thread(new Runnable() { // from class: com.ktsolution.butsukari.LanTransport$Peer$$ExternalSyntheticLambda1
                 @Override // java.lang.Runnable
                 public final void run() {
-                    LanTransport.Peer.this.m4lambda$1$comktsolutionbutsukariLanTransport$Peer();
+                    LanTransport.Peer.this.m13lambda$1$comktsolutionbutsukariLanTransport$Peer();
                 }
             }, "lan-write-" + this.id).start();
         }
 
         /* renamed from: lambda$1$com-ktsolution-butsukari-LanTransport$Peer, reason: not valid java name */
-        /* synthetic */ void m4lambda$1$comktsolutionbutsukariLanTransport$Peer() {
+        /* synthetic */ void m13lambda$1$comktsolutionbutsukariLanTransport$Peer() {
             while (!this.done && LanTransport.this.generation == this.gen) {
                 try {
                     byte[] poll = this.queue.poll(1L, TimeUnit.SECONDS);
