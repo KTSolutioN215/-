@@ -911,7 +911,7 @@
   // The viewer owns facing even while the isolated model is stationary.
   // Combat motion views may retain their last movement/attack direction.
   function bestEnemyView(e,view){
-    return {...view,face:face4(e.face),kayAngle:e.face,infantryAngle:e.face,goblinAngle:e.face,wolfAngle:e.face,wyvernAngle:e.face,groundAngle:e.face};
+    return {...view,face:face4(e.face),kayAngle:e.face,infantryAngle:e.face,goblinAngle:e.face,wolfAngle:e.face,wyvernAngle:e.face,groundAngle:e.face,supportAngle:e.face,birdAngle:e.face};
   }
   function bestDrawModel(e,model,time,face='f'){
     // Reuse the real game renderer with isolated draw objects. Never run combat AI.
@@ -1164,13 +1164,13 @@
     const e=EQ[id];if(!e||!save.owned.includes(id)||!smithKeys(e).includes(k))return null;
     const v=smithValue(e,k);if(v>=SMITH_CAP)return {current:v,next:v,cap:true,gold:0,mats:{}};
     const rank=k==='ram'?Math.max(0,v-100):v;
-    const mats={[{weapon:'m11',armor:'m15',boots:'m02',charm:'m18'}[e.slot]]:1+Math.ceil(rank*rank/10000)};
+    const mats={[{weapon:'m11',armor:'m15',boots:'m02',charm:'m18'}[e.slot]]:Math.max(3,1+Math.ceil(rank*rank/10000))};
     if(rank>=150)mats.m18=(mats.m18||0)+Math.ceil((rank-100)/30);
     if(rank>=300)mats.s07=Math.ceil((rank-250)/80);
     if(rank>=600)mats.core20=1+Math.floor((rank-600)/100);
     if(rank>=850)mats.core30=Math.ceil((rank-800)/100);
     if(k==='ram'){for(const m of Object.keys(mats))mats[m]*=3;if(rank>=100)mats.s06=1+Math.floor(rank/200);if(rank>=300)mats.core08=Math.ceil(rank/200);if(rank>=600)mats.core19=Math.ceil((rank-500)/200);}
-    return{current:v,next:Math.min(SMITH_CAP,v+SMITH_STEP),cap:false,gold:20+Math.ceil(rank*rank/100)+Math.ceil(rank**3/100),mats};
+    return{current:v,next:Math.min(SMITH_CAP,v+SMITH_STEP),cap:false,gold:Math.max(100+4*rank,20+Math.ceil(rank*rank/100)+Math.ceil(rank**3/100)),mats};
   }
   function smithUpgrade(id,k,expected){
     if(state!=='town'||arenaRun)return false;const q=smithQuote(id,k);if(!q||q.cap||q.current!==expected||save.gold<q.gold||Object.entries(q.mats).some(([m,n])=>(save.materials[m]||0)<n))return false;
@@ -1721,7 +1721,7 @@
       if (s && s.tut == null && (save.lv > 1 || (save.cleared || []).some(Boolean))) { save.tut = 1; save.tutTown = 1; }
     } catch (e) { /* storage blocked: play without saving */ }
   }
-  function persist() { bestSyncOwned();try { localStorage.setItem('bumphero_save', JSON.stringify(arenaRun?arenaRun.home:save)); } catch (e) { } }
+  function persist() { if(lan){lanStash();if(lanHost())lanStore(lanMe());return;}bestSyncOwned();try { localStorage.setItem('bumphero_save', JSON.stringify(arenaRun?arenaRun.home:save)); } catch (e) { } }
 
   function stats() {
     const L = save.lv;
@@ -1923,7 +1923,7 @@
     if (e.ai === 'guard') e.guard = true;
     e.dashSpd = b.dash || 360; e.windT = b.wind || 0.45;
     if(hardRun?.maze&&state!=='boss')hardSnap(e);
-    enemies.push(e);
+    lanScale(e);enemies.push(e);
     return e;
   }
 
@@ -1937,6 +1937,7 @@
   function heroSpeed() { return hyp(hero.vx, hero.vy); }
 
   function gainExp(n) {
+    if(lanHost()&&lanFight()&&!lanExpDepth)return lanGainExp(n);
     if(arenaRun)return;
     if(hardRun)n=Math.round(n*HARD_BONUS);
     if (hero && hero.s.fx.exp) n = Math.round(n * (1 + hero.s.fx.exp));
@@ -1954,7 +1955,7 @@
       burst(hero.x, hero.y, 26, '#f2c14e', 260);
     }
   }
-  function gainGold(n) { if(arenaRun)return;if(hardRun)n=Math.round(n*HARD_BONUS);bestObtain('gold');if (hero && hero.s.fx.gold) n = Math.round(n * (1 + hero.s.fx.gold)); runGold += n; save.gold += n; }
+  function gainGold(n) { if(lanHost()&&lanFight()){n=Math.round(n*(1+(hero?.s.fx.gold||0)));runGold+=n;lan.pool+=n;return;}if(arenaRun)return;if(hardRun)n=Math.round(n*HARD_BONUS);bestObtain('gold');if (hero && hero.s.fx.gold) n = Math.round(n * (1 + hero.s.fx.gold)); runGold += n; save.gold += n; }
 
   const hurtLog = {};
   // put the hero to sleep / turn them to stone for a moment (no control); a short immunity follows so it can't chain
@@ -2018,6 +2019,7 @@
   const ITEM_CD = 6;   // seconds before the next item can be used (shared by every item)
   // use an item. no id = pick a sensible heal automatically (also used by the test bot)
   function useItem(id) {
+    if(lanInput('item',id))return true;
     if (!hero || hero.hp <= 0) return false;
     const it = bag, miss = hero.s.maxHp - hero.hp;
     if (!id) {
@@ -2174,6 +2176,7 @@
     const u=clamp(e.t/(thrust?.3:e.ai==='assassin'?.18:.2),0,.99);
     ctx.save();ctx.beginPath();ctx.moveTo(x,y);ctx.arc(x,y,len,-e.face-span,-e.face+span);ctx.closePath();ctx.clip();
     if(KAY_INFANTRY.has(e.type)&&sprite?.kayRig){const m=sprite.kayRig,a=m.grip,b=m.tip,k=SPR.SCALE,hx=x+(a[0]-sprite.ax)*k,hy=y+e.r*.75+(a[1]-sprite.ay)*k;if(e.kayInfantryVisual)e.kayInfantryVisual.effectOrigin={x:hx,y:hy};pfxSprite(id,hx,hy,u*.5,thrust?hyp(b[0]-a[0],b[1]-a[1])*k*196/66:len*136/42,thrust?Math.atan2(b[1]-a[1],b[0]-a[0]):-m.angle,.8,1,true);}
+    else if(e.type==='dwarf'&&sprite?.supportRig){const m=sprite.supportRig,k=SPR.SCALE,hx=x+(m.tip[0]-sprite.ax)*k,hy=y+e.r*.75+(m.tip[1]-sprite.ay)*k;if(e.supportVisual)e.supportVisual.effectOrigin={x:hx,y:hy};pfxSprite(id,hx,hy,u*.5,80,-m.angle,.8,1,true);}
     else if(e.type==='knight'&&sprite?.kayRig){const a=sprite.kayRig.grip,b=sprite.kayRig.tip,k=SPR.SCALE,hx=x+(a[0]-sprite.ax)*k,hy=y+e.r*.75+(a[1]-sprite.ay)*k,L=hyp(b[0]-a[0],b[1]-a[1])*k;if(e.kayKnightVisual)e.kayKnightVisual.effectOrigin={x:hx,y:hy};pfxSprite(id,hx,hy,u*.5,L*196/66,Math.atan2(b[1]-a[1],b[0]-a[0]),.8,1,true);}
     else if(['goblin','hobgoblin'].includes(e.type)&&sprite?.goblinRig){const m=sprite.goblinRig,k=SPR.SCALE,hx=x+(m.grip[0]-sprite.ax)*k,hy=y+e.r*.75+(m.grip[1]-sprite.ay)*k,L=hyp(m.tip[0]-m.grip[0],m.tip[1]-m.grip[1])*k;if(e.kayGoblinVisual)e.kayGoblinVisual.effectOrigin={x:hx,y:hy};pfxSprite(id,hx,hy,u*.5,L*196/66,-m.angle,.8,1,true);}
     else if(['wolf','snowwolf','hellhound'].includes(e.type)&&sprite?.wolfRig){const a=sprite.wolfRig.mouth,k=SPR.SCALE,hx=x+(a[0]-sprite.ax)*k,hy=y+e.r*.75+(a[1]-sprite.ay)*k,ang=-sprite.wolfRig.angle;if(e.kayWolfVisual)e.kayWolfVisual.effectOrigin={x:hx,y:hy};pfxSprite(id,hx,hy,u*.5,14*196/66,ang,.7,1,true);}
@@ -2303,7 +2306,7 @@
     bestObtain('gear:'+e.id);
     const R = RARITY[e.drop];
     if (save.owned.includes(e.id)) {
-      const g = hardRun?Math.round((e.val||10)*HARD_BONUS):e.val||10; save.gold += g; runGold += g;   // not counted twice by the gold bonus
+      const g = hardRun?Math.round((e.val||10)*HARD_BONUS):e.val||10; if(lanHost()&&['fight','settling'].includes(lan.phase))lan.pool+=g;else save.gold += g; runGold += g;   // not counted twice by the gold bonus
       toast(`${e.name}（もっている）→ +${g} G`, '#f2c14e');
       A.sfx('coin', 6);
     } else {
@@ -2326,6 +2329,7 @@
   //  START / END RUNS
   // ---------------------------------------------------------------
   function enterDungeon(di,hard=false) {
+    if(lan&&lan.phase!=='starting')return;
     pfxClear();defRun=null;
     if(arenaRun)arenaRestore();
     if(!hard)hardRun=null;
@@ -2834,7 +2838,7 @@
     boss = { type: D.boss, name: B.name, x: arena.cx, y: arena.cy + 20, vx: 0, vy: 0, r: Math.round(B.r * 1.4), hp: B.hp, maxHp: B.hp, atk: B.atk, def: B.def, col: B.col, wcol: B.wcol, fcol: B.fcol, ocol: B.ocol,
       exp: Math.round(D.xp * 0.3), gold: Math.round(D.gp * 0.25), moves: B.moves, moves2: B.moves2, phase: 1, mv: null, mt: 0, cd: 2.2, last: '', hurt: 0, hitCD: 0, z: 0,
       sweeps: [], intro: 2.6, face: -Math.PI / 2, dead: 0, rage: B.rage, waveT: 9, hx: arena.cx, hy: arena.cy + 20, homeT: 0, alpha: 1 };
-    if (RIG[boss.type]) rigInit(boss);
+    lanScale(boss);if (RIG[boss.type]) rigInit(boss);
     if (boss.type === 'archmage') { boss.r0 = boss.r; boss.r1 = Math.round(boss.r * 0.68); boss.r = boss.r1; boss.sizeK = 0.68; boss.grow = -1; }   // small at first; grows when it reaches half HP
     banner = { a: `${B.name} が あらわれた！`, b: 'BOSS BATTLE', t: 2.6, boss: true };
     guildBossStart(boss);bestEncounter('boss:'+D.boss);persist();
@@ -2843,6 +2847,7 @@
   }
 
   function heroDown() {
+    if(lanFight()){A.sfx('down');if(!lanAlive().length)deathT=1.3;return;}
     if (state === 'over') return;
     slowMo = 1.2; A.sfx('down');
     if (audioOn) FMusic.fadeOut(1.2);
@@ -2850,6 +2855,7 @@
   }
   let deathT = 0;
   function showDefeat() {
+    if(lanFight())return lanSettle(false);
     if(arenaRun){arenaFinish(false);return;}
     guildSampleBoss();
     {
@@ -2880,6 +2886,7 @@
     for (const e of enemies) e.dead = true;
   }
   function showClear() {
+    if(lanFight())return lanSettle(true);
     if(arenaRun)return arenaBattleWon();
     if(hardRun)return hardSettle();
     const B = boss;
@@ -2908,6 +2915,7 @@
   }
 
   function retreat() {
+    if(lan)return lanHost()?lanAbort('ホストが撤退しました'):lanRequest({type:'leave'});
     guildRetreat();
     save.hp = null; persist();
     goTown();
@@ -2951,6 +2959,7 @@
     skillHit(t, h.s.fx.thorns, h.x, h.y, 200, '#ffb070'); burst(t.x, t.y, 8, '#ffb070', 160, 0.35);
   }
   function startRoll(dx, dy) {
+    if(lanInput('roll',null,dx,dy))return true;
     const h = hero; if (!h || h.hp <= 0 || h.stun > 0 || (h.rollCD || 0) > 0 || paused || (state !== 'play' && state !== 'boss')) return false;
     const flip = h.pw && h.pw.kind === 'mirror' ? -1 : 1;
     if(craftState().coffin>0)return false;
@@ -3150,7 +3159,7 @@
     for (const e of enemies) {
       if(arenaRun?.settled)break;
       if (e.dead) continue;
-      if (defRun) { h = defAim(e); defAimT = h; } else { h = h0; defAimT = null; }
+      if(lanFight()){lanAim(e);h=hero;defAimT=null;}else if (defRun) { h = defAim(e); defAimT = h; } else { h = h0; defAimT = null; }
       if(e.type==='pinkdiamondslime'){
         if(e.crystalPending){e.crystalRetry=(e.crystalRetry||0)-dt;if(e.crystalRetry<=0){e.crystalRetry=1;killEnemy(e);}continue;}
         if(e.hp<e.maxHp)e.active=true;
@@ -3246,7 +3255,7 @@
         case 'swing':
           if (e.st === 'wind') { want = 0; if (e.t > 0.5) { e.st = 'slash'; e.t = 0; if (e.mod.leap) { e.vx += Math.cos(e.face) * 240; e.vy += Math.sin(e.face) * 240; } } }   // mantis hops into each cut
           else if (e.st === 'slash') {
-            if (e.t < 0.2) { const ang = Math.atan2(dy, dx), da = Math.abs(((ang - e.face + Math.PI * 3) % (Math.PI * 2)) - Math.PI); if (d < (e.mod.reach || 72) + h.r && da < 1.25) hurtHero(e.atk, e.x, e.y, 360, 'slash'); }
+            if (e.t < 0.2)lanEach(h=>{const dx1=h.x-e.x,dy1=h.y-e.y,dist=hyp(dx1,dy1)||1,ang=Math.atan2(dy1,dx1),da=Math.abs(((ang-e.face+Math.PI*3)%(Math.PI*2))-Math.PI);if(dist<(e.mod.reach||72)+h.r&&da<1.25)hurtHero(e.atk,e.x,e.y,360,'slash');});
             else if ((e.mod.double || e.mod.holy) && !e.again) { e.again = 1; e.st = 'wind'; e.t = 0.28; e.face = Math.atan2(dy, dx); }
             else {
               if (e.mod.quake) { rings.push({ x: e.x + Math.cos(e.face) * 30, y: e.y + Math.sin(e.face) * 30, r: 10, max: 85, spd: 260, dmg: Math.round(e.atk * 0.6), w: 10 }); shake = Math.max(shake, 6); A.sfx('quake'); }   // dwarf: the hammer shakes the floor
@@ -3376,7 +3385,7 @@
       }
       if (!['guard', 'swing', 'breath', 'shooter', 'web', 'roll', 'assassin', 'gaze'].includes(e.ai)) { if (sp > 20) e.face = Math.atan2(e.vy, e.vx); }
       // hero contact
-      h = h0; defAimT = null;
+      h = lanFight()?hero:h0; defAimT = null;
       if ((e.ai === 'phase' && e.alpha < 0.5) || e.sub) continue;
       const res = collide(e, e.mass);
       if (res && h.pw && h.pw.kind === 'giant') { res.kind = 'ram'; res.imp = Math.max(res.imp, PAD_MAX * h.s.ram); }   // きょだいか: everything you touch gets rammed
@@ -3453,6 +3462,7 @@
   function updateBullets(dt) {
     if (freezeT > 0) freezeT -= dt;
     for (const b of bullets) {
+      if(lanFight())lanAim(b);
       if (freezeT > 0 && !b.noFreeze) continue;   // time stop: shots hang in the air
       b.t += dt; b.life -= dt;
       if (b.delay && b.t < b.delay) continue;   // lined up, waiting for the telegraph to finish
@@ -3469,7 +3479,7 @@
       if (b.orbit) {          // circles a fixed point on a widening radius
         const o = b.orbit; o.a += o.w * dt; o.r += o.dr * dt;
         b.x = o.cx + Math.cos(o.a) * o.r; b.y = o.cy + Math.sin(o.a) * o.r;
-        if (hyp(b.x - hero.x, b.y - hero.y) < b.r + hero.r * 0.6 && hero.inv <= 0) hurtHero(b.dmg, b.x, b.y, 260, 'shot:' + b.kind);
+        lanEach(()=>{if (hyp(b.x - hero.x, b.y - hero.y) < b.r + hero.r * 0.6 && hero.inv <= 0) hurtHero(b.dmg, b.x, b.y, 260, 'shot:' + b.kind);});
         if (o.r > arena.R) b.life = 0;
         continue;
       }
@@ -3497,12 +3507,13 @@
         } else if (ad > arena.R + 30 && b.ret == null) { if (b.kind === 'big') explodeBig(b); b.life = 0; }
       }
       else if (b.ret == null) { const tn = tunnelAt(b.y); if (hardRun?.maze?!hardContains(b.x,b.y,Math.min(b.r||0,8)):Math.abs(b.x - tn.cx) > tn.w / 2 + 4) { b.life = 0; burst(b.x, b.y, 4, '#ccc', 60, 0.3); } }
-      if (!b.harmless && hyp(b.x - hero.x, b.y - hero.y) < b.r + hero.r * 0.6 && hero.inv <= 0) {
+      lanEach(()=>{if ((!lanFight()||b.life>0) && !b.harmless && hyp(b.x - hero.x, b.y - hero.y) < b.r + hero.r * 0.6 && hero.inv <= 0) {
         if (b.slow) hero.slow = Math.max(hero.slow, b.slow);
         if (b.stun) { b.hitHero = true; stunHero(b.stun, b.stunKind || 'sleep'); }
         if (b.kind === 'web') { hero.slow = 1.8; popText(hero.x, hero.y + 30, 'クモの糸！', '#dfe8ff', 13, 0.9); }
         hurtHero(b.dmg, b.x - b.vx * 0.05, b.y - b.vy * 0.05, b.pierce ? 420 : 220, 'shot:' + b.kind); if (!b.pierce) b.life = 0;
       }
+      });
       if (defRun && !b.harmless && b.life > 0) defBulletHit(b);
     }
     const dying = bullets.filter(b => b.life <= 0 && b.onDie);
@@ -3510,8 +3521,8 @@
     for (const b of dying) { const f = b.onDie; b.onDie = null; f(b); }
     for (const r of rings) {
       r.r += r.spd * dt;
-      const d = hyp(hero.x - r.x, hero.y - r.y);
-      if (!r.fx && !r.hit && Math.abs(d - r.r) < r.w + hero.r * 0.5) { r.hit = true; hurtHero(r.dmg, r.x, r.y, 380, 'ring'); }
+      lanEach(()=>{const d = hyp(hero.x - r.x, hero.y - r.y),key=lanFight()?lanContext?.id:'solo';
+      if (!r.fx && !(lanFight()?r.lanHits?.[key]:r.hit) && Math.abs(d - r.r) < r.w + hero.r * 0.5) { if(lanFight())(r.lanHits||={})[key]=true;else r.hit = true; hurtHero(r.dmg, r.x, r.y, 380, 'ring'); }});
     }
     rings = rings.filter(r => r.r < r.max);
   }
@@ -3532,7 +3543,7 @@
   function explodeBarrel(p) {
     p.gone = true; const R = 85;
     for (const e of enemies) if (!e.dead && hyp(e.x - p.x, e.y - p.y) < R + e.r) hazardHit(e, hero.s.atk * 2.5 - e.def * 0.5, p.x, p.y, 420);
-    if (hero.hp > 0 && hyp(hero.x - p.x, hero.y - p.y) < R + hero.r * 0.5) hurtHero(trapDmg('barrel'), p.x, p.y, 520, 'barrel');
+    lanEach(()=>{if (hero.hp > 0 && hyp(hero.x - p.x, hero.y - p.y) < R + hero.r * 0.5) hurtHero(trapDmg('barrel'), p.x, p.y, 520, 'barrel');});
     for (const o of props) if (o.type === 'barrel' && !o.gone && hyp(o.x - p.x, o.y - p.y) < R + 10) o.fuse = o.fuse > 0 ? Math.min(o.fuse, 0.15) : 0.15;
     burst(p.x, p.y, 46, '#ff9a3a', 380, 0.7); burst(p.x, p.y, 20, '#ffe080', 240, 0.5);
     anims.push({ kind: 'poof', x: p.x, y: p.y, t: 0, dur: 0.4, frames: 5 });
@@ -3756,7 +3767,7 @@
       spring(an, 'open', mn === 'burrow' && mv.ph === 'erupt' ? 3 : mn === 'sandspit' && mv.t > 0.4 && mv.t < 1.2 ? 2.4 : mn === 'slither' ? 1.5 : 0.4 + Math.max(0, Math.sin(t * 2)) * 0.6, dt);
       spring(an, 'rear', mn === 'slither' && mv.ph === 'aim' ? 1 : mn === 'sandspit' && mv.t < 0.6 ? 1 : 0, dt, 120, 12);
       spring(an, 'pop', 0, dt, 90, 9);
-      if (B.hot) for (const s of B.segs) if (hyp(hero.x - s.x, hero.y - s.y) < 24 + hero.r * 0.6) hurtHero(B.atk * 0.8, s.x, s.y, 380, 'body');
+      if (B.hot)lanEach(()=>{for (const s of B.segs) if (hyp(hero.x - s.x, hero.y - s.y) < 24 + hero.r * 0.6) hurtHero(B.atk * 0.8, s.x, s.y, 380, 'body');});
     } else if (B.type === 'skywhale') {
       if (!mv || !['inhale', 'breach', 'swimby', 'tailslam'].includes(mn)) {   // idle: cruise round the room
         B.orb = (B.orb || 0) + dt * 0.45 * (B.orbDir || 1); const R0 = 170 + Math.sin(t * 0.7) * 40;
@@ -3767,7 +3778,7 @@
       spring(an, 'open', mn === 'inhale' ? 3 : mn === 'starsong' ? 1.4 : 0, dt);
       spring(an, 'flap', Math.sin(t * (mn === 'swimby' ? 9 : 3.2)), dt, 200, 18);
       spring(an, 'tail', 0, dt, 70, 8);
-      if (B.hot) for (const s of B.segs.slice(0, 3)) if (hyp(hero.x - s.x, hero.y - s.y) < 34 + hero.r * 0.6) hurtHero(B.atk * 0.8, s.x, s.y, 420, 'body');
+      if (B.hot)lanEach(()=>{for (const s of B.segs.slice(0, 3)) if (hyp(hero.x - s.x, hero.y - s.y) < 34 + hero.r * 0.6) hurtHero(B.atk * 0.8, s.x, s.y, 420, 'body');});
     } else if (B.type === 'gigacrab') {
       const moving = hyp(B.x - (an.px ?? B.x), B.y - (an.py ?? B.y)) / Math.max(dt, 1e-3); an.px = B.x; an.py = B.y;
       an.walk = (an.walk || 0) + dt * (2 + Math.min(moving, 400) * 0.06);
@@ -3971,7 +3982,7 @@
         mv.pt += dt; const H = B.hands[mv.h]; H.fixed = true;
         if (mv.ph === 'chase') {
           const a = Math.atan2(hero.y - H.y, hero.x - H.x), s2 = (p2 ? 270 : 230) * dt; H.tx = H.x + Math.cos(a) * s2 * 6; H.ty = H.y + Math.sin(a) * s2 * 6; H.tz = 0.25; H.pose = 'open'; H.fast = false;
-          if (hyp(hero.x - H.x, hero.y - H.y) < 34 && hero.hp > 0 && !(hero.pw && hero.pw.kind === 'giant') && hero.stunImm <= 0 && hero.inv <= 0) { mv.ph = 'hold'; mv.pt = 0; H.pose = 'fist'; H.tx = H.x; H.ty = H.y; H.tz = 1; B.grab = { h: mv.h, t: 0.9 }; hero.stunKind = 'grab'; popText(hero.x, hero.y + 40, 'つかまれた！', '#e0c0ff', 16, 1); A.sfx('block'); hero.stunImm = 2.5; }
+          if (hyp(hero.x - H.x, hero.y - H.y) < 34 && hero.hp > 0 && !(hero.pw && hero.pw.kind === 'giant') && hero.stunImm <= 0 && hero.inv <= 0) { mv.ph = 'hold'; mv.pt = 0; H.pose = 'fist'; H.tx = H.x; H.ty = H.y; H.tz = 1; B.grab = { h: mv.h, t: 0.9, ...(lanFight()?{playerId:lanContext?.id}:{}) }; hero.stunKind = 'grab'; popText(hero.x, hero.y + 40, 'つかまれた！', '#e0c0ff', 16, 1); A.sfx('block'); hero.stunImm = 2.5; }
           else if (mv.pt > 2.2) { H.fixed = false; done(1.1); }
         } else if (!B.grab) { done(1.2); }
         return true;
@@ -3987,9 +3998,9 @@
         if (mv.t < 0.5) steer(B, Math.atan2(hero.y - B.y, hero.x - B.x), 3, 60, dt);
         else if (mv.t < (p2 ? 3.2 : 2.8)) {
           steer(B, Math.atan2(hero.y - B.y, hero.x - B.x), 1.2, 25, dt);
-          const dx = B.x + Math.cos(B.dir) * 40 - hero.x, dy = B.y + Math.sin(B.dir) * 40 - hero.y, d = hyp(dx, dy) || 1, pull = p2 ? 420 : 340;
+          lanEach(()=>{const dx = B.x + Math.cos(B.dir) * 40 - hero.x, dy = B.y + Math.sin(B.dir) * 40 - hero.y, d = hyp(dx, dy) || 1, pull = p2 ? 420 : 340;
           if (hero.recoil <= 0) { hero.vx += dx / d * pull * dt; hero.vy += dy / d * pull * dt; }
-          if (d < 40 + hero.r) hurtHero(B.atk, B.x, B.y, 500, 'mouth');
+          if (d < 40 + hero.r) hurtHero(B.atk, B.x, B.y, 500, 'mouth');});
           for (const b of bullets) { const ex = B.x - b.x, ey = B.y - b.y, ed = hyp(ex, ey) || 1; if (ed < 220) { b.vx += ex / ed * 400 * dt; b.vy += ey / ed * 400 * dt; if (ed < 40) b.life = 0; } }
           if (Math.random() < dt * 30) { const a = rnd(0, 6.28), r0 = rnd(120, 220); fx.push({ x: B.x + Math.cos(a) * r0, y: B.y + Math.sin(a) * r0, vx: -Math.cos(a) * 300, vy: -Math.sin(a) * 300, life: 0.6, max: 0.6, col: '#c8f0ff', r: 3 }); }
         } else if (!mv.n) { mv.n = 1; const k = 10; for (let i = 0; i < k; i++) { const a = B.dir + (i - (k - 1) / 2) * 0.16; const b = shoot(B.x, B.y, Math.cos(a), Math.sin(a), 230, B.atk, 'orb'); b.col = SHOTCOL.star; } A.sfx('boom'); }
@@ -4178,6 +4189,7 @@
   }
   const targetsNear = (x, y, R) => { const L = enemies.filter(e => !e.dead && e.active && hyp(e.x - x, e.y - y) < R + e.r); for(const B of livingBosses())if(hyp(B.x-x,B.y-y)<R+B.r)L.push(B); return L; };
   function useSkill() {
+    if(lanInput('skill'))return;
     const h = hero, id = h?craftSkillId():save.skill, S = SKILLS[id];
     if (!S || !h || h.hp <= 0 || paused || (state !== 'play' && state !== 'boss') || transition) return;
     if (h.skCD > 0) { popText(h.x, h.y + 30, `${S.name} あと ${Math.ceil(h.skCD)}びょう`, '#ff9a8a', 13, 0.8); A.sfx('block'); return; }
@@ -4457,15 +4469,15 @@
     }
     for (const sd of shades) {   // the shadow copies the hero, mirrored through the middle of the room
       sd.t += dt; sd.x = arena.cx * 2 - h.x; sd.y = arena.cy * 2 - h.y;
-      if (sd.t > 0.6 && hyp(sd.x - h.x, sd.y - h.y) < h.r * 1.7) hurtHero(B.atk * 0.8, sd.x, sd.y, 420, 'shade');
+      lanEach(h=>{if (sd.t > 0.6 && hyp(sd.x - h.x, sd.y - h.y) < h.r * 1.7) hurtHero(B.atk * 0.8, sd.x, sd.y, 420, 'shade');});
     }
     shades = shades.filter(sd => sd.t < sd.life);
     for (const tw of twisters) {   // tornadoes drift after the hero, pull a little and fling on contact
       tw.t += dt; const dx2 = h.x - tw.x, dy2 = h.y - tw.y, d2 = hyp(dx2, dy2) || 1;
       tw.vx = lerp(tw.vx, dx2 / d2 * tw.spd, 1 - Math.exp(-dt * 0.9)); tw.vy = lerp(tw.vy, dy2 / d2 * tw.spd, 1 - Math.exp(-dt * 0.9));
       tw.x += tw.vx * dt; tw.y += tw.vy * dt; confine(tw, 0.8);
-      if (d2 < 150 && h.recoil <= 0) { h.vx -= dx2 / d2 * 140 * dt; h.vy -= dy2 / d2 * 140 * dt; }
-      if (d2 < tw.r + h.r * 0.6) hurtHero(B.atk * 0.8, tw.x, tw.y, 520, 'tornado');
+      lanEach(h=>{const dx2=h.x-tw.x,dy2=h.y-tw.y,d2=hyp(dx2,dy2)||1;if (d2 < 150 && h.recoil <= 0) { h.vx -= dx2 / d2 * 140 * dt; h.vy -= dy2 / d2 * 140 * dt; }
+      if (d2 < tw.r + h.r * 0.6) hurtHero(B.atk * 0.8, tw.x, tw.y, 520, 'tornado');});
     }
     twisters = twisters.filter(tw => tw.t < tw.life);
     // sweeping weapons
@@ -4475,8 +4487,8 @@
       s.ang += s.vel * dt * sp; s.left -= Math.abs(s.vel * dt * sp);
       if (s.grow) s.len = Math.min(s.lmax, s.len + s.grow * dt * sp);
       const ex = B.x + Math.cos(s.ang) * s.len, ey = B.y + Math.sin(s.ang) * s.len;
-      const dd = segDist(h.x, h.y, B.x + Math.cos(s.ang) * B.r * 0.6, B.y + Math.sin(s.ang) * B.r * 0.6, ex, ey);
-      if (dd < s.w + h.r * 0.7) hurtHero(B.atk * 0.9, B.x, B.y, 420, 'sweep');
+      lanEach(h=>{const dd = segDist(h.x, h.y, B.x + Math.cos(s.ang) * B.r * 0.6, B.y + Math.sin(s.ang) * B.r * 0.6, ex, ey);
+      if (dd < s.w + h.r * 0.7) hurtHero(B.atk * 0.9, B.x, B.y, 420, 'sweep');});
     }
     B.sweeps = B.sweeps.filter(s => s.left > 0);
     // ram / contact
@@ -5078,6 +5090,7 @@
   //  MAIN UPDATE
   // ---------------------------------------------------------------
   function update(dt) {
+    if(lan&&!lanHost())return;
     globalT += dt;bestTick(dt);guildPoll(dt);
     if (audioOn) for (const e of FMusic.pollEvents()) if (e.type === 'beat') { beatPulse = 1; beatN++; }
     beatPulse = Math.max(0, beatPulse - dt * 4);
@@ -5094,7 +5107,7 @@
     if (shake > 0) shake = Math.max(0, shake - dt * 40);
     if (state === 'town' && tdrag.id == null) townX = lerp(townX, townPage, 1 - Math.exp(-dt * 12));
     if (state !== 'play' && state !== 'boss') return;
-    if (paused || guideBlocksCombat) return;
+    if ((paused&&!lanFight()) || guideBlocksCombat) return;
     if(arenaRun&&arenaRun.phase!=='fight')return;
     if (hitStop > 0) { hitStop -= dt; return; }
     if (slowMo > 0) { slowMo -= dt; dt *= 0.3; }
@@ -5104,7 +5117,7 @@
     if (hint > 0) hint -= dt;
     updateTut(dt);
     if (deathT > 0) { deathT -= dt / Math.max(0.3, slowMo > 0 ? 0.3 : 1); if (deathT <= 0) { showDefeat(); return; } }
-    if (hero.hp > 0) updateHero(dt);
+    if(lanFight())lanTickHeroes(dt);else if (hero.hp > 0) updateHero(dt);
     if(arenaRun?.settled)return;
     updateEnemies(dt);
     if(arenaRun?.settled)return;
@@ -5137,6 +5150,7 @@
       updateEvents(dt);
       updateZones(dt);
       if(defRun)defTick(dt);else if(hardRun)hardUpdateBosses(dt);else if (boss) bossUpdate(dt);
+      if(lan&&lan.phase!=='fight')return;
       // camera follows the hero, kept inside the room
       const kx = arena.R + 30 - W / 2, ky = arena.R + 30 - H * 0.5;
       const tx = clamp(hero.x, arena.cx - kx, arena.cx + kx), ty = ky > 0 ? clamp(hero.y, arena.cy - ky, arena.cy + ky) : arena.cy;
@@ -5477,6 +5491,33 @@
   function clockSpin6(e){return (Math.round(e.t*2.5*32)%32)*Math.PI*2/32;}
   function zakoBase(t) { return VARIANTS[t] ? VARIANTS[t][0] : ['goldslime','pinkdiamondslime'].includes(t) ? 'slime' : t; }
   // Knight visual facing only. The guard AI continues to track during its wind-up.
+  const BIRD_KINDS=new Set(['harpy','stormeagle']),birdViews=new WeakMap();
+  function birdView(e,view){
+    let s=birdViews.get(e);if(!s){s={angle:e.face,st:e.st,zones:[],seen:new Set(zones)};birdViews.set(e,s);}
+    const recover=e.st==='idle'&&['dash','cast'].includes(view.prev)&&globalT-view.changed<.45;
+    if(e.st==='wind'||e.st==='dash')s.angle=Math.atan2(e.ly??Math.sin(e.face),e.lx??Math.cos(e.face));
+    else if(e.st==='cast'&&s.st!=='cast')s.angle=Math.atan2(hero.y-e.y,hero.x-e.x);
+    if(e.type==='stormeagle'&&(e.st==='cast'||s.st==='cast'))for(const z of zones)if(!s.seen.has(z)&&z.kind==='bolt')s.zones.push(z);
+    const had=s.zones.length>0;s.zones=s.zones.filter(z=>!z.dead&&zones.includes(z));const channel=s.zones.length>0;if(had&&!channel)s.ended=globalT;
+    if(e.st==='idle'&&!recover&&!channel&&!(s.ended!=null&&globalT-s.ended<.45)){const a=Math.hypot(e.vx,e.vy)>12?Math.atan2(e.vy,e.vx):e.face;s.angle=a;}
+    s.st=e.st;s.seen=new Set(zones);return {...view,face:face4(s.angle),birdAngle:s.angle,birdChannel:channel,birdSince:!channel&&s.ended!=null&&globalT-s.ended<.45?globalT-s.ended+.15:null};
+  }
+  // SUPPORT MOTION VIEW BEGIN
+  const SUPPORT_KINDS=new Set(['mage','frostmage','darkpriest','crossbow','dwarf']),supportViews=new WeakMap();
+  function supportView(e,view){
+    let s=supportViews.get(e);if(!s){s={st:e.st,angle:e.face,lastX:e.x,lastY:e.y,lastT:globalT,distance:0,moving:false,origin:null};supportViews.set(e,s);}
+    const dt=globalT-s.lastT,dx=e.x-s.lastX,dy=e.y-s.lastY,travel=hyp(dx,dy),caster=e.ai==='caster',attack=caster?'cast':e.type==='crossbow'?'aim':'wind',previous=caster?'cast':e.type==='crossbow'?'aim':'slash',recover=e.st==='idle'&&view.prev===previous&&globalT-view.changed<(e.type==='dwarf'?.30:.32);
+    if(dt>0){s.moving=e.st==='idle'&&!recover&&travel/dt>1&&travel<40;if(s.moving){s.distance+=travel;s.angle=Math.atan2(dy,dx);}}
+    if(e.st===attack){if(e.type==='dwarf'){if(s.st!=='wind')s.angle=e.face;}else s.angle=Math.atan2(hero.y-e.y,hero.x-e.x);s.origin=null;}
+    if(e.st==='idle'&&view.prev===previous&&s.st===previous&&e.type!=='dwarf'){
+      const group=bullets.filter(b=>b.t<.08&&b.kind===(e.type==='crossbow'?'arrow':e.type==='darkpriest'?'homing':e.type==='frostmage'?'orb':'fire')).map(b=>({b,x:b.x-b.vx*b.t,y:b.y-b.vy*b.t})).filter(p=>hyp(p.x-s.lastX,p.y-s.lastY)<e.r+10);
+      if(group.length){const p=group[0];s.origin={x:p.x,y:p.y};s.angle=Math.atan2(group.reduce((a,p)=>a+p.b.vy,0),group.reduce((a,p)=>a+p.b.vx,0));}
+    }
+    if(!recover&&e.st!==attack)s.origin=null;
+    s.st=e.st;s.lastT=globalT;s.lastX=e.x;s.lastY=e.y;
+    return {...view,face:face4(s.angle),supportAngle:s.angle,supportMoving:s.moving,supportWalkPhase:s.distance/(e.type==='dwarf'?20:24),supportOrigin:s.origin?[(s.origin.x-e.x)/SPR.SCALE,(s.origin.y-e.y)/SPR.SCALE]:null};
+  }
+  // SUPPORT MOTION VIEW END
   const kayKnightViews=new WeakMap();
   const GROUND_BEASTS=new Set(['lizard','frostlizard','chaosbeast']),groundViews=new WeakMap();
   function groundBeastView(e,view){
@@ -5746,7 +5787,7 @@
     if (e.ai === 'shark' && e.sub) { if(y>=0&&y<=H&&x+(arena?W/2-bcamX:WX)>0&&x+(arena?W/2-bcamX:WX)<W)bestEncounter('enemy:'+e.type);drawFin(e, x, y); return; }
     ctx.save();
     if (e.ai === 'phase' || e.ai === 'assassin') ctx.globalAlpha = e.alpha;
-    const fly = e.fly ? 6 + Math.sin((WYVERNS.has(e.type)?globalT+(e.phase||0):e.t) * 5) * 3 : 0, lift = e.ai === 'shark' && e.st === 'leap' ? Math.sin(Math.min(1, e.t / 0.4) * Math.PI) * 26 : 0;
+    const fly = e.fly ? 6 + Math.sin(((WYVERNS.has(e.type)||BIRD_KINDS.has(e.type))?globalT+(e.phase||0):e.t) * 5) * 3 : 0, lift = e.ai === 'shark' && e.st === 'leap' ? Math.sin(Math.min(1, e.t / 0.4) * Math.PI) * 26 : 0;
     shadow(x, y, r * 0.8, e.fly ? 0.18 : 0.3);
     const yy = y - fly - lift;
     const hurt = e.hurt > 0;
@@ -5773,6 +5814,8 @@
     const arm = zakoArm(e), bx = arm ? x + arm.lean * SPR.SCALE * (hero.x < e.x - 2 ? -1 : 1) : x, byy = arm ? yy + arm.cr * SPR.SCALE : yy;   // the body leans back into the wind-up and steps into the blow
     let view = ZAKO4.has(e.type) ? zakoFacing(e) : null;
     if(e.type==='knight'&&view)view=kayKnightView(e,view);
+    if(BIRD_KINDS.has(e.type)&&view)view=birdView(e,view);
+    if(SUPPORT_KINDS.has(e.type)&&view)view=supportView(e,view);
     if(KAY_INFANTRY.has(e.type)&&view)view=kayInfantryView(e,view);
     if(KAY_GOBLINS.has(e.type)&&view)view=kayGoblinView(e,view);
     if(['wolf','snowwolf','hellhound','baku'].includes(e.type)&&view)view=kayWolfView(e,view);
@@ -5781,7 +5824,9 @@
     if(bestPainting&&view)view=bestEnemyView(e,view);
     // colour variants (フロストリザード…ゴールデンスライム) move exactly like the monster they are made from
     const em = view && zakoBase(e.type) !== e.type ? Object.assign({}, e, { type: zakoBase(e.type) }) : e;
-    const spr = enemyPoseFrame(e,view,hurt,()=>SPR.enemy(e.type, { groundKay:GROUND_BEASTS.has(e.type)&&view?{st:e.st,t:e.t,time:globalT+(e.phase||0),angle:view.groundAngle,moving:view.groundMoving,walkPhase:view.groundWalkPhase,prev:view.prev,since:globalT-view.changed}:null, wyvernKay:WYVERNS.has(e.type)&&view?{st:e.st,t:e.t,time:globalT+(e.phase||0),flightPhase:view.flightPhase,angle:view.wyvernAngle,moving:hyp(e.vx,e.vy)>8,speed:hyp(e.vx,e.vy),prev:view.prev,since:globalT-view.changed}:null, infantryKay:KAY_INFANTRY.has(e.type)&&view?{st:e.st,t:e.t,time:globalT+(e.phase||0),guard:!!e.guard,moving:view.infantryMoving,walkPhase:view.infantryWalkPhase,prev:view.prev,since:globalT-view.changed,chain:view.infantryChain,angle:view.infantryAngle}:null, goblinKay:KAY_GOBLINS.has(e.type)&&view?{st:e.st,t:e.t,windT:e.windT,time:globalT+(e.phase||0),moving:view.goblinMoving,walkPhase:view.goblinWalkPhase,prev:view.prev,since:globalT-view.changed,angle:view.goblinAngle,radius:e.r/SPR.SCALE,origin:view.goblinOrigin}:null, wolfKay:['wolf','snowwolf','hellhound','baku'].includes(e.type)&&view?{st:e.st,t:e.t,windT:e.windT,time:globalT+(e.phase||0),moving:e.type==='baku'?view.walking:hyp(e.vx,e.vy)>18,walkPhase:view.walkPhase,speed:hyp(e.vx,e.vy),prev:view.prev,since:globalT-view.changed,angle:view.wolfAngle}:null, kay:['skeleton','archer','knight'].includes(e.type)&&view?{st:e.st,t:e.t,guard:!!e.guard,time:globalT+(e.phase||0),moving:hyp(e.vx,e.vy)>18,prev:view.prev,since:globalT-view.changed,angle:view.kayAngle}:null, view:view&&view.face, upSlash:view?skeletonUpSlash(em,view):null, motion:view?zakoMotion2(em,view):null, motion3:view?zakoMotion3(em,view):null, motion4:view?zakoMotion4(em,view):null, motion5:view?zakoMotion5(em,view):null, motion6:view?zakoMotion6(em,view):null, motion7:view?zakoMotion7(em,view):null, motion8:view?zakoMotion8(em,view):null, bodyX:view&&arm?Math.round(arm.lean*(view.face==='r'?1:view.face==='l'?-1:0)):0, bodyY:view&&arm?Math.round(arm.cr):0, pull:e.st==='aim'?easeIO(clamp(e.t/.55,0,1)):0, release:view&&view.prev==='aim'?Math.max(0,1-(globalT-view.changed)/.2):0, st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step: arm && arm.sp != null ? Math.round(arm.sp) : step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: !view && hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm }));
+    const spr = enemyPoseFrame(e,view,hurt,()=>SPR.enemy(e.type, { birdKay:BIRD_KINDS.has(e.type)&&view?{st:e.st,t:e.t,windT:e.windT,time:globalT+(e.phase||0),angle:view.birdAngle,prev:view.prev,since:view.birdSince??globalT-view.changed,channel:view.birdChannel}:null, supportKay:SUPPORT_KINDS.has(e.type)&&view?{st:e.st,t:e.t,time:globalT+(e.phase||0),angle:view.supportAngle,moving:view.supportMoving,walkPhase:view.supportWalkPhase,prev:view.prev,since:globalT-view.changed,radius:e.r/SPR.SCALE,origin:view.supportOrigin}:null, groundKay:GROUND_BEASTS.has(e.type)&&view?{st:e.st,t:e.t,time:globalT+(e.phase||0),angle:view.groundAngle,moving:view.groundMoving,walkPhase:view.groundWalkPhase,prev:view.prev,since:globalT-view.changed}:null, wyvernKay:WYVERNS.has(e.type)&&view?{st:e.st,t:e.t,time:globalT+(e.phase||0),flightPhase:view.flightPhase,angle:view.wyvernAngle,moving:hyp(e.vx,e.vy)>8,speed:hyp(e.vx,e.vy),prev:view.prev,since:globalT-view.changed}:null, infantryKay:KAY_INFANTRY.has(e.type)&&view?{st:e.st,t:e.t,time:globalT+(e.phase||0),guard:!!e.guard,moving:view.infantryMoving,walkPhase:view.infantryWalkPhase,prev:view.prev,since:globalT-view.changed,chain:view.infantryChain,angle:view.infantryAngle}:null, goblinKay:KAY_GOBLINS.has(e.type)&&view?{st:e.st,t:e.t,windT:e.windT,time:globalT+(e.phase||0),moving:view.goblinMoving,walkPhase:view.goblinWalkPhase,prev:view.prev,since:globalT-view.changed,angle:view.goblinAngle,radius:e.r/SPR.SCALE,origin:view.goblinOrigin}:null, wolfKay:['wolf','snowwolf','hellhound','baku'].includes(e.type)&&view?{st:e.st,t:e.t,windT:e.windT,time:globalT+(e.phase||0),moving:e.type==='baku'?view.walking:hyp(e.vx,e.vy)>18,walkPhase:view.walkPhase,speed:hyp(e.vx,e.vy),prev:view.prev,since:globalT-view.changed,angle:view.wolfAngle}:null, kay:['skeleton','archer','knight'].includes(e.type)&&view?{st:e.st,t:e.t,guard:!!e.guard,time:globalT+(e.phase||0),moving:hyp(e.vx,e.vy)>18,prev:view.prev,since:globalT-view.changed,angle:view.kayAngle}:null, view:view&&view.face, upSlash:view?skeletonUpSlash(em,view):null, motion:view?zakoMotion2(em,view):null, motion3:view?zakoMotion3(em,view):null, motion4:view?zakoMotion4(em,view):null, motion5:view?zakoMotion5(em,view):null, motion6:view?zakoMotion6(em,view):null, motion7:view?zakoMotion7(em,view):null, motion8:view?zakoMotion8(em,view):null, bodyX:view&&arm?Math.round(arm.lean*(view.face==='r'?1:view.face==='l'?-1:0)):0, bodyY:view&&arm?Math.round(arm.cr):0, pull:e.st==='aim'?easeIO(clamp(e.t/.55,0,1)):0, release:view&&view.prev==='aim'?Math.max(0,1-(globalT-view.changed)/.2):0, st: e.st, f: e.st === 'spin' ? Math.floor(globalT * 16) : f, step: arm && arm.sp != null ? Math.round(arm.sp) : step, k: e.st === 'slash' ? e.t / 0.2 : 0, flip: !view && hero.x < e.x - 2, flash: hurt, perch: e.mod.stone && !e.awake, shine: e.shine, w: e.st === 'aim' || e.st === 'wind' ? Math.min(1, e.t / 0.9) : 0, crit: e.critNext, head: !e.headOut, arm }));
+    if(BIRD_KINDS.has(e.type)&&spr?.birdRig)e.birdVisual={...spr.birdRig,face:view.face,angle:view.birdAngle};
+    if(SUPPORT_KINDS.has(e.type)&&spr?.supportRig){const m=spr.supportRig;e.supportVisual={...m,face:view.face,time:globalT,drawEmitter:m.emitter?{x:x+(m.emitter[0]-spr.ax)*SPR.SCALE,y:yy+e.r*.75+(m.emitter[1]-spr.ay)*SPR.SCALE}:null,shotOrigin:view.supportOrigin?{x:e.x+view.supportOrigin[0]*SPR.SCALE,y:e.y+view.supportOrigin[1]*SPR.SCALE}:null};}
     if(GROUND_BEASTS.has(e.type)&&spr?.groundRig){const m=spr.groundRig;e.groundVisual={...m,face:view.face,time:globalT,drawMouth:{x:x+(m.mouth[0]-spr.ax)*SPR.SCALE,y:yy+e.r*.75+(m.mouth[1]-spr.ay)*SPR.SCALE}};}
     if(WYVERNS.has(e.type)&&spr?.wyvernRig){const m=spr.wyvernRig;e.wyvernVisual={...m,face:view.face,time:globalT,drawMouth:{x:x+(m.mouth[0]-spr.ax)*SPR.SCALE,y:yy+e.r*.75+(m.mouth[1]-spr.ay)*SPR.SCALE}};}
     pfxEnemyBreath(e,yy,view,true,spr);
@@ -5796,8 +5841,9 @@
       const hop=['slime','fireslime','iceslime','goldslime','pinkdiamondslime'].includes(e.type)&&e.st==='hop'?Math.sin(clamp(e.t/.38,0,1)*Math.PI)*7:0;
       SPR.draw(ctx, spr, view?x:bx, (view?yy:byy) + r * .75-hop);
     }
+    if(SUPPORT_KINDS.has(e.type)&&e.ai==='caster'&&spr?.supportRig?.phase==='active'&&view.supportOrigin&&hyp(...view.supportOrigin)>40){const m=e.supportVisual,px=m.drawEmitter.x,py=m.drawEmitter.y;ctx.strokeStyle=e.type==='frostmage'?'#9eeaff':e.type==='darkpriest'?'#ff70db':'#d693ff';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(px,py,10,4,0,0,Math.PI*2);ctx.stroke();}
     pfxQuadDream(e,yy,view,spr,false);pfxEnemyBreath(e,yy,view,false,spr);pfxEnemyMelee(e,x,yy,spr);
-    if (e.ai === 'swing' && e.st === 'slash' && (!KAY_INFANTRY.has(e.type)||!pfxEnabled())) { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(x, yy, (e.mod.reach || 72) - 8, -e.face - 1.25, -e.face + 1.25); ctx.stroke(); }
+    if (e.ai === 'swing' && e.st === 'slash' && ((!KAY_INFANTRY.has(e.type)&&e.type!=='dwarf')||!pfxEnabled())) { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 10; ctx.beginPath(); ctx.arc(x, yy, (e.mod.reach || 72) - 8, -e.face - 1.25, -e.face + 1.25); ctx.stroke(); }
     if (e.ai === 'assassin' && e.st === 'slash') { ctx.strokeStyle = e.critNext ? 'rgba(255,220,90,.75)' : 'rgba(255,255,255,.55)'; ctx.lineWidth = e.critNext ? 12 : 9; ctx.beginPath(); ctx.arc(x, yy, 60, -e.face - 1.2, -e.face + 1.2); ctx.stroke(); }
     if (telegraph && e.ai !== 'swing') { const top = yy + r * 0.75 - (spr ? (spr.telegraphAy||spr.ay) * SPR.SCALE : r * 2), mk2 = e.critNext ? '!!' : '!'; ctx.fillStyle = e.critNext ? '#ffd23a' : '#ff4040'; ctx.strokeStyle = '#1a1420'; ctx.lineWidth = 3; ctx.font = `bold 16px ${FONT}`; ctx.textAlign = 'center'; ctx.strokeText(mk2, x, top - 2); ctx.fillText(mk2, x, top - 2); }
     ctx.restore();
@@ -6635,7 +6681,7 @@
     const spr = SPR.boss(B.type, { f: Math.floor(globalT * (B.type === 'thunderbird' ? 8 : 4)), act: B.mv && B.mv.t < 0.7 ? 1 : 0, p2: B.phase === 2, look: lk, air: (B.z || 0) > 0.05, flash: hurt, noArm: WR[B.type] ? 1 : 0 });
     for (const d of B.decoys || []) { if (typeof BEAST3 !== 'undefined' && BEAST3.has(B.type)) { ctx.save(); ctx.globalAlpha *= 0.92; BEAST3.draw(ctx, Object.assign({}, B, { x: d.x, y: d.y, sweeps: [], b3: B.b3d || (B.b3d = {}) }), d.x, sy(d.y) + r * 0.7 - hov, false, { t: globalT, hero, cy: sy(d.y) }); ctx.restore(); } else SPR.draw(ctx, spr, d.x, sy(d.y) + r * 0.7 - hov, 0.92); }   // illusions (no shadow)
     if (B.regen) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(120,255,100,${0.18 + 0.12 * Math.sin(globalT * 9)})`; ctx.beginPath(); ctx.arc(x, y, r * 1.5, 0, 7); ctx.fill(); ctx.restore(); }
-    if (typeof BEAST3 !== 'undefined' && BEAST3.has(B.type)) BEAST3.draw(ctx, B, x, by + r * 0.7 - z - hov, hurt, { t: globalT, hero, cy: y, by, zones, fistOut: B.type === 'colossus' && bullets.some(b => b.kind === 'fist') });   // beasts in three views (beasts3.js)
+    if (typeof BEAST3 !== 'undefined' && BEAST3.has(B.type)) BEAST3.draw(ctx, B, x, by + r * 0.7 - z - hov, hurt, { t: globalT, hero, cy: y, by, zones, bullets, preview:bestPainting, fistOut: B.type === 'colossus' && bullets.some(b => b.kind === 'fist') });   // beasts in three views (beasts3.js)
     else if (B.type === 'cyclops') drawCyclops(B, x, by + r * 0.7 - z, y, hurt);
     else if (R3[B.type]) drawR3(B, R3[B.type], x, by + r * 0.7 - z - hov, hurt);
     else if (WR[B.type]) drawWeaponBoss(B, WR[B.type], x, by + r * 0.7 - z - hov, y, spr, hurt);
@@ -6931,7 +6977,7 @@
       ctx.save(); ctx.translate(cx, cy); ctx.scale(2.2, 2.2); ctx.translate(-cx, -cy); SPR.draw(ctx, SPR.ENV.qicon(k), cx, cy); ctx.restore();
       txt(stop ? QB[k].name : '？？？', cx, cy + 54, 15, stop ? QB[k].col : '#e0d0ff', 'center');
     }
-    craftDrawHud();if(!arenaRun)txt(`${save.gold} G`, 214, top + 18, 13, '#f2c14e', 'left');
+    craftDrawHud();if(!arenaRun)txt(`${lanFight()?'共通 '+(lanHost()?lan.pool:lan.lobby?.pool||0):save.gold} G`, 214, top + 18, 13, '#f2c14e', 'left');
     if (defRun && state === 'boss') defDrawHud(top, chargeH);
     if (state === 'play'&&!hardRun&&!defRun) {
       // depth meter
@@ -7256,6 +7302,7 @@
     if (audioOn && !musicRoom) FMusic.setLayer(['guild','arena'].includes(curPage().id)?'house':curPage().id);   // each building re-orchestrates the waltz
   }
   function enterBuilding(id) {
+    if(lan)return lanShowLobby();
     A.sfx('select');
     facilityEnter(id);
   }
@@ -7294,7 +7341,7 @@
     for (const e of list) drawEnemy(e);
     if(hardRun&&arena){for(const B of fightBosses().slice().sort((a,b)=>b.y-a.y))withFightBoss(B,()=>{drawBoss();drawSigFx();});}else{if (boss) drawBoss();if (boss) drawSigFx();}
     if (defRun) defDrawNpcs();
-    if (hero.hp > 0 || slowMo > 0) drawHero();craftDraw();guildDraw();arenaDrawMarks();
+    if(lanFight())lanDrawPlayers();else if (hero.hp > 0 || slowMo > 0) drawHero();craftDraw();guildDraw();arenaDrawMarks();
     if (darkT > 0) drawDark();
     drawZones();
     pfxZones();pfxField();drawBullets();
@@ -7305,7 +7352,7 @@
     ctx.save(); ctx.translate(shx, shy); ctx.translate(arena ? q(W / 2 - bcamX) : q(WX), 0); drawWorldText(); if (defRun) defDrawTags(); ctx.restore();
     camY = cam0; bcamX = bx0; bcamY = by0;
     if (flash > 0) { ctx.fillStyle = `rgba(${flashCol},${flash * 0.5})`; ctx.fillRect(0, 0, W, H); }
-    drawHud();hardDrawHud();arenaDrawHud();
+    drawHud();hardDrawHud();arenaDrawHud();lanDrawHud();
     drawPad();
     if(!arenaRun)drawBanner();
     drawFade();
@@ -7775,6 +7822,7 @@
     slotsView();
   }
   function openGate() {
+    if(lan)return lanHost()?lanGate():lanShowLobby();
     const unlocked = i => i === 0 || save.cleared[i - 1];
     let open = 0; while (open < DUNGEONS.length - 1 && unlocked(open + 1)) open++;
     const cur = save.lastGate != null && unlocked(save.lastGate) ? save.lastGate : open;   // the last dungeon you went to (or the newest)
@@ -8215,13 +8263,13 @@
         perfWin.n = 0; perfWin.sum = 0;
       }
     }
-    pollInput(dt);
+    pollInput(dt);lanPulse(dt);
     if (!manual) update(dt);
     render(); guideTick();
   }
   // First-adventure guide. Progress lives in the regular save; no per-frame persistence.
   let guideBlocksCombat=false,guideUI=null,guideKey='',guideAck='',guideTarget=null,guideClock=0;
-  function guideActive(){return !!save.guide&&save.guide.stage!=='done';}
+  function guideActive(){if(lan)return false;return !!save.guide&&save.guide.stage!=='done';}
   function guideSet(stage){if(!save.guide)save.guide={};save.guide.stage=stage;guideKey='';guideBlocksCombat=false;persist();}
   function guideInit(){
     if(!save.guide){save.guide={stage:save.tut||save.lv>1||save.kills>0?'done':'welcome',combatStep:0};persist();}
@@ -8262,6 +8310,7 @@
   }
   function guideShow(key,title,message,target=null,label='',action=null,modal=false,town=false){
     guideMount();guideUI.hidden=false;guideTarget=target;
+    $('guideSkip').hidden = key === 'upgraded';  // completion already has its own finish button
     if(guideKey!==key){guideKey=key;$('guideHeading').textContent=title;$('guideText').textContent=message;$('guideNext').textContent=label;$('guideNext').hidden=!label;$('guideNext').onclick=action;}
     let r=typeof target==='string'?document.querySelector(target)?.getBoundingClientRect():target;
     const box=typeof target==='string'&&document.querySelector(target)?.closest('#panelBody,#tray');
@@ -8323,7 +8372,334 @@
   window.claude?.hot?.snapshot?.(() => arenaRun?arenaRun.home:save);
   requestAnimationFrame(frame);
   // test hooks
-  window.__yusha = { guide:{tick:()=>{guideClock=0;guideTick();},get active(){return guideActive();},get blocked(){return guideBlocksCombat;}}, pixelfx:{emit:pfxEmit,clear:pfxClear,get data(){return {effects:Object.keys(pfxData?.effects||{}),decodedBytes:pfxData?.decodedBytes||0,loaded:pfxLoaded,images:pfxImages.length,calls:pfxCalls,events:pfxEvents.length,used:[...pfxUsed]};}},saveTransfer:{validate:transferValidate,open:openSaveTransfer,encode:transferEncode,parse:transferParse,preview:transferPreview,commit:transferCommit,export:transferExportFile,get pending(){return transferPending;}},arenaMode:{ruleVersion:ARENA_RULE,ruleFor:id=>arenaTrialRule(arenaTrial(id)),open:openArena,trial:openArenaTrial,chain:openArenaChain,startTrial:arenaStartTrial,startChain:arenaStartChain,trials:ARENA_TRIALS,classes:ARENA_CLASSES,pool:arenaPool,canChain:arenaCanChain,rewards:ARENA_REWARDS,gear:arenaGear,claim:arenaClaim,normalize:arenaNormalize,supply:arenaSupply,rest:arenaRest,withdraw:arenaWithdraw,finish:arenaFinish,win:arenaBattleWon,next:arenaNextBattle,get run(){return arenaRun;},hudBox:arenaHudBox,hudLines:arenaHudLines,get circle(){return arena;}},enterBuilding,townSwipeTo, hard:{enter:hardEnter,pairs:HARD_PAIRS,normalize:hardNormalize,done:hardDone,unlocked:hardUnlocked,settle:hardSettle,contains:hardContains,confine:hardConfine,allBosses:fightBosses,hit:skillHit,openGate,get run(){return hardRun;},get arena(){return arena;}},facilities:{enter:facilityEnter,help:facilityShowHelp,closeHelp:facilityCloseHelp,stage:uiStageEnemies,get config(){return FACILITIES;},get active(){return{room:facilityRoom,tab:facilityTab};}},smith:{open:openSmith,detail:openSmithItem,confirm:openSmithConfirm,quote:smithQuote,upgrade:smithUpgrade,value:smithValue,keys:smithKeys,boots:smithBootEffects},forge:{open:openForge,confirm:openForgeConfirm,inherit:forgeInherit,check:forgeCheck,fx:forgeFx,normalize:forgeNormalize,grant:forgeGrantCrystals,hasEffect:forgeHasEffect},guild:{open:openGuild,detail:openGuildMission,missions:GUILD,claim:guildClaim,progress:guildProgress,choices:guildChoices,daily:guildDaily,normalize:guildNormalize,value:guildValue,inc:guildInc,clear:guildClear,sample:guildSampleBoss,dodge:guildDodge,ram:guildRam,wall:guildWall,hit:guildHit,heal:guildHeal,tick:guildTick,gear:guildGear,damage:ramDamage,hurt:hurtHero,rollScale:guildRollScale,get run(){return guildRun;}},bestiary:{open:openBestiary,detail:openBestiaryEntry,entries:bestEntries,drops:bestDrops,places:bestPlaces,normalize:bestNormalize,frame:bestFrame,playback:bestPlayback,get preview(){return bestPreview;}},crafting:{materials:craftMats,recipes:craftRecipes,make:craftMake,can:craftCanMake,open:openCraftShop,detail:openCraftRecipe,inventory:openCraftMaterials,exchange:craftExchange,normalize:craftNormalize,has:craftHas,ram:craftOnRam,roll:craftOnRoll,tick:craftTick,potion:craftUsePotion,skill:craftOnSkill,drop:craftDropEnemy,bossDrop:craftDropBoss,hasState:craftState,damage:craftDamageAdjust,gauges:craftGauges,feedback:craftFeedback},startRoll,useSkill,useItem, get tut() { return tut; }, get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
+  // LAN COOP BEGIN — host authority, per-device saves, ordinary dungeons only.
+  const LAN_VERSION='lan-1';
+  let lan=null,lanContext=null,lanDepth=0,lanUI='home',lanEqSlot='weapon',lanShopSlot='weapon',lanClock=0;
+  const lanCopy=x=>JSON.parse(JSON.stringify(x));
+  const lanFight=()=>!!lan&&lan.phase==='fight';
+  const lanHost=()=>!!lan&&lan.role==='host';
+  const lanEsc=x=>transferEscape(x);
+  function lanFrontier(s){let n=0;while(n<DUNGEONS.length-1&&s.cleared?.[n]===true)n++;return n;}
+  function lanLimit(){return lan?.players.length?Math.min(...lan.players.map(p=>lanFrontier(p.save))):0;}
+  function lanMe(){return lan?.players.find(p=>p.id===lan.id);}
+  function lanShare(p){if(!lan||!lan.players.length)return 0;const i=lan.players.indexOf(p);return Math.floor(lan.pool/lan.players.length)+(i<lan.pool%lan.players.length?1:0);}
+  function lanFinalSave(p){const s=lanCopy(p.save);s.gold+=lanHost()?lanShare(p):(lan.credit||0);s.hp=null;return s;}
+  function lanStore(p){if(!p||p.id!==lan?.id)return false;try{localStorage.setItem('bumphero_save',JSON.stringify(lanFinalSave(p)));return true;}catch(e){lan.notice='端末に保存できません。空き容量を確認してください';return false;}}
+  function lanProfile(s){const c=lanCopy(s);transferValidate(c);return c;}
+  function lanPlayer(id,name,s){return{id:String(id),name:String(name||'勇者').slice(0,16),save:lanProfile(s),h:null,bag:{},loot:[],materials:{},guild:null,combo:0,comboT:0,ready:false,input:{x:0,y:0},inputAt:0};}
+  function lanCapture(){return{save,hero,bag,runLoot,runMaterials,guildRun,combo,comboT,drag:{...drag},context:lanContext};}
+  function lanStash(){if(lanContext){Object.assign(lanContext,{save,h:hero,bag,loot:runLoot,materials:runMaterials,guild:guildRun,combo,comboT});}}
+  function lanSelect(p){lanStash();lanContext=p;save=p.save;hero=p.h;bag=p.bag;runLoot=p.loot;runMaterials=p.materials;guildRun=p.guild;combo=p.combo;comboT=p.comboT;}
+  function lanRestore(o){lanStash();save=o.save;hero=o.hero;bag=o.bag;runLoot=o.runLoot;runMaterials=o.runMaterials;guildRun=o.guildRun;combo=o.combo;comboT=o.comboT;Object.assign(drag,o.drag);lanContext=o.context;}
+  function lanWith(p,fn){const o=lanCapture();try{lanSelect(p);return fn();}finally{lanRestore(o);}}
+  function lanAlive(){return(lan?.players||[]).filter(p=>p.h&&p.h.hp>0);}
+  function lanNearest(o){return lanAlive().sort((a,b)=>(a.h.x-o.x)**2+(a.h.y-o.y)**2-((b.h.x-o.x)**2+(b.h.y-o.y)**2))[0]||lanMe();}
+  function lanAim(o){if(lanHost()&&lanFight()){const p=lanNearest(o);if(p?.h)lanSelect(p);}}
+  function lanEach(fn,alive=true){if(!lanHost()||!lanFight())return fn(hero);for(const p of alive?lanAlive():lan.players)lanWith(p,()=>fn(hero,p));}
+  function lanRoot(fn){const o=lanCapture(),phase=lan?.phase;try{return fn();}finally{if(lan&&phase!==lan.phase&&state==='town'){lanContext=null;const p=lanMe();save=p.save;hero=p.h;bag=p.bag;runLoot=p.loot;runMaterials=p.materials;guildRun=p.guild;combo=p.combo;comboT=p.comboT;Object.assign(drag,o.drag);}else lanRestore(o);}}
+  function lanSend(id,m){if(!lan)return;const text=JSON.stringify({v:LAN_VERSION,room:lan.room,...m});if(window.YushaLan)window.YushaLan.send(String(id),text);else if(window.__lanTestSend)window.__lanTestSend(String(id),text);}
+  function lanAll(m){for(const p of lan.players)if(p.id!=='0')lanSend(p.id,m);}
+  function lanRequest(m){if(lanHost())lanHandle('0',m);else lanSend('0',m);}
+  function lanLobbyData(){return{room:lan.room,pool:lan.pool,limit:lanLimit(),notice:lan.notice,players:lan.players.map(p=>({id:p.id,name:p.name,lv:p.save.lv,frontier:lanFrontier(p.save),ready:p.ready}))};}
+  function lanCheckpoint(){if(!lanHost())return;lanStash();lan.seq++;for(const p of lan.players){if(p.id==='0')lanStore(p);else lanSend(p.id,{type:'checkpoint',seq:lan.seq,profile:p.save,credit:lanShare(p)});}}
+  function lanLobby(){if(!lan)return;lanUI='lobby';if(lanHost()){lanStash();lanCheckpoint();lanAll({type:'lobby',...lanLobbyData()});}lanShowLobby();}
+  function lanCloseDone(){if(!lan||lan.phase!=='closing')return;lanAll({type:'end',notice:lan.closeMessage});lanExit(lan.closeMessage);}
+  function lanAbort(message){if(!lan)return;if(!lanHost())return lanExit(message);if(lan.phase==='closing')return;if(lan.phase==='fight')lanSettle(false,true);lan.phase='closing';lan.closeMessage=message;lanCheckpoint();lan.closeSeq=lan.seq;const room=lan;openPanel('保存して終了しています','<p>全員の端末へ進行を送っています。</p>',[]);if(lan.players.every(p=>p.id==='0'||p.ack>=lan.closeSeq))lanCloseDone();else setTimeout(()=>{if(lan===room)lanCloseDone();},2500);}
+  function lanExit(message='通信プレイを終了しました'){if(!lan)return;lanStash();const p=lanMe(),final=p?lanFinalSave(p):save;if(window.YushaLan)setTimeout(()=>{if(!lan)window.YushaLan.close();},150);lan=null;lanContext=null;closeTray();save=final;hero=null;transition=null;deathT=0;slowMo=hitStop=0;guideBlocksCombat=false;goTown();openPanel('ローカル通信',`<p>${lanEsc(message)}</p><p>各自の進行・経験値・入手品を端末に保存しました。</p>`,[['街へ',closePanel,true]]);}
+  function lanOpen(){if(lan)return lanShowLobby();if(state!=='town')return;lanUI='home';openPanel('ローカル通信',`<p>同じWi-Fiで 2〜4人の協力プレイ。</p><p>各自のセーブで参加し、全員が行けるダンジョンだけに出発します。</p><p>経験値は全員に全額。敵HPは出発人数倍。冒険で稼いだお金を共有し、残額は終了時に均等分配します。</p><label>名前 <input id="lanName" maxlength="16" value="勇者" style="width:65%"></label><p id="lanNativeHint">${window.YushaLan||window.__lanTestSend?'':'通信にはAndroid版APKを使ってください。'}</p>`,[['部屋を作る',()=>lanCreate(),true],['部屋に入る',lanJoinUI],['もどる',closePanel]]);}
+  function lanInit(role,name){lan={role,id:role==='host'?'0':'',room:'',phase:'lobby',pool:0,players:[],seq:0,lastSeq:-1,notice:'',address:'',lastMessage:Date.now(),sendT:0,checkT:0,pingT:0,inputSeq:0,remoteSeq:{}};lan.name=name||'勇者';lan.backup=lanCopy(save);}
+  function lanCreate(name){if(!window.YushaLan&&!window.__lanTestSend)return;name=name||$('lanName')?.value||'勇者';lanInit('host',name);lan.room=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);lan.pin=String(Math.floor(100000+Math.random()*900000));lan.players=[lanPlayer('0',name,save)];if(window.YushaLan)window.YushaLan.host(lan.pin);else lanLobby();}
+  function lanJoinUI(){const name=$('lanName')?.value||lan?.name||'勇者';openPanel('部屋に入る',`<p>ホストに表示された接続先と6桁の合言葉を入力してください。</p><label>接続先 <input id="lanAddress" placeholder="192.168.1.10:12345" inputmode="url" style="width:90%"></label><br><label>合言葉 <input id="lanPin" maxlength="6" inputmode="numeric" style="width:65%"></label><p>同じWi-Fiでも、ゲスト用Wi-Fiの端末間通信が禁止されている場合は接続できません。</p>`,[['接続する',()=>{const a=$('lanAddress').value.trim(),pin=$('lanPin').value.trim(),m=/^(\d{1,3}(?:\.\d{1,3}){3}):(\d{1,5})$/.exec(a);if(!m||!/^\d{6}$/.test(pin)){toast('接続先と合言葉を確認してください');return;}lanInit('client',name);lanUI='connecting';openPanel('接続中…','<p>ホストに接続しています。</p>',[['キャンセル',()=>lanExit('接続を中止しました')]]);window.YushaLan?.join(m[1],Number(m[2]),pin);},true],['もどる',lanOpen]]);}
+  function lanShowLobby(){if(!lan||lan.phase!=='lobby')return;lanUI='lobby';const rows=lanHost()?lanLobbyData():lan.lobby,me=lanMe();if(!rows)return;const lim=rows.limit;
+    openPanel('ローカル通信：待合室',`${lanHost()?`<p>接続先：<b>${lanEsc(lan.address||'確認中…')}</b><br>合言葉：<b>${lanEsc(lan.pin)}</b></p>`:''}<p class="gold">共通のお金 ${rows.pool} G</p><p>${lanEsc(lan.notice||rows.notice||'全員が準備完了したらホストが出発します。')}</p>${rows.players.map((p,i)=>`<div class="row"><span class="nm" style="color:${['#f2c14e','#8ac4ff','#ff9ad0','#a8f0a0'][i]}">${i+1}P ${lanEsc(p.name)} Lv${p.lv}</span><span class="sub">第${p.frontier+1}まで開放・${p.ready?'準備完了':'準備中'}</span></div>`).join('')}<p>全員の進行に合わせて <b>第${lim+1}ダンジョンまで</b>選べます。</p><p>元の所持金は各自で保持。共有財布は通信中の収入のみです。</p>`,[[me?.ready?'準備を取り消す':'準備完了',()=>lanRequest({type:'ready',ready:!me?.ready}),true],['装備・スキル',lanEquipment],['共有ショップ',lanShop],...(lanHost()?[['ダンジョンを選ぶ',lanGate]]:[]),['通信を終了',()=>lanHost()?lanAbort('ホストが部屋を閉じました'):lanRequest({type:'leave'})]]);
+  }
+  function lanGate(){if(!lanHost()||lan.phase!=='lobby')return;lanUI='gate';const limit=lanLimit();openPanel('協力ダンジョン',`<p>全員が行ける場所だけを表示しています。敵HPは${lan.players.length}倍です。</p>`+DUNGEONS.slice(0,limit+1).map((d,i)=>`<div class="row"><span class="nm">${i+1}. ${d.name}</span><span class="sub">推奨 Lv${d.rec}</span><button class="sbtn" data-lan-stage="${i}">出発</button></div>`).join(''),[['待合室へ',lanLobby]]);panelBody.querySelectorAll('[data-lan-stage]').forEach(b=>b.onclick=()=>lanStart(Number(b.dataset.lanStage)));}
+  function lanEquipment(){const p=lanMe();if(!p||lan.phase!=='lobby')return;lanUI='equipment';const s=p.save;const list=EQUIP.filter(e=>e.slot===lanEqSlot&&s.owned.includes(e.id));openPanel('自分の装備・スキル',`<div class="tabs">${Object.entries(SLOT_NAME).map(([k,n])=>`<button data-lan-slot="${k}">${n}</button>`).join('')}</div>`+list.map(e=>`<div class="row"><span class="nm">${eqIcon(e)}${e.name}</span><span class="sub">${lanWith(p,()=>eqStats(e))}</span><button class="sbtn" data-lan-equip="${e.id}" ${s.eq[e.slot]===e.id?'disabled':''}>${s.eq[e.slot]===e.id?'装備中':'装備する'}</button></div>`).join('')+`<h3>スキル</h3>`+s.skills.map(id=>`<button class="sbtn" data-lan-skill="${id}" ${s.skill===id?'disabled':''}>${SKILLS[id].name}${s.skill===id?'（セット中）':''}</button>`).join(''),[['待合室へ',lanLobby]]);panelBody.querySelectorAll('[data-lan-slot]').forEach(b=>b.onclick=()=>{lanEqSlot=b.dataset.lanSlot;lanEquipment();});panelBody.querySelectorAll('[data-lan-equip]').forEach(b=>b.onclick=()=>lanRequest({type:'equip',id:b.dataset.lanEquip}));panelBody.querySelectorAll('[data-lan-skill]').forEach(b=>b.onclick=()=>lanRequest({type:'skill',id:b.dataset.lanSkill}));}
+  function lanShop(){const p=lanMe();if(!p||lan.phase!=='lobby')return;lanUI='shop';const pool=lanHost()?lan.pool:lan.lobby.pool;openPanel('共有ショップ',`<p class="gold">共通のお金 ${pool} G</p><p>購入品は購入した人のセーブに残ります。全員が同じ財布・品ぞろえを使います。</p><div class="tabs">${Object.entries({...SLOT_NAME,item:'道具'}).map(([k,n])=>`<button data-lan-shop-slot="${k}">${n}</button>`).join('')}</div>`+(lanShopSlot==='item'?Object.entries(ITEMS).filter(([id,e])=>!e.craft&&e.price>0&&(!e.unlock||e.unlock<=lanLimit())).map(([id,e])=>`<div class="row"><span class="nm">${e.name}（所持${p.save.items[id]||0}）</span><span>${e.price} G</span><button class="sbtn" data-lan-item="${id}" ${pool<e.price?'disabled':''}>買う</button></div>`).join(''):EQUIP.filter(e=>e.slot===lanShopSlot&&!e.drop&&e.price>0).map(e=>`<div class="row"><span class="nm">${eqIcon(e)}${e.name}</span><span class="sub">${lanWith(p,()=>eqStats(e))} ／ ${e.price} G</span><button class="sbtn" data-lan-buy="${e.id}" ${p.save.owned.includes(e.id)||pool<e.price?'disabled':''}>${p.save.owned.includes(e.id)?'所持済み':'買う'}</button></div>`).join('')), [['待合室へ',lanLobby]]);panelBody.querySelectorAll('[data-lan-shop-slot]').forEach(b=>b.onclick=()=>{lanShopSlot=b.dataset.lanShopSlot;lanShop();});panelBody.querySelectorAll('[data-lan-buy]').forEach(b=>b.onclick=()=>lanRequest({type:'buy',id:b.dataset.lanBuy}));panelBody.querySelectorAll('[data-lan-item]').forEach(b=>b.onclick=()=>lanRequest({type:'buyItem',id:b.dataset.lanItem}));}
+  function lanRefresh(){if(!lan||lan.phase!=='lobby')return;const mode=lanUI;if(mode==='shop')lanShop();else if(mode==='equipment')lanEquipment();else if(mode==='gate'&&lanHost())lanGate();else if(mode==='lobby')lanShowLobby();}
+  function lanHandle(id,m){if(!lanHost()||!m||m.v&&m.v!==LAN_VERSION)return;let p=lan.players.find(p=>p.id===String(id));
+    if(m.type==='hello'){if(p||lan.phase!=='lobby'||lan.players.length>=4){window.YushaLan?.disconnect(id);return;}try{p=lanPlayer(id,m.name,m.profile);lan.players.push(p);lan.notice='参加者が変わったため、準備完了を確認してください';lan.players.forEach(p=>p.ready=false);lanLobby();}catch(e){lanSend(id,{type:'reject',notice:'参加データの形式またはゲームの版が一致しません'});window.YushaLan?.disconnect(id);}return;}
+    if(!p)return;if(m.type==='ack'&&Number.isSafeInteger(m.seq)){p.ack=Math.max(p.ack||0,m.seq);if(lan.phase==='closing'&&lan.players.every(p=>p.id==='0'||p.ack>=lan.closeSeq))lanCloseDone();return;}if(m.type==='ping'){lanSend(id,{type:'pong'});return;}
+    if(m.type==='input'){if(lan.phase!=='fight'||!Number.isSafeInteger(m.seq)||m.seq<=(p.inputSeq||0))return;p.inputSeq=m.seq;p.input={x:clamp(Number(m.x)||0,-1,1),y:clamp(Number(m.y)||0,-1,1)};p.inputAt=Date.now();if(['skill','roll','item'].includes(m.action))p.actions=(p.actions||[]).concat({kind:m.action,id:m.id,x:p.input.x,y:p.input.y}).slice(-8);return;}
+    if(m.type==='leave'){lanAbort('参加者が退出したため、通信プレイを終了しました');return;}
+    if(lan.phase!=='lobby')return;
+    if(m.type==='ready')p.ready=!!m.ready;
+    else if(m.type==='equip'){const e=EQ[m.id];if(!e||!p.save.owned.includes(e.id))return;p.save.eq[e.slot]=e.id;p.ready=false;}
+    else if(m.type==='skill'){if(!p.save.skills.includes(m.id))return;p.save.skill=m.id;p.ready=false;}
+    else if(m.type==='buy'){const e=EQ[m.id];if(!e||e.drop||!(e.price>0)||lan.pool<e.price||p.save.owned.includes(e.id))return;lan.pool-=e.price;p.save.owned.push(e.id);p.save.eq[e.slot]=e.id;lan.players.forEach(p=>p.ready=false);}
+    else if(m.type==='buyItem'){const e=ITEMS[m.id];if(!e||e.craft||!(e.price>0)||lan.pool<e.price||(e.unlock&&e.unlock>lanLimit())||(p.save.items[m.id]||0)>=ITEM_MAX)return;lan.pool-=e.price;p.save.items[m.id]=(p.save.items[m.id]||0)+1;lan.players.forEach(p=>p.ready=false);}
+    else return;
+    lanCheckpoint();lanAll({type:'lobby',...lanLobbyData()});lanRefresh();
+  }
+  function lanStart(di){if(!lanHost()||lan.phase!=='lobby'||!Number.isInteger(di)||di<0||di>lanLimit())return false;if(lan.players.length<2||!lan.players.every(p=>p.ready)){lan.notice='2人以上が参加し、全員が準備完了にしてください';lanShowLobby();return false;}
+    lan.phase='starting';closeTray();closePanel();lan.fighters=lan.players.length;lan.stage=di;lan.savedGuide=lan.players.map(p=>lanCopy(p.save.guide||null));lan.players.forEach(p=>{p.save.guide={stage:'done'};p.save.tut=1;p.save.hp=null;});
+    enterDungeon(di);const base=hero;for(let i=0;i<lan.players.length;i++){const p=lan.players[i];lanWith(p,()=>{hero=newHero(VW/2+(i-(lan.players.length-1)/2)*38,70);p.h=hero;bag=fillBag(Array.isArray(save.slots)?slotsLoadout(getSlots()):save.loadout||autoLoadout());p.bag=bag;guildRunStart();p.guild=guildRun;p.loot=[];p.materials={};p.combo=p.comboT=0;});p.ready=false;p.actions=[];p.input={x:0,y:0};}
+    lan.phase='fight';hero=lanMe().h;save=lanMe().save;bag=lanMe().bag;guildRun=lanMe().guild;runLoot=lanMe().loot;runMaterials=lanMe().materials;lanContext=null;for(const e of enemies)lanScale(e);tut=null;hint=0;guideBlocksCombat=false;noMerchant=true;lanAll({type:'start',stage:di,count:lan.fighters});lanSnapshot();lanCheckpoint();return true;
+  }
+  function lanScale(e){if(lanHost()&&['starting','fight'].includes(lan.phase)&&!e.lanScaled){e.hp*=lan.fighters;e.maxHp*=lan.fighters;e.lanScaled=true;}}
+  function lanInput(action,id,x,y){if(!lanFight()||lanDepth)return false;if(action==='roll'&&Math.hypot(x,y)>1){const n=Math.hypot(x,y);x/=n;y/=n;}const me=lanMe();if(!me)return true;const dx=drag.px-drag.ox,dy=drag.py-drag.oy,len=Math.hypot(dx,dy),mag=drag.down&&!panelOpen&&!trayOpen?Math.min(1,len/PAD_R):0;const m={type:'input',seq:++lan.inputSeq,x:x??(len?dx/len*mag:0),y:y??(len?dy/len*mag:0),action,id};lanRequest(m);return true;}
+  function lanTickHeroes(dt){const wasPaused=paused;paused=false;lanDepth++;try{lanEach((h,p)=>{if(!h||h.hp<=0)return;const input=Date.now()-p.inputAt<800?p.input:{x:0,y:0};Object.assign(drag,{down:Math.hypot(input.x,input.y)>.03,ox:0,oy:0,px:input.x*PAD_R,py:input.y*PAD_R});for(const a of p.actions||[]){if(a.kind==='skill')useSkill();else if(a.kind==='roll')startRoll(Math.hypot(a.x,a.y)>.1?a.x:Math.cos(h.face),Math.hypot(a.x,a.y)>.1?a.y:-Math.sin(h.face));else if(a.kind==='item')useItem(a.id);}p.actions=[];updateHero(dt);if(state==='play'&&h.y>goalY-30&&gateKills<gateNeed){h.y=goalY-30;h.vy=Math.min(0,h.vy);}if(h.pw){h.pw.t-=dt;if(h.pw.t<=0)endPower();}if(h.roul){h.roul.t+=dt;if(h.roul.t>=1.2){const k=h.roul.res;h.roul=null;applyPower(k);}}if(h.pw?.kind==='clone'){(h.hist||=[]).push([h.x,h.y,Math.hypot(h.vx,h.vy)]);if(h.hist.length>22)h.hist.shift();cloneHits();}});}finally{lanDepth--;paused=wasPaused;}}
+  function lanSettle(won,aborted=false){if(!lanHost()||lan.phase!=='fight')return;lanStash();lan.phase='settling';if(won&&boss){lan.phase='fight';gainExp(boss.exp);gainGold(boss.gold);lan.phase='settling';}
+    if(!won&&!aborted)lan.pool=Math.max(0,lan.pool-Math.floor(runGold/2));
+    for(let i=0;i<lan.players.length;i++){const p=lan.players[i];lanWith(p,()=>{if(won){guildClear();boss.craftDropped=false;craftDropBoss(boss);save.cleared[lan.stage]=true;if(Math.random()<DROP_RATE.boss)giveLoot(pick(dropPool('rare')),p.h.x,p.h.y);}save.hp=null;save.guide=lan.savedGuide?.[i]||{stage:'done'};});p.ready=false;}
+    A.jingle(won?'clear':'defeat');A.bgm(FARR.town);lan.phase='lobby';lan.notice=won?'ダンジョンをクリア！全員の端末に進行を保存しました。':aborted?'通信を終了します。':'全員が倒れました。経験値と入手品は残ります。';closeTray();transition=null;deathT=0;slowMo=hitStop=0;state='town';D=null;arena=null;boss=null;enemies=[];bullets=[];zones=[];hero=null;lan.players.forEach(p=>p.h=null);save=lanMe().save;bag={};lanContext=null;paused=false;showHud(false);lanLobby();
+  }
+  // A graph codec preserves owner/boss references and Set/Map links without serializing cached art.
+  function lanPack(value){const seen=new Map(),nodes=[];const skip=/^(?:b3|r3|kay.*Visual|birdVisual|quadVisual|fenrirTail|mouths|mouthT|canvas|image|sprite|cached.*)$/;
+    function encode(v){if(v===null||typeof v!=='object')return typeof v==='function'||typeof v==='undefined'?null:v;if(seen.has(v))return{$:seen.get(v)};const id=nodes.length;seen.set(v,id);nodes.push(null);let q;if(v instanceof Set)q={t:'set',v:[...v].map(encode)};else if(v instanceof Map)q={t:'map',v:[...v].map(([k,x])=>[encode(k),encode(x)])};else if(Array.isArray(v))q={t:'array',v:v.map(encode)};else{q={t:'object',v:{}};for(const[k,x]of Object.entries(v))if(!skip.test(k)&&typeof x!=='function'&&x!==undefined&&(!x||typeof x.getContext!=='function'))q.v[k]=encode(x);}nodes[id]=q;return{$:id};}const root=encode(value);return{root,nodes};}
+  const lanVisualKey=/^(?:b3|r3|kay.*Visual|birdVisual|quadVisual|fenrirTail|mouths|mouthT|canvas|image|sprite|cached.*)$/;
+  function lanStamp(){for(const o of [boss,...enemies,...bullets,...props,...drops,...rings,...zones,...evs,...shades,...twisters,...lan.players.map(p=>p.h)])if(o&&!o.lanEntity)o.lanEntity=lan.netCounter=(lan.netCounter||0)+1;}
+  function lanUnpack(data){if(!data||!Array.isArray(data.nodes)||data.nodes.length>40000)throw Error('snapshot');const cache=lan&&!lanHost()?(lan.entities||=new Map()):new Map(),used=new Set();
+    const out=data.nodes.map(n=>{if(n.t==='array')return[];if(n.t==='set')return new Set();if(n.t==='map')return new Map();const id=n.v.lanEntity;let o=id&&cache.get(id);if(!o)o=Object.create(null);else for(const k of Object.keys(o))if(!lanVisualKey.test(k))delete o[k];if(id){cache.set(id,o);used.add(id);}return o;});
+    const dec=v=>v&&typeof v==='object'&&Object.hasOwn(v,'$')?out[v.$]:v;data.nodes.forEach((n,i)=>{const a=out[i];if(n.t==='array')a.push(...n.v.map(dec));else if(n.t==='set')n.v.forEach(x=>a.add(dec(x)));else if(n.t==='map')n.v.forEach(([k,v])=>a.set(dec(k),dec(v)));else for(const[k,v]of Object.entries(n.v))if(!['__proto__','prototype','constructor'].includes(k))a[k]=dec(v);});for(const id of cache.keys())if(!used.has(id))cache.delete(id);return dec(data.root);}
+  function lanSnapshot(){if(!lanHost()||!lanFight())return;lanStash();lanStamp();const world=lanPack({sounds:(lan.sounds||[]).splice(0,32),pool:lan.pool,state,dIdx,nodes,goalY,gateNeed,gateKills,arena,boss,enemies,bullets,drops,props,rings,zones,anims,texts,fx,evs,ev,shades,twisters,globalT,t,freezeT,darkT,runExp,runGold,runKills,banner,players:lan.players.map(p=>({id:p.id,name:p.name,h:p.h,eq:p.save.eq,lv:p.save.lv,exp:p.save.exp,bag:p.bag,combo:p.combo}))});lanAll({type:'state',tick:++lan.seq,world});}
+  function lanApplyWorld(m){if(!lan||lanHost()||m.tick<=(lan.tick||0))return;const beforeState=state,w=lanUnpack(m.world);lan.tick=m.tick;if(w.state==='boss'&&beforeState!=='boss'){A.bgm(FARR.boss[DUNGEONS[w.dIdx].boss]);A.sfx('bossAppear');}for(const sound of w.sounds||[])A.sfx(sound[0],sound[1]);if(lan.lobby)lan.lobby.pool=w.pool;lan.phase='fight';state=w.state;dIdx=w.dIdx;D=DUNGEONS[dIdx];nodes=w.nodes;goalY=w.goalY;gateNeed=w.gateNeed;gateKills=w.gateKills;arena=w.arena;boss=w.boss;enemies=w.enemies;bullets=w.bullets;drops=w.drops;props=w.props;rings=w.rings;zones=w.zones;anims=w.anims;texts=w.texts;fx=w.fx;evs=w.evs;ev=w.ev;shades=w.shades;twisters=w.twisters;globalT=w.globalT;t=w.t;freezeT=w.freezeT;darkT=w.darkT;runExp=w.runExp;runGold=w.runGold;runKills=w.runKills;banner=w.banner;for(const v of w.players){const p=lan.players.find(p=>p.id===v.id);if(p){p.h=v.h;p.save.eq=v.eq;p.save.lv=v.lv;p.save.exp=v.exp;p.bag=v.bag;p.combo=v.combo;}}const me=lanMe();if(!me?.h)return;hero=me.h;save=me.save;bag=me.bag;combo=me.combo;paused=panelOpen||trayOpen;WX=(W-VW)/2;showHud(true);updateHudButtons();}
+  function lanReceive(id,m){if(!lan||m.v!==LAN_VERSION)return;lan.lastMessage=Date.now();if(lanHost()){if(m.type==='hello'||m.room===lan.room)lanHandle(id,m);return;}if(m.type==='reject'){lanExit(m.notice);return;}if(lan.room&&m.room!==lan.room)return;if(!lan.room)lan.room=m.room;
+    if(m.type==='checkpoint'){if(!Number.isSafeInteger(m.seq)||m.seq<=lan.lastSeq)return;try{const profile=lanProfile(m.profile);if(!Number.isSafeInteger(m.credit)||m.credit<0)return;lan.lastSeq=m.seq;let me=lanMe();if(!me){me=lanPlayer(lan.id,lan.name,profile);lan.players.push(me);}me.save=profile;lan.credit=m.credit;const disk=lanCopy(profile);disk.gold+=m.credit;localStorage.setItem('bumphero_save',JSON.stringify(disk));lanSend('0',{type:'ack',seq:m.seq});save=me.save;lanRefresh();}catch(e){lan.notice='進行を端末に保存できませんでした';}return;}
+    if(m.type==='lobby'){if(lan.phase==='fight'){A.bgm(FARR.town);}if(lan.phase==='fight'||lanUI==='connecting')lanUI='lobby';lan.phase='lobby';lan.lobby=m;lan.pool=m.pool;const me=lanMe();lan.players=m.players.map(p=>{const prior=lan.players.find(q=>q.id===p.id);return Object.assign(prior||{id:p.id,save:p.id===lan.id?(me?.save||lan.backup):{cleared:Array(p.frontier).fill(true),lv:p.lv,eq:{}}},p);});closeTray();transition=null;deathT=0;state='town';D=arena=boss=hero=null;paused=false;showHud(false);lanRefresh();return;}
+    if(m.type==='start'){closeTray();closePanel();lan.phase='fight';lan.stage=m.stage;lan.fighters=m.count;lan.entities=new Map();A.bgm(FARR.dungeon[m.stage]);paused=false;guideBlocksCombat=false;return;}
+    if(m.type==='state'){lanApplyWorld(m);return;}if(m.type==='end'){lanExit(m.notice);}
+  }
+  window.__lanNative=(type,id,data)=>{if(!lan)return;if(type==='hosted'){lan.address=data;lanLobby();}else if(type==='connected'){lan.id=id;lanSend('0',{type:'hello',name:lan.name,profile:lan.backup});}else if(type==='message'){try{lanReceive(id,JSON.parse(data));}catch(e){lan.notice='通信データを読み込めませんでした';}}else if(type==='disconnected'){if(lanHost()){if(lan.players.some(p=>p.id===id))lanAbort('参加者との接続が切れたため終了しました');}else lanExit('ホストとの接続が切れました。最後に保存できた進行を保持します。');}else if(type==='error'){if(lanHost())lanAbort(data);else lanExit(data);}};
+  window.__lanSuspend=()=>{if(lan)lanHost()?lanAbort('ホストがゲーム画面を離れたため終了しました'):lanRequest({type:'leave'});};
+  function lanPulse(dt){if(!lan)return;lanClock+=dt;lan.sendT+=dt;lan.checkT+=dt;lan.pingT+=dt;if(lanFight()&&lan.sendT>=.05){lan.sendT=0;lanInput();if(lanHost())lanSnapshot();}if(lanHost()&&lan.checkT>=1){lan.checkT=0;lanCheckpoint();}if(lan.pingT>=2){lan.pingT=0;if(lanHost())lanAll({type:'pong'});else lanSend('0',{type:'ping'});}if(!lanHost()&&Date.now()-lan.lastMessage>12000)lanExit('ホストから応答がありません。最後に保存できた進行を保持します。');}
+  function lanDrawPlayers(){const order=lan.players.filter(p=>p.h).slice().sort((a,b)=>b.h.y-a.h.y);for(const p of order)lanWith(p,()=>{if(hero.hp>0)drawHero();else{ctx.fillStyle='#8d86a0';ctx.beginPath();ctx.ellipse(hero.x,sy(hero.y),14,7,0,0,7);ctx.fill();}ctx.strokeStyle=['#f2c14e','#8ac4ff','#ff9ad0','#a8f0a0'][lan.players.indexOf(p)];ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(hero.x,sy(hero.y)+hero.r*.75,hero.r,hero.r*.38,0,0,7);ctx.stroke();});}
+  function lanDrawHud(){if(!lanFight())return;const y0=H-safeBottom()-160;ctx.fillStyle='rgba(19,24,58,.86)';ctx.fillRect(8,y0-13,W-16,76);ctx.strokeStyle='rgba(243,236,218,.65)';ctx.lineWidth=1;ctx.strokeRect(8,y0-13,W-16,76);txt(`協力 ${lan.fighters}人 ／ 倒れた仲間は次の出発で復帰`,16,y0,9,'#e7ddc7','left',false);lan.players.forEach((p,i)=>{if(!p.h)return;const x=16+(i%2)*(W/2-8),y=y0+20+Math.floor(i/2)*26;txt(`${i+1}P ${p.name.slice(0,7)} Lv${p.save.lv}${p.h.hp<=0?' ×':''}`,x,y,10,['#f2c14e','#8ac4ff','#ff9ad0','#a8f0a0'][i],'left',false);bar(x,y+4,W/2-32,4,p.h.hp/p.h.s.maxHp,'#6fd38a');});}
+  // LAN COOP END
+
+  function lanUpdateProps(dt) {
+    const spawned=[];lanEach(h=>{h.gnd={};if(h.poisonT>0)h.poisonT-=dt;});
+    for (const p of props) {
+      let first=true;lanEach((h)=>{if(p.gone)return;let gnd=h.gnd;let step=first?dt:0;first=false;do {
+
+      if(craftFloorImmune()&&['mud','poison','ice','belt','stream','crumble','vent','spike','warp'].includes(p.type))continue;
+      // ---------- field gimmicks ----------
+      if (p.type === 'mud' || p.type === 'poison') {
+        if (inEll(h, p)) { gnd.mud = 1; if (p.type === 'poison' && h.hp > 1 && !(craftState().cleanse>0)) { h.hp = Math.max(1, h.hp - h.s.maxHp * 0.035 * dt); h.poisonT = 0.25; } }
+        continue;
+      }
+      if (p.type === 'ice') { if (inEll(h, p)) gnd.ice = 1; continue; }
+      if (p.type === 'belt' || p.type === 'stream') { if (inRect(h, p)) gnd.py = p.dir * p.spd; continue; }
+      if (p.type === 'crumble') {
+        const on = inRect(h, p);
+        if (p.st === 0) { if (on) { p.t += step; if (p.t > 0.6) { p.st = 1; p.t = 0; A.sfx('crate'); burst(p.x, p.y, 16, '#8a7a6a', 160); } } else p.t = Math.max(0, p.t - step * 0.5); }
+        else {
+          p.t += step; if (p.t > 6) { p.st = 0; p.t = 0; }
+          else if (on && h.hp > 0 && h.inv <= 0) {   // fell through: hurt a little and climb back out before the hole
+            const d2 = Math.max(1, Math.round(h.s.maxHp * 0.08)); h.hp -= d2; h.inv = 1.0;
+            popText(h.x, h.y + 26, 'おちた！ -' + d2, '#ff5a4a', 16, 1); A.sfx('hurt'); combo = 0;
+            h.y = p.y - p.h / 2 - 50; h.x = tunnelAt(h.y).cx; h.vx = 0; h.vy = 0; h.recoil = 0.2;
+            if (h.hp <= 0 && !tryRevive()) { h.hp = 0; heroDown(); }
+          }
+        }
+        continue;
+      }
+      if (p.type === 'vent') {
+        const c = (t + p.ph) % 3.4, st = c < 2.0 ? 0 : c < 2.8 ? 1 : 2;
+        if (st === 2 && p.st !== 2) { A.sfx('boom'); shake = Math.max(shake, 5); }
+        if (st !== 2) p.hit.clear();
+        p.st = st;
+        if (st === 2) {
+          if (h.hp > 0 && hyp(h.x - p.x, h.y - p.y) < p.r + h.r * 0.4) hurtHero(trapDmg('vent'), p.x, p.y, 320, 'vent');
+          for (const e of enemies) if (!e.dead && !p.hit.has(e) && hyp(e.x - p.x, e.y - p.y) < p.r + e.r * 0.5) { p.hit.add(e); hazardHit(e, e.maxHp * 0.3, p.x, p.y, 200); }
+        }
+        continue;
+      }
+      if (p.type === 'warp') {
+        const d2 = hyp(h.x - p.x, h.y - p.y);
+        if (h.warpLock === p && d2 > p.r + h.r) h.warpLock = null;
+        if (p.to && h.hp > 0 && h.warpLock !== p && d2 < p.r * 0.8 + h.r * 0.3) {
+          burst(p.x, p.y, 20, '#c88aff', 200); h.x = p.to.x; h.y = p.to.y; h.warpLock = p.to;
+          burst(h.x, h.y, 24, '#c88aff', 220); A.sfx('warp'); flash = 0.2; flashCol = '200,140,255';
+          camY = Math.max(h.y + 40, H * 0.38 - 30);
+        }
+        continue;
+      }
+      if (p.type === 'bumper') {
+        if (p.lit > 0) p.lit -= step;
+        const dx = h.x - p.x, dy = h.y - p.y, d = hyp(dx, dy), rr = p.r + h.r;
+        if (d < rr && d > 0) {
+          const nx = dx / d, ny = dy / d, sp = Math.max(480, hyp(h.vx, h.vy) * 1.05);
+          h.x = p.x + nx * rr; h.y = p.y + ny * rr; h.vx = nx * sp; h.vy = ny * sp; h.recoil = 0.24; p.lit = 0.2;
+          anims.push({ kind: 'spark', x: p.x + nx * p.r, y: p.y + ny * p.r, t: 0, dur: 0.2, frames: 4, big: false }); A.sfx('block');
+        }
+        for (const e of enemies) { const ex = e.x - p.x, ey = e.y - p.y, ed = hyp(ex, ey), er = p.r + e.r; if (ed < er && ed > 0 && !e.fly) { e.x = p.x + ex / ed * er; e.y = p.y + ey / ed * er; e.vx += ex / ed * 220; e.vy += ey / ed * 220; } }
+        continue;
+      }
+      if (p.type === 'barrel') {
+        const res = h.hp > 0 ? collide(p, 1.3) : null;
+        if (res && res.kind === 'ram' && !(p.fuse > 0)) { p.fuse = 1.1; popText(p.x, p.y + 24, '！', '#ffd24a', 18, 0.6); A.sfx('magic2'); }
+        p.x += p.vx * step; p.y += p.vy * step; const f = Math.exp(-step * 2.2); p.vx *= f; p.vy *= f;
+        const wall = confine(p, 0.5);
+        if (p.fuse > 0) {
+          p.fuse -= step;
+          let boom = p.fuse <= 0 || (wall && hyp(p.vx, p.vy) > 120);
+          for (const e of enemies) if (!e.dead && hyp(e.x - p.x, e.y - p.y) < e.r + p.r) boom = true;
+          if (boom) explodeBarrel(p);
+        }
+        continue;
+      }
+      if (p.type === 'roller') {   // a crack up the slope that sends boulders rolling down at you
+        const ahead = p.y - h.y;
+        if (ahead > 60 && ahead < 720) {
+          p.t -= step; p.warn = p.t < 0.8;
+          if (p.t <= 0) { p.t = rnd(3.2, 4.4); p.warn = false; const tn = tunnelAt(p.y); spawned.push({ type: 'boulder', x: tn.cx + p.lane * tn.w, y: p.y, r: 22, vy: -185, lane: p.lane, roll: 0, from: p.y, hit: new Set() }); A.sfx('quake'); }
+        } else p.warn = false;
+        continue;
+      }
+      if (p.type === 'boulder') {
+        p.y += p.vy * step; p.roll += step * 7; const tn = tunnelAt(p.y); p.x = lerp(p.x, tn.cx + p.lane * tn.w, 1 - Math.exp(-step * 3));
+        if (p.y < p.from - 1100 || p.y < 60) { p.gone = true; continue; }
+        for (const o of props) if (o.type === 'rock' && hyp(o.x - p.x, o.y - p.y) < o.r + p.r) { p.gone = true; burst(p.x, p.y, 18, '#8a8478', 200); }
+        if (p.gone) continue;
+        const dx = h.x - p.x, dy = h.y - p.y, d = hyp(dx, dy) || 1;
+        if (h.hp > 0 && d < p.r + h.r) {
+          const into = -(h.vx * dx + h.vy * dy) / d;
+          if (into > PAD_MAX * h.s.ram * 0.75) {   // a full-tilt charge smashes it
+            p.gone = true; burst(p.x, p.y, 30, '#a89a88', 280); A.sfx('crate'); popText(p.x, p.y + 30, 'こなごな！', '#fff', 15, 0.9);
+            dropCoins(p.x, p.y, Math.max(1, Math.round(D.gp * 0.012))); h.vx = dx / d * 300; h.vy = dy / d * 300; h.recoil = 0.15; continue;
+          }
+          h.x = p.x + dx / d * (p.r + h.r); h.y = p.y + dy / d * (p.r + h.r);
+          hurtHero(trapDmg('boulder'), p.x, p.y, 420, 'boulder');
+        }
+        for (const e of enemies) if (!e.dead && !e.fly && !p.hit.has(e) && hyp(e.x - p.x, e.y - p.y) < p.r + e.r) { p.hit.add(e); hazardHit(e, e.maxHp * 0.25, p.x, p.y, 260); }
+        continue;
+      }
+      if (p.type === 'mace') {
+        p.ang += p.w * step;
+        const bx = p.x + Math.cos(p.ang) * p.len, by = p.y + Math.sin(p.ang) * p.len;
+        if (h.hp > 0 && hyp(h.x - bx, h.y - by) < 12 + h.r * 0.8) hurtHero(trapDmg('mace'), bx, by, 450, 'mace');
+        for (const e of enemies) if (!e.dead && (p.hit.get(e) || 0) < t && hyp(e.x - bx, e.y - by) < 12 + e.r) { p.hit.set(e, t + 1); hazardHit(e, e.maxHp * 0.2, bx, by, 300); }
+        continue;
+      }
+      if (p.type === 'swing') {
+        p.a = (p.sd > 0 ? Math.PI : 0) + Math.sin(t * 1.5 + p.ph) * 1.05;
+        const ca = Math.cos(p.a), sa = Math.sin(p.a), x1 = p.x + ca * p.len * 0.45, y1 = p.y + sa * p.len * 0.45, x2 = p.x + ca * p.len, y2 = p.y + sa * p.len;
+        if (h.hp > 0 && segDist(h.x, h.y, x1, y1, x2, y2) < 9 + h.r * 0.7) hurtHero(trapDmg('swing'), x2, y2, 450, 'swing');
+        for (const e of enemies) if (!e.dead && (p.hit.get(e) || 0) < t && segDist(e.x, e.y, x1, y1, x2, y2) < 9 + e.r) { p.hit.set(e, t + 1); hazardHit(e, e.maxHp * 0.2, x2, y2, 300); }
+        continue;
+      }
+      if (p.type === 'rock') {
+        const dx = h.x - p.x, dy = h.y - p.y, d = hyp(dx, dy), rr = p.r + h.r;
+        if (d < rr && d > 0) { const nx = dx / d, ny = dy / d; h.x = p.x + nx * rr; h.y = p.y + ny * rr; const vn = h.vx * nx + h.vy * ny; if (vn < 0) { h.vx -= 1.6 * vn * nx; h.vy -= 1.6 * vn * ny; } }
+        for (const e of enemies) { const ex = e.x - p.x, ey = e.y - p.y, ed = hyp(ex, ey), er = p.r + e.r; if (ed < er && ed > 0 && !e.fly) { e.x = p.x + ex / ed * er; e.y = p.y + ey / ed * er; } }
+      } else if (p.type === 'crate' || p.type === 'chest') {
+        if (p.gone || (p.type === 'chest' && p.open)) continue;
+        const res = collide(p, 999);
+        if (res && res.kind === 'ram') {
+          if (p.type === 'crate') { p.gone = true; burst(p.x, p.y, 18, '#c08a4a', 220); A.sfx('crate'); dropCoins(p.x, p.y, Math.round(D.gp * 0.12 / Math.max(1, D.crates) * rnd(0.7, 1.3))); }
+          else {
+            p.open = true; guildInc('chests');A.sfx('chest'); burst(p.x, p.y, 26, '#f2c14e', 260);
+            const roll = Math.random();
+            if (roll < 0.4) { const th = tierHeal(); drops.push({ type: th, x: p.x, y: p.y + 10, vx: 0, vy: 60, t: 0 }); popText(p.x, p.y + 30, ITEMS[th].name + '！', '#6fd38a', 15, 1.2); }
+            else if (roll < 0.7) { drops.push({ type: 'herb', x: p.x - 8, y: p.y + 10, vx: -40, vy: 60, t: 0 }); drops.push({ type: 'herb', x: p.x + 8, y: p.y + 10, vx: 40, vy: 60, t: 0 }); popText(p.x, p.y + 30, 'やくそう×2！', '#6fd38a', 15, 1.2); }
+            else { dropCoins(p.x, p.y, Math.round(D.gp * 0.08)); popText(p.x, p.y + 30, 'ゴールド！', '#f2c14e', 15, 1.2); }
+          }
+        } else if (res && res.kind === 'bump' && p.type === 'chest' && !p.toldT) { p.toldT = 1; popText(p.x, p.y + 28, 'いきおいよく ぶつかれ！', '#fff', 12, 1); }
+      } else if (p.type === 'spring') {
+        if (!p.used && hyp(h.x - p.x, h.y - p.y) < p.r + h.r + 30) {
+          p.used = true; const heal = h.s.maxHp - h.hp; h.hp = h.s.maxHp;
+          popText(p.x, p.y + 40, 'いやしの泉', '#9fe8ff', 18, 1.6); popText(p.x, p.y + 18, heal > 0 ? `HPが ぜんかいふく！ +${Math.round(heal)}` : 'HPは まんたん', '#6fd38a', 13, 1.6);
+          burst(p.x, p.y, 30, '#9fe8ff', 220, 1); A.sfx('spring'); flash = 0.3; flashCol = '160,230,255';
+        }
+      } else if (p.type === 'spike') {
+        const c = ((globalT + p.ph) % 2.2); p.state = c < 1.3 ? 0 : c < 1.65 ? 1 : 2;
+        if (p.state === 2 && Math.abs(h.x - p.x) < p.w / 2 + h.r * 0.3 && Math.abs(h.y - p.y) < p.h / 2 + h.r * 0.3) hurtHero(trapDmg('spike'), h.x, h.y - 30, 200, 'spike');
+      }
+      }while(false);});
+    }
+    if (spawned.length) props.push(...spawned);
+    props = props.filter(p => !p.gone);
+    // pickups fly to the hero
+    for (const d of drops) {
+      lanAim(d);
+      d.t += dt;
+      const dx = hero.x - d.x, dy = hero.y - d.y, dist = hyp(dx, dy) || 1;
+      if (d.t > 0.35 && dist < 140) { const k = 900 * dt; d.vx += dx / dist * k; d.vy += dy / dist * k; }
+      const f = Math.exp(-dt * 3); d.vx *= f; d.vy *= f;
+      d.x += d.vx * dt; d.y += d.vy * dt;
+      if (dist < hero.r + 8 && d.t > 0.25) {
+        d.got = true;
+        if (d.type === 'gold') { gainGold(d.val * (hero.pw && hero.pw.kind === 'rush' ? 2 : 1)); A.sfx('coin', Math.min(14, combo)); }
+        else { gainItem(d.type); popText(hero.x, hero.y + 30, ITEMS[d.type].name + ' をてにいれた', '#6fd38a', 12, 1); A.sfx('item'); }
+      }
+    }
+    drops = drops.filter(d => !d.got);
+  }
+
+  function lanUpdateEvents(dt) {
+    const h = hero; if (!h) return;
+    for (const o of evs) {
+      let first=true;lanEach((h)=>{if(o.gone)return;const step=first?dt:0;first=false;do {
+      o.t = (o.t || 0) + step;
+      if (o.type === 'qbox') {
+        if (!h.roul && h.hp > 0 && hyp(h.x - o.x, h.y - o.y) < 16 + h.r) { o.gone = true; openQBox(o); }
+      } else if (o.type === 'star') {
+        if (o.t < o.fall) continue;
+        if (!o.landed) { o.landed = true; burst(o.x, o.y, 30, '#ffe680', 280, 0.7); shake = Math.max(shake, 6); A.sfx('chest'); }
+        if (o.t > o.fall + 9) { o.gone = true; popText(o.x, o.y + 20, 'ほしが きえた…', '#c8c0ff', 13, 1); continue; }
+        if (h.hp > 0 && hyp(h.x - o.x, h.y - o.y) < 18 + h.r) { o.gone = true; starLoot(o); }
+      } else if (o.type === 'merchant') {
+        const d = hyp(h.x - o.x, h.y - o.y);
+        if (o.leave) { o.leave -= step; if (o.leave <= 0) o.gone = true; continue; }
+        if (!o.told && d < 170) { o.told = true; popText(o.x, o.y + 46, 'あやしい行商人', '#e0c8ff', 14, 1.6); }
+        if (o.cool && d > 90) o.cool = false;
+        if (!o.cool && !noMerchant && d < o.r + h.r + 6 && h.hp > 0 && state === 'play') { o.cool = true; openMerchant(o); }
+        if (d < o.r + h.r && d > 0) { const nx = (h.x - o.x) / d, ny = (h.y - o.y) / d; h.x = o.x + nx * (o.r + h.r); h.y = o.y + ny * (o.r + h.r); }
+      }
+      }while(false);});
+    }
+    evs = evs.filter(o => !o.gone);
+    if (state === 'play') {
+      if (ev.starY != null && h.y > ev.starY) { ev.starY = null; dropStar(); }
+      if (ev.paradeY != null && h.y > ev.paradeY) { ev.paradeY = null; startParade(); }
+      const P = ev.parade;
+      if (P && !P.done && !enemies.some(e => e.parade && !e.dead)) {
+        P.done = true;
+        if (P.killed >= P.total) paradeBonus(); else popText(h.x, h.y + 46, `だいこうしん：${P.killed}/${P.total}たい たおした`, '#fff', 13, 1.6);
+      }
+    }
+    if (state === 'boss' && boss && !boss.dead && !(boss.intro > 0)) {
+      ev.qT -= dt;
+      if (ev.qT <= 0) {
+        ev.qT = 60;
+        if (!evs.some(o => o.type === 'qbox')) { const pt = arenaSpot(160); evs.push({ type: 'qbox', x: pt.x, y: pt.y, t: 0, pop: true }); burst(pt.x, pt.y, 26, '#c8b0ff', 240); popText(pt.x, pt.y + 34, 'ハテナばこ！', '#e0d0ff', 15, 1.4); A.sfx('summon'); }
+      }
+    }
+  }
+
+  let lanExpDepth=0;
+  const lanOriginalSfx=A.sfx;A.sfx=function(name,arg){lanOriginalSfx(name,arg);if(lanHost()&&lanFight()){(lan.sounds||=[]).push([name,arg??null]);if(lan.sounds.length>64)lan.sounds.shift();}};
+  function lanGainExp(n){const before=runExp;lanExpDepth++;try{for(const p of lan.players)lanWith(p,()=>{const down=hero?.hp<=0;gainExp(n);if(down&&hero)hero.hp=0;});}finally{lanExpDepth--;runExp=before+n;}}
+  function lanUpdateZones(dt){
+    for(const z of zones){z.t+=dt;const target=lanNearest(z.boss||z);if(target?.h)lanSelect(target);const h=hero;
+      if(z.type==='patch'){lanEach(h=>{const d=hyp(h.x-z.x,h.y-z.y);if(d<z.r+h.r*.3&&!craftFloorImmune()){if(z.kind==='web')h.slow=Math.max(h.slow,.15);if(z.kind==='ice')(h.gnd||={}).ice=1;if(z.dmg&&(z.kind!=='sand'||d<z.core))hurtHero(z.dmg,z.x,z.y,160,'patch:'+z.kind);}if(!craftFloorImmune()&&z.pull&&d<z.pr&&d>4&&h.recoil<=0){h.vx+=(z.x-h.x)/d*z.pull*dt;h.vy+=(z.y-h.y)/d*z.pull*dt;}});z.dead=z.t>z.life;continue;}
+      if(z.type==='seg'){if(z.t>=z.tele&&!z.fired){z.fired=true;if(z.dmg)A.sfx('boom');shake=Math.max(shake,4);}if(z.fired&&z.dmg&&z.t<z.tele+z.act)lanEach(h=>{if(segDist(h.x,h.y,z.x,z.y,z.x2,z.y2)<z.w+h.r*.55)hurtHero(z.dmg,h.x,h.y-10,380,'zone:'+z.kind);});z.dead=z.t>z.tele+z.act;continue;}
+      if(z.type==='doom'){if(z.t>=z.tele&&!z.fired){z.fired=true;flash=.7;flashCol='255,60,140';shake=22;A.sfx('boom');lanEach(h=>{if(!z.safe.some(s=>hyp(h.x-s.x,h.y-s.y)<s.r))hurtHero(z.dmg,arena.cx,arena.cy,500,'zone:doom');});}z.dead=z.t>z.tele+.4;continue;}
+      if(z.type==='cone'){if(z.src&&!z.fired&&(z.src.dead||!['wind','gaze'].includes(z.src.st))){z.dead=true;continue;}if(z.boss){const M=mouthOf(z.boss);z.x=M.x;z.y=M.y;}if(z.track&&z.t<z.tele-.3){const want=Math.atan2(h.y-z.y,h.x-z.x),da=((want-z.ang+Math.PI*3)%(Math.PI*2))-Math.PI;z.ang+=clamp(da,-z.track*dt,z.track*dt);}if(z.t>=z.tele&&!z.fired){z.fired=true;flash=.45;flashCol='200,255,170';A.sfx('boom');lanEach(h=>{const a=Math.atan2(h.y-z.y,h.x-z.x),da=Math.abs(((a-z.ang+Math.PI*3)%(Math.PI*2))-Math.PI);if(da<z.spread&&hyp(h.x-z.x,h.y-z.y)<z.len+h.r){hurtHero(z.dmg,z.x,z.y,120,'zone:gaze');stunHero(z.stun||1.1,'stone');}});}z.dead=z.t>z.tele+z.act;continue;}
+      if(z.type==='shrink'){const T1=z.tele,T2=T1+z.close,T3=T2+z.hold,T4=T3+z.open;z.r=z.t<T1?z.r0:z.t<T2?lerp(z.r0,z.r1,1-(1-(z.t-T1)/z.close)**2):z.t<T3?z.r1:lerp(z.r1,z.r0,(z.t-T3)/z.open);lanEach(h=>{const dx=h.x-arena.cx,dy=h.y-arena.cy,d=hyp(dx,dy)||1;if(z.t>=T1&&z.t<T3&&d>z.r-h.r*.3){hurtHero(z.dmg,h.x+dx/d*40,h.y+dy/d*40,420,'zone:collapse');if(d>z.r&&h.recoil<=0){h.vx-=dx/d*600*dt;h.vy-=dy/d*600*dt;}}});z.dead=z.t>T4;continue;}
+      if(z.type==='circle'){if(!z.fired&&z.t>=z.tele){z.fired=true;lanEach(h=>{if(hyp(h.x-z.x,h.y-z.y)<z.r+h.r*.4)hurtHero(z.dmg,z.x,z.y,360,'zone:'+z.kind);});burst(z.x,z.y,18,`rgb(${ZCOL[z.kind]})`,260,.5);shake=Math.max(shake,5);if(z.after)z.after(z);}z.dead=z.t>z.tele+.3;}
+      else{if(z.boss){const M=mouthOf(z.boss);z.x=M.x;z.y=M.y;}if(z.hand){z.x=z.hand.x;z.y=z.hand.y+z.hand.z*80+20;}if(z.track){const want=Math.atan2(h.y-z.y,h.x-z.x),da=((want-z.ang+Math.PI*3)%(Math.PI*2))-Math.PI;z.ang+=clamp(da,-z.track*dt,z.track*dt);}if(z.t>=z.tele){z.ang+=z.vel*dt;const ex=z.x+Math.cos(z.ang)*z.len,ey=z.y+Math.sin(z.ang)*z.len;lanEach(h=>{if(segDist(h.x,h.y,z.x,z.y,ex,ey)<z.w+h.r*.55)hurtHero(z.dmg,h.x-Math.cos(z.ang+1.57)*10,h.y-Math.sin(z.ang+1.57)*10,380,'beam');});if(!z.sfx){z.sfx=true;A.sfx('boom');shake=Math.max(shake,6);}}z.dead=z.t>z.tele+z.act;}
+    }zones=zones.filter(z=>!z.dead);
+  }
+  const lanSoloUpdate=update,lanSoloEnemies=updateEnemies,lanSoloBullets=updateBullets,lanSoloProps=updateProps,lanSoloZones=updateZones,lanSoloBoss=bossUpdate,lanSoloEnterBoss=enterBossRoom,lanSoloRender=render,lanSoloEvents=updateEvents,lanSoloPause=openPause;
+  update=function(dt){if(lanHost()&&lanFight()){lanRoot(()=>{const p=lanAlive().sort((a,b)=>b.h.y-a.h.y)[0]||lanMe();if(p?.h)lanSelect(p);lanSoloUpdate(dt);});if(lanFight()&&lanMe()?.h){hero=lanMe().h;save=lanMe().save;bag=lanMe().bag;}}else lanSoloUpdate(dt);};
+  updateEnemies=function(dt){return lanFight()?lanRoot(()=>lanSoloEnemies(dt)):lanSoloEnemies(dt);};
+  updateBullets=function(dt){return lanFight()?lanRoot(()=>lanSoloBullets(dt)):lanSoloBullets(dt);};
+  updateProps=function(dt){return lanFight()?lanRoot(()=>lanUpdateProps(dt)):lanSoloProps(dt);};
+  updateZones=function(dt){return lanFight()?lanRoot(()=>lanUpdateZones(dt)):lanSoloZones(dt);};
+  bossUpdate=function(dt){return lanFight()?lanRoot(()=>{const held=lan.players.find(p=>p.id===boss.grab?.playerId&&p.h?.hp>0);if(held)lanSelect(held);else lanAim(boss);return lanSoloBoss(dt);}):lanSoloBoss(dt);};
+  updateEvents=function(dt){return lanFight()?lanRoot(()=>{const p=lanAlive().sort((a,b)=>b.h.y-a.h.y)[0];if(p)lanSelect(p);return lanUpdateEvents(dt);}):lanSoloEvents(dt);};
+  enterBossRoom=function(){lanSoloEnterBoss();if(lanHost()&&lanFight()){lanScale(boss);lan.players.forEach((p,i)=>{if(p.h){p.h.x=VW/2+(i-(lan.players.length-1)/2)*38;p.h.y=-arena.R+70;p.h.vx=p.h.vy=0;}});lanSnapshot();}};
+  openPause=function(){if(!lan)return lanSoloPause();openPanel('通信プレイ', '<p>この画面を開いている間も冒険は進みます。</p>',[['冒険を続ける',closePanel,true],['通信プレイを終了',()=>lanHost()?lanAbort('ホストが通信を終了しました'):lanRequest({type:'leave'})]]);};
+  render=function(){if(lanFight()&&lanMe()?.h){const h=lanMe().h.hp>0?lanMe().h:(lanAlive()[0]?.h||lanMe().h);if(arena){bcamX=h.x;bcamY=h.y;}else camY=Math.min(Math.max(h.y+40,H*.38-30),goalY+120-H*.38);}return lanSoloRender();};
+  const lanOriginalBack=window.__appBack;
+  window.__appBack=()=>{if(lan&&lan.phase==='lobby'){lanShowLobby();return true;}return lanOriginalBack?.();};
+  // Visible entry remains available in town without replacing existing facilities.
+  const lanEntry=document.createElement('button');lanEntry.id='lanEntry';lanEntry.className='sbtn';lanEntry.textContent='ローカル通信';lanEntry.style.cssText='position:fixed;z-index:18;right:12px;bottom:calc(72px + env(safe-area-inset-bottom,0px));font-size:13px;padding:10px;background:#13183a;color:#f2c14e;border:2px solid #f2c14e';lanEntry.onclick=lanOpen;document.body?.appendChild(lanEntry);
+  const lanBaseRender=render;render=function(){lanEntry.hidden=state!=='town'||!!lan||panelOpen;return lanBaseRender();};
+
+  window.__yusha = { lan:{open:lanOpen,create:lanCreate,start:lanStart,request:lanRequest,receive:lanReceive,pulse:lanPulse,limit:lanLimit,frontier:lanFrontier,pack:lanPack,unpack:lanUnpack,exit:lanExit,get room(){return lan;}}, guide:{tick:()=>{guideClock=0;guideTick();},get active(){return guideActive();},get blocked(){return guideBlocksCombat;}}, pixelfx:{emit:pfxEmit,clear:pfxClear,get data(){return {effects:Object.keys(pfxData?.effects||{}),decodedBytes:pfxData?.decodedBytes||0,loaded:pfxLoaded,images:pfxImages.length,calls:pfxCalls,events:pfxEvents.length,used:[...pfxUsed]};}},saveTransfer:{validate:transferValidate,open:openSaveTransfer,encode:transferEncode,parse:transferParse,preview:transferPreview,commit:transferCommit,export:transferExportFile,get pending(){return transferPending;}},arenaMode:{ruleVersion:ARENA_RULE,ruleFor:id=>arenaTrialRule(arenaTrial(id)),open:openArena,trial:openArenaTrial,chain:openArenaChain,startTrial:arenaStartTrial,startChain:arenaStartChain,trials:ARENA_TRIALS,classes:ARENA_CLASSES,pool:arenaPool,canChain:arenaCanChain,rewards:ARENA_REWARDS,gear:arenaGear,claim:arenaClaim,normalize:arenaNormalize,supply:arenaSupply,rest:arenaRest,withdraw:arenaWithdraw,finish:arenaFinish,win:arenaBattleWon,next:arenaNextBattle,get run(){return arenaRun;},hudBox:arenaHudBox,hudLines:arenaHudLines,get circle(){return arena;}},enterBuilding,townSwipeTo, hard:{enter:hardEnter,pairs:HARD_PAIRS,normalize:hardNormalize,done:hardDone,unlocked:hardUnlocked,settle:hardSettle,contains:hardContains,confine:hardConfine,allBosses:fightBosses,hit:skillHit,openGate,get run(){return hardRun;},get arena(){return arena;}},facilities:{enter:facilityEnter,help:facilityShowHelp,closeHelp:facilityCloseHelp,stage:uiStageEnemies,get config(){return FACILITIES;},get active(){return{room:facilityRoom,tab:facilityTab};}},smith:{open:openSmith,detail:openSmithItem,confirm:openSmithConfirm,quote:smithQuote,upgrade:smithUpgrade,value:smithValue,keys:smithKeys,boots:smithBootEffects},forge:{open:openForge,confirm:openForgeConfirm,inherit:forgeInherit,check:forgeCheck,fx:forgeFx,normalize:forgeNormalize,grant:forgeGrantCrystals,hasEffect:forgeHasEffect},guild:{open:openGuild,detail:openGuildMission,missions:GUILD,claim:guildClaim,progress:guildProgress,choices:guildChoices,daily:guildDaily,normalize:guildNormalize,value:guildValue,inc:guildInc,clear:guildClear,sample:guildSampleBoss,dodge:guildDodge,ram:guildRam,wall:guildWall,hit:guildHit,heal:guildHeal,tick:guildTick,gear:guildGear,damage:ramDamage,hurt:hurtHero,rollScale:guildRollScale,get run(){return guildRun;}},bestiary:{open:openBestiary,detail:openBestiaryEntry,entries:bestEntries,drops:bestDrops,places:bestPlaces,normalize:bestNormalize,frame:bestFrame,playback:bestPlayback,get preview(){return bestPreview;}},crafting:{materials:craftMats,recipes:craftRecipes,make:craftMake,can:craftCanMake,open:openCraftShop,detail:openCraftRecipe,inventory:openCraftMaterials,exchange:craftExchange,normalize:craftNormalize,has:craftHas,ram:craftOnRam,roll:craftOnRoll,tick:craftTick,potion:craftUsePotion,skill:craftOnSkill,drop:craftDropEnemy,bossDrop:craftDropBoss,hasState:craftState,damage:craftDamageAdjust,gauges:craftGauges,feedback:craftFeedback},startRoll,useSkill,useItem, get tut() { return tut; }, get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
     defense: { enter: defEnter, whistle: defWhistle, stages: DEF_STAGES, spawnBoss: defSpawnBoss, get run() { return defRun; }, get arena() { return arena; } },
     enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN, ITEMS, EQUIP }, get bag() { return bag; }, openPrep, charmHit, stats, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, get gate() { return [gateKills, gateNeed]; }, killE: e => killEnemy(e), hitE:hitEnemy, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt, openOptions };
 })();
