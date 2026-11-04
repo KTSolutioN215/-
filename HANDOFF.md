@@ -469,3 +469,9 @@ sh tools/build_apk.sh      # 初回は Android SDK（platform 35 / build-tools 3
 ## ローカル通信（2026-11-03）
 - 同じWi-Fiで2〜4人の協力プレイ。JS側は yusha.js の `lan*`、Android側は `LanTransport.java`（TCPソケット）、`LanWebServer.java`・`LanWebSocket.java`（ブラウザから参加するための中継。web/browser-lan.js・lan-relay.html・lan-relay.js）、`LanDiscovery.java`（同じWi-Fi内の部屋の自動発見、マルチキャスト。権限 ACCESS_NETWORK_STATE・CHANGE_WIFI_MULTICAST_STATE）と MainActivity の `LanBridge`（`window.YushaLan`）。Web版にはブリッジがないので通信はアプリ版のみ。
 - Android側のソースは、受け取ったAPKのclasses.dexからjadxで復元してリポジトリに入れた（セーブの書き出し・読み込み＝ファイル選択の処理も含む。v2.2以降のAPKにはあったが、リポジトリに無かった）。復元時に1か所（セーブ書き出しのtry-with-resources）を手で直した。
+
+## お金と強化の調整（2026-11-04）
+- 16面以降で売る装備は、どれも「その装備が解放される直前のダンジョンの獲得額 × 2.5」（`BALANCE_LATE_RUNS`）。前のステージを2〜3周で1つ買える。
+- かじやの強化：上限は元の数値の1.2倍（ただし最低+3）、1回の上昇は max(3, 元の数値の4%)（`smithCap`・`smithStep`）。くつの突進値は内部で×100の数値で同じルール、移動速度と体当たり威力が最大×1.2。
+- 強化のゴールドは「同じ部位で次の装備を買ったときの1ポイントあたりの値段」×1.2（`balanceBuyRate`・`SMITH_GOLD_K`。数値が複数ある装飾品は値段を数値の数で割る）。素材は1回あたり旧来の約2倍、上限に届く最後の1回は s07（20面以降は core20 も）が必要。素材ぶんを足して、買い替えより約1.5倍コスパが悪い想定。
+- 旧セーブで上限を超えて強化していた分は、上限で頭打ちになる（返金なし）。

@@ -415,9 +415,10 @@
   const BALANCE_OLD_GP=DUNGEONS.map(d=>d.gp);
   for(let i=15;i<DUNGEONS.length;i++)DUNGEONS[i].gp=Math.round(DUNGEONS[14].gp*1.10**(i-14));
   const BALANCE_SHOP_STAGES={weapon:[1,1,3,5,7,9,11,13,15,17,19,21,23,25,26,27,29,30,31,32,33,34,35],armor:[1,1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,30,31,32,33,34,35],boots:[1,2,5,10,15,20,25,30],charm:[0,3,5,7,10,13,16,19,22,25,30,31,32,33,34,35]};
+  const BALANCE_LATE_RUNS=2.5;
   const balanceOldPrices=new Map(EQUIP.map(e=>[e.id,e.price]));
   for(const e of EQUIP){if(e.drop||!e.price)continue;const index=Number(e.id.slice(1)),stage=BALANCE_SHOP_STAGES[e.slot]?.[index];if(!stage)continue;e.shopStage=stage;
-    if(stage>15)e.price=Math.round(DUNGEONS[stage-1].gp*({weapon:2,armor:1.8,boots:2.2,charm:2.6}[e.slot])/100)*100;
+    if(stage>15)e.price=Math.round(DUNGEONS[stage-2].gp*BALANCE_LATE_RUNS/100)*100;   // 指示: 後半は 前のステージを 2〜3周で 装備1つ
   }
   // Duplicate loot must not pay an old million-gold price after the reward curve changes.
   for(const e of EQUIP){if(!e.drop||!e.val)continue;const ref=EQ[e.vis],old=balanceOldPrices.get(e.vis);if(old>0&&ref?.price>0)e.val=Math.max(1,Math.round(e.val*ref.price/old));
@@ -427,13 +428,21 @@
   function balanceFrontier(s=save){let n=0;while(n<DUNGEONS.length-1&&s.cleared?.[n]===true)n++;return n;}
   function balanceShopOpen(e,s=save){return !!e&&(!e.shopStage||e.shopStage<=balanceFrontier(s)+1);}
   function balanceShopLock(e){return `第${Math.max(1,e.shopStage-1)}ダンジョンをクリアすると販売`;} 
-  function balanceSmithGold(e,k,value){const steps=Math.max(0,Math.ceil((value-smithBase(e,k))/SMITH_STEP)),price=e.price||EQ[e.vis]?.price||0,base=Math.max(100,Math.round(price*.025));return Math.round(base*(1+steps*.16+steps*steps*.025));}
-  function balanceSmithMats(e,k,value){const steps=Math.max(0,Math.ceil((value-smithBase(e,k))/SMITH_STEP)),stage=e.shopStage||EQ[e.vis]?.shopStage||(e.from!=null?e.from+1:1),mats={[{weapon:'m11',armor:'m15',boots:'m02',charm:'m18'}[e.slot]]:3+2*Math.floor((stage-1)/12)+Math.floor(steps/3)};
-    if(stage>=16||steps>=10)mats.m18=(mats.m18||0)+1+Math.floor(steps/10);
-    if(steps>=10)mats.s07=1+Math.floor((steps-10)/10);
-    if(steps>=20)mats.core20=1+Math.floor((steps-20)/40);
-    if(steps>=40)mats.core30=1+Math.floor((steps-40)/60);
-    if(k==='ram'){for(const m of Object.keys(mats))mats[m]*=3;if(steps>=10)mats.s06=1+Math.floor(steps/30);if(steps>=20)mats.core08=1;if(steps>=40)mats.core19=1;}
+  // 指示: 強化は 新しい装備を買うより 約1.5倍 コスパが悪い（ゴールド1.2倍＋素材）。ゴールドより 素材を多く。
+  const SMITH_GOLD_K=1.2;
+  function balanceBuyRate(slot,k,value){   // gold per stat point when you buy the next shop piece instead
+    const stat=x=>k==='ram'?Math.round((x.ram||1)*100):(x[k]||0);
+    let L=EQUIP.filter(x=>!x.drop&&x.price>0&&x.slot===slot&&stat(x)>0);if(L.length<2)L=EQUIP.filter(x=>!x.drop&&x.price>0&&stat(x)>0);
+    L=L.slice().sort((a,b)=>stat(a)-stat(b)||a.price-b.price);
+    let i=L.findIndex(x=>stat(x)>value);if(i<1)i=i<0?L.length-1:1;
+    const d=Math.max(1,stat(L[i])-stat(L[i-1])),n=Math.max(1,['atk','def','hp'].filter(j=>(L[i][j]||0)>0).length);return L[i].price/d/(k==='ram'?1:n);   // a piece with several stats: its price is shared between them
+  }
+  function balanceSmithGold(e,k,value){const gain=Math.min(smithCap(e,k),value+smithStep(e,k))-value;return Math.max(50,Math.round(balanceBuyRate(e.slot,k,value)*gain*SMITH_GOLD_K/10)*10);}
+  function balanceSmithMats(e,k,value){const steps=Math.max(0,Math.ceil((value-smithBase(e,k))/smithStep(e,k))),last=value+smithStep(e,k)>=smithCap(e,k),stage=e.shopStage||EQ[e.vis]?.shopStage||(e.from!=null?e.from+1:1),mats={[{weapon:'m11',armor:'m15',boots:'m02',charm:'m18'}[e.slot]]:2*(3+2*Math.floor((stage-1)/12))+steps};   // about twice the old amount per step
+    if(stage>=6||steps>=2)mats.m18=(mats.m18||0)+1+Math.floor(steps/2)+Math.floor(stage/16);
+    if(last)mats.s07=1+Math.floor(stage/12);   // the final step to the cap needs a rarer stone
+    if(last&&stage>=20)mats.core20=1+Math.floor((stage-20)/8);
+    if(k==='ram'){for(const m of Object.keys(mats))mats[m]*=2;if(steps>=10)mats.s06=1+Math.floor(steps/30);if(steps>=20)mats.core08=1;if(steps>=40)mats.core19=1;}
     return mats;
   }
   // Apply armor mitigation once, before the existing damage modifiers and rounding.
@@ -1185,14 +1194,17 @@
   const SMITH_CAP=999,SMITH_STEP=5,SMITH_NAMES={atk:'攻撃',def:'防御',hp:'HP',ram:'突進値'};
   function smithKeys(e){return e?['atk','def','hp','ram'].filter(k=>(k==='ram'?e.slot==='boots':e[k]>0)||k==={weapon:'atk',armor:'def',charm:'hp'}[e.slot]&&(!['atk','def','hp'].some(j=>e[j]>0)||e.slot!=='charm')):[];}
   const smithBase=(e,k)=>k==='ram'?Math.round((e.ram||1)*100):Math.round(e[k]||0);
-  function smithValue(e,k){return Math.min(SMITH_CAP,smithBase(e,k)+(save.owned.includes(e.id)?save.forge?.upgrades?.[e.id]?.[k]||0:0));}
-  function smithBootEffects(e,value=smithValue(e,'ram')){const base=smithBase(e,'ram'),t=clamp((value-base)/Math.max(1,SMITH_CAP-base),0,1);return{speed:(e.ram||1)+(3-(e.ram||1))*t,power:1+2*t};}
+  // 指示: 強化の上限は 元の数値の 1.2倍。1回の強化で 最低3 上がる
+  function smithCap(e,k){const b=smithBase(e,k);return Math.min(SMITH_CAP,Math.max(b+3,Math.round(b*1.2)));}
+  function smithStep(e,k){return Math.max(3,Math.round(smithBase(e,k)*0.04));}
+  function smithValue(e,k){return Math.min(smithCap(e,k),smithBase(e,k)+(save.owned.includes(e.id)?save.forge?.upgrades?.[e.id]?.[k]||0:0));}
+  function smithBootEffects(e,value=smithValue(e,'ram')){const base=smithBase(e,'ram');return{speed:value/100,power:value/Math.max(1,base)};}   // up to x1.2 speed and x1.2 ram power
   function smithEquipment(e){if(!e)return e;const out={...e};for(const k of smithKeys(e)){const v=smithValue(e,k);if(k==='ram'){const b=smithBootEffects(e,v);out.ram=b.speed;out.ramPower=b.power;}else if(v!==smithBase(e,k))out[k]=v;}return out;}
   function smithQuote(id,k){
     const e=EQ[id];if(!e||!save.owned.includes(id)||!smithKeys(e).includes(k))return null;
-    const v=smithValue(e,k);if(v>=SMITH_CAP)return {current:v,next:v,cap:true,gold:0,mats:{}};
+    const v=smithValue(e,k),cap=smithCap(e,k);if(v>=cap)return {current:v,next:v,cap:true,gold:0,mats:{}};
     const mats=balanceSmithMats(e,k,v);
-    return{current:v,next:Math.min(SMITH_CAP,v+SMITH_STEP),cap:false,gold:balanceSmithGold(e,k,v),mats};
+    return{current:v,next:Math.min(cap,v+smithStep(e,k)),cap:false,gold:balanceSmithGold(e,k,v),mats};
   }
   function smithUpgrade(id,k,expected){if(lanTown()&&!lanTownExecuting)return lanTownRequest('smith',[id,k,expected]);
     if(state!=='town'||arenaRun)return false;const q=smithQuote(id,k);if(!q||q.cap||q.current!==expected||lanTownGold()<q.gold||Object.entries(q.mats).some(([m,n])=>(save.materials[m]||0)<n))return false;
@@ -1210,7 +1222,7 @@
   function openSmithItem(id){if(lanTown())lanTownSetView(()=>openSmithItem(id));
     facilitySelect('smith','upgrade');
     const e=EQ[id];if(!e||!save.owned.includes(id)||state!=='town'||arenaRun)return;
-    openPanel(e.name+'：強化',`<div class="craft-effect">${eqIcon(e)} ${eqName(e)}<br>${eqStats(e)}</div><p class="ui-summary">所持 ${lanTownGold().toLocaleString()} G ／ 上限999</p>`+smithKeys(e).map(k=>{const q=smithQuote(id,k),ok=!q.cap&&lanTownGold()>=q.gold&&Object.entries(q.mats).every(([m,n])=>(save.materials[m]||0)>=n);return `<div class="row"><span class="nm">${SMITH_NAMES[k]} ${q.current} → ${q.next}${q.cap?'（上限）':''}</span><span class="sub">基礎 ${smithBase(e,k)} ／ 上限まであと ${Math.ceil((SMITH_CAP-q.current)/SMITH_STEP)}回<br>${q.cap?'':q.gold.toLocaleString()+' G'+Object.entries(q.mats).map(([m,n])=>uiMaterialCost(m,n)).join('')}${k==='ram'?'<br>移動 ×'+smithBootEffects(e,q.current).speed.toFixed(2)+' → ×'+smithBootEffects(e,q.next).speed.toFixed(2)+'<br>体当たり威力 ×'+smithBootEffects(e,q.current).power.toFixed(2)+' → ×'+smithBootEffects(e,q.next).power.toFixed(2):''}</span><span class="act"><button class="sbtn" data-smith-preview="${k}" ${ok?'':'disabled'}>${q.cap?'上限到達':'強化内容を確認'}</button></span></div>`;}).join(''),[['装備一覧へ',openSmith]],'smith');
+    openPanel(e.name+'：強化',`<div class="craft-effect">${eqIcon(e)} ${eqName(e)}<br>${eqStats(e)}</div><p class="ui-summary">所持 ${lanTownGold().toLocaleString()} G ／ 強化の上限は 元の数値の1.2倍</p>`+smithKeys(e).map(k=>{const q=smithQuote(id,k),ok=!q.cap&&lanTownGold()>=q.gold&&Object.entries(q.mats).every(([m,n])=>(save.materials[m]||0)>=n);return `<div class="row"><span class="nm">${SMITH_NAMES[k]} ${q.current} → ${q.next}${q.cap?'（上限）':''}</span><span class="sub">基礎 ${smithBase(e,k)} ／ 上限 ${smithCap(e,k)}（あと ${Math.ceil((smithCap(e,k)-q.current)/smithStep(e,k))}回）<br>${q.cap?'':q.gold.toLocaleString()+' G'+Object.entries(q.mats).map(([m,n])=>uiMaterialCost(m,n)).join('')}${k==='ram'?'<br>移動 ×'+smithBootEffects(e,q.current).speed.toFixed(2)+' → ×'+smithBootEffects(e,q.next).speed.toFixed(2)+'<br>体当たり威力 ×'+smithBootEffects(e,q.current).power.toFixed(2)+' → ×'+smithBootEffects(e,q.next).power.toFixed(2):''}</span><span class="act"><button class="sbtn" data-smith-preview="${k}" ${ok?'':'disabled'}>${q.cap?'上限到達':'強化内容を確認'}</button></span></div>`;}).join(''),[['装備一覧へ',openSmith]],'smith');
     uiBindMaterials(()=>openSmithItem(id),'smith');craftBind('[data-smith-preview]',b=>openSmithConfirm(id,b.dataset.smithPreview));
   }
   function openSmithConfirm(id,k){if(lanTown())lanTownSetView(()=>openSmithConfirm(id,k));
