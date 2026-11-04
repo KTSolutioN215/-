@@ -411,6 +411,34 @@
     { name: 'ほしふる てんくう', en: 'STARFALL SKY', rec: 128, len: 4400, w: [0.6, 0.88], pool: { starspirit: 1.4, fairy: 1, angel: 0.8, harpy: 0.6, bonewyvern: 0.6, baku: 0.5, stormeagle: 1.4, clown: 1 }, groups: 18, rocks: 3, spikes: 5, chests: 2, crates: 3,
       pal: { wall: '#0a0e2a', wallHi: '#1e2a5a', floor: '#1a2250', floorLn: '#121a40', light: '170,200,255', fog: 0.5 }, song: 'gravity', key: 9, bpm: 154, boss: 'skywhale', m: 104.39, a: 23.84, xp: 50620, gp: 1211349 },
   ];
+  // Economy v2: preserve existing saves, gate new purchases, flatten post-midgame gold.
+  const BALANCE_OLD_GP=DUNGEONS.map(d=>d.gp);
+  for(let i=15;i<DUNGEONS.length;i++)DUNGEONS[i].gp=Math.round(DUNGEONS[14].gp*1.10**(i-14));
+  const BALANCE_SHOP_STAGES={weapon:[1,1,3,5,7,9,11,13,15,17,19,21,23,25,26,27,29,30,31,32,33,34,35],armor:[1,1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,30,31,32,33,34,35],boots:[1,2,5,10,15,20,25,30],charm:[0,3,5,7,10,13,16,19,22,25,30,31,32,33,34,35]};
+  const balanceOldPrices=new Map(EQUIP.map(e=>[e.id,e.price]));
+  for(const e of EQUIP){if(e.drop||!e.price)continue;const index=Number(e.id.slice(1)),stage=BALANCE_SHOP_STAGES[e.slot]?.[index];if(!stage)continue;e.shopStage=stage;
+    if(stage>15)e.price=Math.round(DUNGEONS[stage-1].gp*({weapon:2,armor:1.8,boots:2.2,charm:2.6}[e.slot])/100)*100;
+  }
+  // Duplicate loot must not pay an old million-gold price after the reward curve changes.
+  for(const e of EQUIP){if(!e.drop||!e.val)continue;const ref=EQ[e.vis],old=balanceOldPrices.get(e.vis);if(old>0&&ref?.price>0)e.val=Math.max(1,Math.round(e.val*ref.price/old));
+    const n=Number((e.vis||'').slice(1)),table=e.slot==='weapon'?DROP_WT:e.slot==='armor'?DROP_AT:null,stage=Number.isInteger(e.from)?e.from:table?Math.max(0,table.indexOf(n)):0;
+    if(stage>=15)e.val=Math.min(e.val,Math.max(10,Math.round(DUNGEONS[stage].gp*(e.drop==='rare'?.12:e.drop==='fx'?.08:.04))));
+  }
+  function balanceFrontier(s=save){let n=0;while(n<DUNGEONS.length-1&&s.cleared?.[n]===true)n++;return n;}
+  function balanceShopOpen(e,s=save){return !!e&&(!e.shopStage||e.shopStage<=balanceFrontier(s)+1);}
+  function balanceShopLock(e){return `第${Math.max(1,e.shopStage-1)}ダンジョンをクリアすると販売`;} 
+  function balanceSmithGold(e,k,value){const steps=Math.max(0,Math.ceil((value-smithBase(e,k))/SMITH_STEP)),price=e.price||EQ[e.vis]?.price||0,base=Math.max(100,Math.round(price*.025));return Math.round(base*(1+steps*.16+steps*steps*.025));}
+  function balanceSmithMats(e,k,value){const steps=Math.max(0,Math.ceil((value-smithBase(e,k))/SMITH_STEP)),stage=e.shopStage||EQ[e.vis]?.shopStage||(e.from!=null?e.from+1:1),mats={[{weapon:'m11',armor:'m15',boots:'m02',charm:'m18'}[e.slot]]:3+2*Math.floor((stage-1)/12)+Math.floor(steps/3)};
+    if(stage>=16||steps>=10)mats.m18=(mats.m18||0)+1+Math.floor(steps/10);
+    if(steps>=10)mats.s07=1+Math.floor((steps-10)/10);
+    if(steps>=20)mats.core20=1+Math.floor((steps-20)/40);
+    if(steps>=40)mats.core30=1+Math.floor((steps-40)/60);
+    if(k==='ram'){for(const m of Object.keys(mats))mats[m]*=3;if(steps>=10)mats.s06=1+Math.floor(steps/30);if(steps>=20)mats.core08=1;if(steps>=40)mats.core19=1;}
+    return mats;
+  }
+  // Apply armor mitigation once, before the existing damage modifiers and rounding.
+  function balanceDamage(raw,defense,attack=raw){if(!(raw>0))return 0;const a=Math.max(1,attack||raw),d=Math.max(0,defense||0);return raw*a/(a+d*.5);}
+
 
   DUNGEONS.forEach((d, i) => Object.assign(d.pool, VAR_POOL[i] || {}));
 
@@ -548,14 +576,14 @@
   const craftHave=k=>Number.isSafeInteger(save.materials&&save.materials[k])?save.materials[k]:0;
   const craftOwned=r=>r.slot==='tool'?save.craftTools.includes(r.id):r.slot!=='item'&&save.owned.includes('craft_'+r.id);
   const craftOpen=r=>r.stage===0||!!save.cleared[r.stage-1];
-  function craftCanMake(r,n=1){return !!r&&state==='town'&&Number.isInteger(n)&&n>=1&&n<=10&&craftOpen(r)&&!craftOwned(r)&&save.gold>=r.fee*n&&Object.entries(r.req).every(([k,v])=>craftHave(k)>=v*n)&&(r.slot!=='item'||(save.items['craft_'+r.id]||0)+n<=ITEM_MAX);}
-  function craftMake(id,n=1){
+  function craftCanMake(r,n=1){return !!r&&state==='town'&&Number.isInteger(n)&&n>=1&&n<=10&&craftOpen(r)&&!craftOwned(r)&&lanTownGold()>=r.fee*n&&Object.entries(r.req).every(([k,v])=>craftHave(k)>=v*n)&&(r.slot!=='item'||(save.items['craft_'+r.id]||0)+n<=ITEM_MAX);}
+  function craftMake(id,n=1){if(lanTown()&&!lanTownExecuting)return lanTownRequest('craft',[id,n]);
     const r=craftRecipes[id];if(!r||!craftCanMake(r,n))return false;
     const before={gold:save.gold,materials:{...save.materials},owned:save.owned.slice(),items:{...save.items},tools:save.craftTools.slice(),count:save.craftCount};
     save.gold-=r.fee*n;for(const[k,v]of Object.entries(r.req))save.materials[k]-=v*n;
     if(r.slot==='item')save.items['craft_'+id]=(save.items['craft_'+id]||0)+n;else if(r.slot==='tool')save.craftTools.push(id);else save.owned.push('craft_'+id);
     save.craftCount+=n;
-    try{localStorage.setItem('bumphero_save',JSON.stringify(save));}
+    try{lanWriteCurrentSave();}
     catch(e){Object.assign(save,{gold:before.gold,materials:before.materials,owned:before.owned,items:before.items,craftTools:before.tools,craftCount:before.count});toast('保存できませんでした。素材は消費していません。','#ff9a8a');return false;}
     guildCraft(id);toast(r.name+' を合成した！','#f2c14e');A.sfx('chest');return true;
   }
@@ -568,18 +596,18 @@
   function craftArtImg(kind,id,sz=32){const key=kind+':'+id;const src=craftArtCache[key]||(craftArtCache[key]=(kind==='material'?InventoryArt.material(id):InventoryArt.equipment({craft:id})).c.toDataURL());return `<img class="craft-art" src="${src}" width="${sz}" height="${sz}" alt="">`;}
   let craftTab='all';
   function craftBind(sel,fn,sound='select'){panelBody.querySelectorAll(sel).forEach(b=>b.addEventListener('click',()=>{if(b.disabled)return;if(sound)A.sfx(sound);fn(b);}));}
-  function openCraftShop(){
+  function openCraftShop(){if(lanTown())lanTownSetView(openCraftShop);
     facilitySelect('craft','make');
     craftNormalize();
     const labels={all:'すべて',weapon:'ぶき',armor:'よろい',boots:'くつ',charm:'装飾品',item:'どうぐ',tool:'恒久道具'};
     const list=Object.values(craftRecipes).filter(r=>craftTab==='all'||r.slot===craftTab);
-    openPanel('合成屋',`<div class="craft-head"><span>${save.gold.toLocaleString()} G</span></div><div class="tabs craft-tabs">${Object.entries(labels).map(([id,n])=>`<button data-ct="${id}" aria-pressed="${craftTab===id}">${n}</button>`).join('')}</div>`+list.map(r=>`<button class="craft-card" data-recipe="${r.id}"><span class="craft-symbol">${craftArtImg('equipment',r.id,40)}</span><span><b>${r.name}</b><small>${SLOT_NAME[r.slot]|| (r.slot==='tool'?'恒久道具':'どうぐ')}</small><em>${craftOwned(r)?'作成済み':!craftOpen(r)?'解放：'+DUNGEONS[r.stage].name+' に到達':craftCanMake(r)?'合成できます':r.fee.toLocaleString()+' G・素材が必要'}</em></span><span aria-hidden="true">›</span></button>`).join(''),[['店を出る',closePanel]],'craft');
+    openPanel('合成屋',`<div class="craft-head"><span>${lanTownGold().toLocaleString()} G</span></div><div class="tabs craft-tabs">${Object.entries(labels).map(([id,n])=>`<button data-ct="${id}" aria-pressed="${craftTab===id}">${n}</button>`).join('')}</div>`+list.map(r=>`<button class="craft-card" data-recipe="${r.id}"><span class="craft-symbol">${craftArtImg('equipment',r.id,40)}</span><span><b>${r.name}</b><small>${SLOT_NAME[r.slot]|| (r.slot==='tool'?'恒久道具':'どうぐ')}</small><em>${craftOwned(r)?'作成済み':!craftOpen(r)?'解放：'+DUNGEONS[r.stage].name+' に到達':craftCanMake(r)?'合成できます':r.fee.toLocaleString()+' G・素材が必要'}</em></span><span aria-hidden="true">›</span></button>`).join(''),[['店を出る',closePanel]],'craft');
     craftBind('[data-ct]',b=>{craftTab=b.dataset.ct;openCraftShop();});craftBind('[data-recipe]',b=>openCraftRecipe(b.dataset.recipe));craftBind('[data-materials]',()=>openCraftMaterials());
   }
-  function openCraftRecipe(id,n=1){
+  function openCraftRecipe(id,n=1){if(lanTown())lanTownSetView(()=>openCraftRecipe(id,n));
     const r=craftRecipes[id];if(!r)return;n=Math.max(1,Math.min(10,Math.floor(n)||1));if(r.slot!=='item')n=1;
     const item=EQ['craft_'+id],owned=craftOwned(r),can=craftCanMake(r,n);
-    openPanel(r.name,`<div class="craft-detail-art">${craftArtImg('equipment',id,64)}</div>${facilityDetail(r.name,[r.note])}${item?'<p>'+eqStats(item)+'</p>':''}<p class="craft-intro">${r.slot==='item'?'所持 '+(save.items['craft_'+id]||0)+' / '+ITEM_MAX:r.slot==='tool'?'恒久道具':''}</p>${!craftOpen(r)?'<p class="hpc">解放条件：'+DUNGEONS[r.stage].name+' に到達</p>':''}<h3>必要な素材 ${n>1?'×'+n:''}</h3>`+Object.entries(r.req).map(([k,v])=>`<button class="craft-material" data-source="${k}">${craftArtImg('material',k)}<span class="craft-material-name">${craftMats[k].name}<small>入手先を確認 ›</small></span><b class="${craftHave(k)<v*n?'hpc':'craft-ready'}">${craftHave(k)} / ${v*n}</b></button>`).join('')+`<p class="craft-cost ${save.gold<r.fee*n?'hpc':''}">製作費 ${r.fee*n} G / 所持 ${save.gold} G</p>${r.slot==='item'?`<div class="craft-count"><button class="sbtn" data-count="${n-1}" ${n<=1?'disabled':''}>−</button><b>作る数 ${n}</b><button class="sbtn" data-count="${n+1}" ${n>=10?'disabled':''}>＋</button></div>`:''}${owned?'<p class="gold">作成済み</p>':''}<button class="btn primary craft-make" data-make ${can?'':'disabled'}>${owned?'作成済み':can?'合成する':'素材・ゴールド・解放条件を確認'}</button>`,[['もどる',openCraftShop]],'craft');
+    openPanel(r.name,`<div class="craft-detail-art">${craftArtImg('equipment',id,64)}</div>${facilityDetail(r.name,[r.note])}${item?'<p>'+eqStats(item)+'</p>':''}<p class="craft-intro">${r.slot==='item'?'所持 '+(save.items['craft_'+id]||0)+' / '+ITEM_MAX:r.slot==='tool'?'恒久道具':''}</p>${!craftOpen(r)?'<p class="hpc">解放条件：'+DUNGEONS[r.stage].name+' に到達</p>':''}<h3>必要な素材 ${n>1?'×'+n:''}</h3>`+Object.entries(r.req).map(([k,v])=>`<button class="craft-material" data-source="${k}">${craftArtImg('material',k)}<span class="craft-material-name">${craftMats[k].name}<small>入手先を確認 ›</small></span><b class="${craftHave(k)<v*n?'hpc':'craft-ready'}">${craftHave(k)} / ${v*n}</b></button>`).join('')+`<p class="craft-cost ${lanTownGold()<r.fee*n?'hpc':''}">製作費 ${r.fee*n} G / 所持 ${lanTownGold()} G</p>${r.slot==='item'?`<div class="craft-count"><button class="sbtn" data-count="${n-1}" ${n<=1?'disabled':''}>−</button><b>作る数 ${n}</b><button class="sbtn" data-count="${n+1}" ${n>=10?'disabled':''}>＋</button></div>`:''}${owned?'<p class="gold">作成済み</p>':''}<button class="btn primary craft-make" data-make ${can?'':'disabled'}>${owned?'作成済み':can?'合成する':'素材・ゴールド・解放条件を確認'}</button>`,[['もどる',openCraftShop]],'craft');
     craftBind('[data-source]',b=>openCraftSource(b.dataset.source,()=>openCraftRecipe(id,n)));craftBind('[data-count]',b=>openCraftRecipe(id,+b.dataset.count));craftBind('[data-make]',()=>{if(craftMake(id,n))openCraftRecipe(id,n);},null);
     if(id==='b18'&&(owned||forgeHasEffect('craft_b18'))){const b=document.createElement('button');b.className='btn';b.textContent='二つのスキルを選ぶ';b.addEventListener('click',()=>{A.sfx('select');openCraftSkills();});panelFoot.appendChild(b);}
     if(id==='f12'&&owned){const b=document.createElement('button');b.className='btn';b.textContent='素材を交換する';b.addEventListener('click',()=>{A.sfx('select');openCraftExchange();});panelFoot.appendChild(b);}
@@ -595,7 +623,7 @@
     openPanel('素材袋',`<div class="tabs craft-tabs"><button data-material-filter="owned" aria-pressed="${ownedOnly}">所持している素材</button><button data-material-filter="all" aria-pressed="${!ownedOnly}">すべての素材</button></div>`+(list.length?list.map(([k,m])=>`<button class="craft-material" data-source="${k}">${craftArtImg('material',k)}<span class="craft-material-name">${m.name}<small>${m.kind==='boss'?'ボス専用':m.kind==='special'?'特徴素材':'共通素材'}</small></span><b>×${craftHave(k)}</b></button>`).join(''):'<p class="craft-intro">所持素材はありません。</p>')+forgeCrystalBagHtml(ownedOnly),[[room==='house'?'勇者の家へ':'合成屋へ',back]],room);
     craftBind('[data-forge-crystal]',()=>openForgeCrystal(()=>reopen(ownedOnly),room));craftBind('[data-material-filter]',b=>reopen(b.dataset.materialFilter==='owned'));craftBind('[data-source]',b=>openCraftSource(b.dataset.source,()=>reopen(ownedOnly),room));
   }
-  function craftExchange(a,b){if(state!=='town'||!save.craftTools.includes('f12')||a===b||craftMats[a]?.kind!=='common'||craftMats[b]?.kind!=='common'||craftHave(a)<10||craftHave(b)>=999999)return false;const old={...save.materials};save.materials[a]-=10;save.materials[b]=Math.min(999999,craftHave(b)+1);try{localStorage.setItem('bumphero_save',JSON.stringify(save));return true;}catch{save.materials=old;return false;}}
+  function craftExchange(a,b){if(lanTown()&&!lanTownExecuting)return lanTownRequest('exchange',[a,b]);if(state!=='town'||!save.craftTools.includes('f12')||a===b||craftMats[a]?.kind!=='common'||craftMats[b]?.kind!=='common'||craftHave(a)<10||craftHave(b)>=999999)return false;const old={...save.materials};save.materials[a]-=10;save.materials[b]=Math.min(999999,craftHave(b)+1);try{lanWriteCurrentSave();return true;}catch{save.materials=old;return false;}}
   function openCraftExchange(from='m01'){facilitySelect('craft','exchange');if(!save.craftTools.includes('f12'))return;const common=Object.entries(craftMats).filter(([k,m])=>m.kind==='common');openPanel('黄金の錬成器',`<h3>渡す素材</h3><div class="tabs craft-tabs">${common.map(([k,m])=>`<button data-from="${k}" aria-pressed="${from===k}">${craftArtImg('material',k,24)}${m.name} ×${craftHave(k)}</button>`).join('')}</div><h3>受け取る素材</h3>`+common.filter(([k])=>k!==from).map(([k,m])=>`<button class="craft-material" data-exchange="${k}" ${craftHave(from)<10?'disabled':''}>${craftArtImg('material',k)}<span class="craft-material-name">${m.name} ×1 ← ${craftMats[from].name} ×10</span></button>`).join(''),[['もどる',()=>openCraftRecipe('f12')]],'craft');craftBind('[data-from]',b=>openCraftExchange(b.dataset.from));craftBind('[data-exchange]',b=>{if(craftExchange(from,b.dataset.exchange)){A.sfx('buy');openCraftExchange(from);}},null);}
   function openCraftSkills(){facilitySelect('craft','dual');if(!save.owned.includes('craft_b18')&&!forgeHasEffect('craft_b18'))return;craftNormalize();const known=save.skills.filter(k=>SKILLS[k]);openPanel('双術環のスキル',``+known.map(id=>`<button class="craft-material" data-dual="${id}">${SKILLS[id].name}<b>${save.craftSkills.includes(id)?'選択中':'選ぶ'}</b></button>`).join(''),[['もどる',()=>openCraftRecipe('b18')]],'craft');craftBind('[data-dual]',b=>{const id=b.dataset.dual;if(save.craftSkills.includes(id))save.craftSkills=save.craftSkills.filter(k=>k!==id);else{if(save.craftSkills.length>=2)save.craftSkills.shift();save.craftSkills.push(id);}persist();openCraftSkills();});}
   // Equipped effects. Proc damage never recursively triggers another craft proc.
@@ -678,7 +706,7 @@
   }
   function craftHudRows(){return Math.ceil(craftGauges().length/2);}
   function craftDrawHud(){
-    const rows=craftGauges();if(!rows.length)return;const top=safeTop()+62,w=Math.min((W-24)/2,220);
+    const rows=craftGauges();if(!rows.length)return;const top=safeTop()+62+(lanFight()?lanAllyHudBox().h+2:0),w=Math.min((W-24)/2,220);
     rows.forEach((r,i)=>{const x=8+(i%2)*(w+8),y=top+Math.floor(i/2)*16,ratio=r.value/r.max,bx=x+68,bw=w-74;
       ctx.fillStyle='rgba(19,24,58,.92)';ctx.fillRect(x,y,w,14);txt(r.label,x+4,y+10,9,r.col,'left',false);
       ctx.fillStyle='#343747';ctx.fillRect(bx,y+3,bw,8);ctx.fillStyle=r.col;ctx.fillRect(bx,y+3,bw*ratio,8);
@@ -977,7 +1005,7 @@
   // BESTIARY END
 
   // GUILD BEGIN — maintained in tools/guild/runtime.inc.js.
-  const GUILD=window.GUILD_DATA,guildById=Object.fromEntries(GUILD.map(q=>[q.id,q]));
+  const GUILD=window.GUILD_DATA.map(q=>({...q,reward:{...q.reward,...(q.reward?.gold&&q.stage>=15?{gold:Math.round(q.reward.gold*DUNGEONS[q.stage].gp/BALANCE_OLD_GP[q.stage])}:{})}})),guildById=Object.fromEntries(GUILD.map(q=>[q.id,q]));
   const guildGear=[
     {id:'guild_lantern',slot:'charm',name:'探索者のランタン',hp:45,note:'近くの透明化・潜行中の敵の位置を薄く示す。姿や名前は明かさない。'},
     {id:'guild_spacing',slot:'weapon',name:'間合いの剣',atk:Math.round(EQ.w3.atk*.85),vis:'w3',note:'敵の斬撃・武器の薙ぎ払いが空振りした直後1秒以内、その敵への体当たり威力+40％。'},
@@ -1033,12 +1061,12 @@
     let fallback=false;if(type==='gear'){ids=ids.filter(id=>EQ[id]&&!save.owned.includes(id));if(!ids.length){type='mat';ids=guildMaterialPool('common',tier);fallback=true;}}return{type,ids,n:fallback?25:c.n||1,pick:c.pick||1,fallback};
   }
   function guildFind(id){return guildById[id]||guildDaily().find(q=>q.id===id);}
-  function guildClaim(id,selected=[],donated=[]){guildEnsureDay();const q=guildFind(id);if(state!=='town'||!q||!guildOpen(q)||guildClaimed(q)||!guildProgress(q).ready)return false;const c=guildChoices(q),unique=a=>Array.isArray(a)&&new Set(a).size===a.length;
+  function guildClaim(id,selected=[],donated=[]){if(lanTown()&&!lanTownExecuting)return lanTownRequest('guild',[id,selected,donated]);guildEnsureDay();const q=guildFind(id);if(state!=='town'||!q||!guildOpen(q)||guildClaimed(q)||!guildProgress(q).ready)return false;const c=guildChoices(q),unique=a=>Array.isArray(a)&&new Set(a).size===a.length;
     if(c&&(!unique(selected)||selected.length!==c.pick||!selected.every(k=>c.ids.includes(k))))return false;
     const consume={...(q.delivery?.mats||{})};if(q.delivery?.pick){if(!unique(donated)||donated.length!==q.delivery.pick||!donated.every(k=>craftMats[k]?.kind==='common'&&craftHave(k)>=q.delivery.n))return false;for(const k of donated)consume[k]=q.delivery.n;}if(Object.entries(consume).some(([k,n])=>craftHave(k)<n))return false;
     const mats={...(q.reward.mats||{})},items={...(q.reward.items||{})},equipment=[];if(c)for(const k of selected)if(c.type==='mat')mats[k]=(mats[k]||0)+c.n;else equipment.push(k);
     if(Object.entries(mats).some(([k,n])=>craftHave(k)-(consume[k]||0)+n>999999)||Object.entries(items).some(([k,n])=>(save.items[k]||0)+n>ITEM_MAX)){toast('所持上限です。素材や道具を使ってから報告してください。','#ffbb88');return false;}
-    const before=JSON.stringify(save);try{if(q.dailyKind)save.guild.daily.claimed.push(q.dailyKind);else save.guild.claimed[q.id]=true;for(const[k,n]of Object.entries(consume))save.materials[k]-=n;for(const[k,n]of Object.entries(mats))save.materials[k]=craftHave(k)+n;for(const[k,n]of Object.entries(items))save.items[k]=(save.items[k]||0)+n;for(const k of equipment)save.owned.push(k);save.gold+=q.reward.gold||0;if(q.reward.title&&!save.guild.titles.includes(q.reward.title))save.guild.titles.push(q.reward.title);const receipt={mats,items,gear:equipment,gold:q.reward.gold||0,title:q.reward.title||''};if(q.dailyKind)save.guild.daily.receipts[q.dailyKind]=receipt;else save.guild.receipts[q.id]=receipt;bestSyncOwned();localStorage.setItem('bumphero_save',JSON.stringify(save));}catch(e){save=JSON.parse(before);toast('保存できませんでした。納品と報酬は元に戻しました。','#ff9a8a');return false;}
+    const before=JSON.stringify(save);try{if(q.dailyKind)save.guild.daily.claimed.push(q.dailyKind);else save.guild.claimed[q.id]=true;for(const[k,n]of Object.entries(consume))save.materials[k]-=n;for(const[k,n]of Object.entries(mats))save.materials[k]=craftHave(k)+n;for(const[k,n]of Object.entries(items))save.items[k]=(save.items[k]||0)+n;for(const k of equipment)save.owned.push(k);save.gold+=q.reward.gold||0;if(q.reward.title&&!save.guild.titles.includes(q.reward.title))save.guild.titles.push(q.reward.title);const receipt={mats,items,gear:equipment,gold:q.reward.gold||0,title:q.reward.title||''};if(q.dailyKind)save.guild.daily.receipts[q.dailyKind]=receipt;else save.guild.receipts[q.id]=receipt;bestSyncOwned();lanWriteCurrentSave();}catch(e){save=JSON.parse(before);toast('保存できませんでした。納品と報酬は元に戻しました。','#ff9a8a');return false;}
     guildReadyCache.at=-99;toast('依頼達成！ 報酬を受け取りました。','#f2d180');A.sfx('chest');return true;
   }
   function guildRunStart(){guildRun={clock:0,skills:{},skillUses:0,healUses:0,killed:new Set(),lowHeal:false,hitSeq:0,dodges:0,bossDodges:0,rollId:0,dodgeRoll:-1,comboActive:false,swings:new Map(),boss:null,bossHp:0,bossDamage:0,finalized:false,build:['weapon','armor','boots','charm'].map(k=>save.eq[k]||'-').join('|'),gearAtStart:Object.values(save.eq).filter(Boolean),rescue:0,rescueTime:0,gale:0,lastRoll:-99};}
@@ -1068,7 +1096,7 @@
   function guildReadyCount(){if(!save.guild)return 0;if(globalT-guildReadyCache.at>.75||guildReadyCache.at>globalT){guildReadyCache.count=[...GUILD,...guildDaily()].filter(q=>guildOpen(q)&&!guildClaimed(q)&&guildProgress(q).ready).length;guildReadyCache.at=globalT;}return guildReadyCache.count;}
   function guildNoticeHtml(){const n=guildReadyCount();return n?'<p class="guild-note">ギルドに報告できる依頼が '+n+'件あります。</p>':'';}
   function guildRewardHtml(q){const received=guildClaimed(q)&&(q.dailyKind?save.guild.daily.receipts?.[q.dailyKind]:save.guild.receipts[q.id]);if(received)return '受取済み：<br>'+[...Object.entries(received.mats).map(([k,n])=>craftArtImg('material',k,24)+craftMats[k].name+' ×'+n),...Object.entries(received.items).map(([k,n])=>icon(k,24)+ITEMS[k].name+' ×'+n),...received.gear.map(k=>eqIcon(EQ[k],24)+EQ[k].name),...(received.gold?[received.gold+' G']:[]),...(received.title?['記念称号「'+received.title+'」']:[])].join('<br>');const r=q.reward,a=[];for(const[k,n]of Object.entries(r.mats||{}))a.push(craftArtImg('material',k,24)+craftMats[k].name+' ×'+n);for(const[k,n]of Object.entries(r.items||{}))a.push(icon(k,24)+ITEMS[k].name+' ×'+n);if(r.gold)a.push(r.gold+' G');if(r.title)a.push('記念称号「'+r.title+'」');const c=guildChoices(q);if(c)a.push(c.type==='gear'?'装備を'+c.pick+'個選択：'+c.ids.slice(0,3).map(k=>EQ[k].name).join('／')+(c.ids.length>3?' ほか'+(c.ids.length-3)+'品':''):(c.fallback?'装備は所持済み：':'')+'素材を'+c.pick+'種類選択（各'+c.n+'個）');return a.join('<br>');}
-  function openGuild(){facilitySelect('guild',guildTab);guildDetailId=null;guildEnsureDay();guildSyncCrafts();bestSyncOwned();let list=[...GUILD,...guildDaily()].filter(guildOpen);const ready=list.filter(q=>!guildClaimed(q)&&guildProgress(q).ready).length,labels={recommended:'おすすめ',regular:'常設',challenge:'挑戦',collection:'長期',daily:'デイリー',claimed:'受取済み',titles:'称号'};if(guildTab==='claimed')list=list.filter(guildClaimed);else if(guildTab==='titles')list=[];else{list=list.filter(q=>!guildClaimed(q));if(guildTab!=='recommended')list=list.filter(q=>q.group===guildTab);}list.sort((a,b)=>Number(guildProgress(b).ready)-Number(guildProgress(a).ready)||guildProgress(b).ratio-guildProgress(a).ratio||a.stage-b.stage);if(guildTab==='recommended')list=list.filter(q=>q.group==='regular'||q.group==='daily'||guildProgress(q).ready||guildProgress(q).ratio>=.5).slice(0,6);
+  function openGuild(){if(lanTown())lanTownSetView(openGuild);facilitySelect('guild',guildTab);guildDetailId=null;guildEnsureDay();guildSyncCrafts();bestSyncOwned();let list=[...GUILD,...guildDaily()].filter(guildOpen);const ready=list.filter(q=>!guildClaimed(q)&&guildProgress(q).ready).length,labels={recommended:'おすすめ',regular:'常設',challenge:'挑戦',collection:'長期',daily:'デイリー',claimed:'受取済み',titles:'称号'};if(guildTab==='claimed')list=list.filter(guildClaimed);else if(guildTab==='titles')list=[];else{list=list.filter(q=>!guildClaimed(q));if(guildTab!=='recommended')list=list.filter(q=>q.group===guildTab);}list.sort((a,b)=>Number(guildProgress(b).ready)-Number(guildProgress(a).ready)||guildProgress(b).ratio-guildProgress(a).ratio||a.stage-b.stage);if(guildTab==='recommended')list=list.filter(q=>q.group==='regular'||q.group==='daily'||guildProgress(q).ready||guildProgress(q).ratio>=.5).slice(0,6);
     openPanel('冒険者ギルド',`<div class="guild-head"><b>報告できる依頼 ${ready}件</b><span>受取済み ${Object.keys(save.guild.claimed).length} / ${GUILD.length}</span></div>${guildTab==='daily'?'<p class="guild-note">'+save.guild.daily.day+' の依頼・毎日0時（日本時間）に更新。未受取の報酬も更新されます。</p>':''}`+(guildTab==='titles'?''+['魔物博士','世界の素材収集家'].map(t=>'<div class="guild-title">'+(save.guild.titles.includes(t)?t:'？？？（未獲得）')+'</div>').join(''):list.map(q=>{const p=guildProgress(q);return `<button class="guild-card${p.ready?' guild-complete':''}" data-guild="${q.id}"><span class="guild-status">${guildClaimed(q)?'受取済み':p.ready?'報告可能':q.dailyKind?'デイリー':q.group==='challenge'?'任意の挑戦':'進行中'}</span><b>${q.name}</b><small>${q.id.startsWith('b')?DUNGEONS[q.stage].name+'／':''}${q.desc}</small><span class="guild-progress" role="progressbar" aria-valuenow="${Math.round(p.ratio*100)}" aria-valuemin="0" aria-valuemax="100"><i style="width:${p.ratio*100}%"></i></span><span>${p.rows.map(([v,n])=>Math.min(n,Math.floor(v))+' / '+n).join(' ・ ')}</span><em>${guildRewardHtml(q)}</em></button>`;}).join('')||'<p class="craft-intro">この分類の依頼は、今はありません。</p>'),[['ギルドを出る',closePanel]],'guild');craftBind('[data-guild-tab]',b=>{guildTab=b.dataset.guildTab;openGuild();});craftBind('[data-guild]',b=>openGuildMission(b.dataset.guild));
   }
   function openGuildMission(id){guildEnsureDay();const q=guildFind(id);if(!q||!guildOpen(q)){openGuild();return;}guildDetailId=id;const p=guildProgress(q),c=guildChoices(q),selected=[],donated=[],done=guildClaimed(q);
@@ -1095,7 +1123,7 @@
   // Future drop/reward callers must supply a stable, unique receipt. No ad bridge or free grant is installed.
   function forgeGrantCrystals(n,receipt){
     const f=save.forge;if(!f||!Number.isSafeInteger(n)||n<1||typeof receipt!=='string'||!/^[a-zA-Z0-9_:-]{1,120}$/.test(receipt)||f.receipts.includes(receipt)||f.crystals+n>FORGE_CAP)return false;
-    const before=JSON.stringify(save);try{f.crystals+=n;f.receipts.push(receipt);bestObtain('forge:crystal');localStorage.setItem('bumphero_save',JSON.stringify(save));}catch(e){save=JSON.parse(before);return false;}return true;
+    const before=JSON.stringify(save);try{f.crystals+=n;f.receipts.push(receipt);bestObtain('forge:crystal');lanWriteCurrentSave();}catch(e){save=JSON.parse(before);return false;}return true;
   }
   function pinkCrystalDrop(e){
     if(e.crystalAwarded)return true;
@@ -1113,14 +1141,14 @@
     if(save.forge.crystals<1)return FORGE_CRYSTAL+'が1個必要です。';
     return '';
   }
-  function forgeInherit(base,source){
+  function forgeInherit(base,source){if(lanTown()&&!lanTownExecuting)return lanTownRequest('inherit',[base,source]);
     const error=forgeCheck(base,source);if(error){toast(error,'#ffbb88');return false;}
     const before=JSON.stringify(save),b=EQ[base];
     try{
       bestSyncOwned();guildSyncCrafts();save.forge.crystals--;save.forge.inherited[base]=source;
       save.owned=save.owned.filter(id=>id!==source);delete save.forge.upgrades[source];if(save.eq[b.slot]===source)save.eq[b.slot]=base;
       if(save.hp!=null)save.hp=Math.min(save.hp,stats().maxHp);
-      localStorage.setItem('bumphero_save',JSON.stringify(save));
+      lanWriteCurrentSave();
     }catch(e){save=JSON.parse(before);toast('保存できませんでした。装備と結晶は元に戻しました。','#ff9a8a');return false;}
     guildReadyCache.at=-99;toast('特殊効果を継承しました！','#f2c14e');A.sfx('equip');return true;
   }
@@ -1138,7 +1166,7 @@
   const forgeEffectHtml=e=>Object.keys(forgeFx(e)).map(k=>'◆'+FX[k].note).join('<br>');
   const forgeObtainNote=e=>e.craft?'消費後は合成屋で再作成できます。':e.guild?'ギルド限定品です。同じ依頼の報酬は再受取できません。':e.drop?'消費後はドロップなどで再入手が必要です。':'消費後は再入手が必要です。';
   let forgeSlot='weapon';
-  function openForge(base='',source=''){
+  function openForge(base='',source=''){if(lanTown())lanTownSetView(()=>openForge(base,source));
     facilitySelect('craft','inherit');
     const b=Object.hasOwn(EQ,base)&&EQ[base],d=Object.hasOwn(EQ,source)&&EQ[source];
     if(b&&forgeBase(b))forgeSlot=b.slot;else base='';if(!forgeSource(d)||d.slot!==forgeSlot)source='';
@@ -1163,35 +1191,29 @@
   function smithQuote(id,k){
     const e=EQ[id];if(!e||!save.owned.includes(id)||!smithKeys(e).includes(k))return null;
     const v=smithValue(e,k);if(v>=SMITH_CAP)return {current:v,next:v,cap:true,gold:0,mats:{}};
-    const rank=k==='ram'?Math.max(0,v-100):v;
-    const mats={[{weapon:'m11',armor:'m15',boots:'m02',charm:'m18'}[e.slot]]:Math.max(3,1+Math.ceil(rank*rank/10000))};
-    if(rank>=150)mats.m18=(mats.m18||0)+Math.ceil((rank-100)/30);
-    if(rank>=300)mats.s07=Math.ceil((rank-250)/80);
-    if(rank>=600)mats.core20=1+Math.floor((rank-600)/100);
-    if(rank>=850)mats.core30=Math.ceil((rank-800)/100);
-    if(k==='ram'){for(const m of Object.keys(mats))mats[m]*=3;if(rank>=100)mats.s06=1+Math.floor(rank/200);if(rank>=300)mats.core08=Math.ceil(rank/200);if(rank>=600)mats.core19=Math.ceil((rank-500)/200);}
-    return{current:v,next:Math.min(SMITH_CAP,v+SMITH_STEP),cap:false,gold:Math.max(100+4*rank,20+Math.ceil(rank*rank/100)+Math.ceil(rank**3/100)),mats};
+    const mats=balanceSmithMats(e,k,v);
+    return{current:v,next:Math.min(SMITH_CAP,v+SMITH_STEP),cap:false,gold:balanceSmithGold(e,k,v),mats};
   }
-  function smithUpgrade(id,k,expected){
-    if(state!=='town'||arenaRun)return false;const q=smithQuote(id,k);if(!q||q.cap||q.current!==expected||save.gold<q.gold||Object.entries(q.mats).some(([m,n])=>(save.materials[m]||0)<n))return false;
-    const before=JSON.stringify(save);try{save.gold-=q.gold;for(const[m,n]of Object.entries(q.mats))save.materials[m]-=n;(save.forge.upgrades[id]||={})[k]=q.next-smithBase(EQ[id],k);localStorage.setItem('bumphero_save',JSON.stringify(save));}catch(e){save=JSON.parse(before);return false;}
+  function smithUpgrade(id,k,expected){if(lanTown()&&!lanTownExecuting)return lanTownRequest('smith',[id,k,expected]);
+    if(state!=='town'||arenaRun)return false;const q=smithQuote(id,k);if(!q||q.cap||q.current!==expected||lanTownGold()<q.gold||Object.entries(q.mats).some(([m,n])=>(save.materials[m]||0)<n))return false;
+    const before=JSON.stringify(save);try{save.gold-=q.gold;for(const[m,n]of Object.entries(q.mats))save.materials[m]-=n;(save.forge.upgrades[id]||={})[k]=q.next-smithBase(EQ[id],k);lanWriteCurrentSave();}catch(e){save=JSON.parse(before);return false;}
     A.sfx('equip');return true;
   }
   let smithSlot='weapon';
-  function openSmith(){
+  function openSmith(){if(lanTown())lanTownSetView(openSmith);
     facilitySelect('smith','upgrade');
     if(state!=='town'||arenaRun)return;
     const list=EQUIP.filter(e=>e.slot===smithSlot&&save.owned.includes(e.id));
     openPanel('鍛冶屋：装備強化',`<div class="tabs">${Object.entries(SLOT_NAME).map(([k,n])=>`<button data-smith-slot="${k}" aria-pressed="${k===smithSlot}">${n}</button>`).join('')}</div>`+list.map(e=>`<button class="pickrow" data-smith-item="${e.id}">${eqIcon(e)}<span class="sn">${eqName(e)}<small>${eqStats(e)||'数値補正なし'}</small></span></button>`).join(''),[['店を出る',closePanel]],'smith');
     craftBind('[data-smith-slot]',b=>{smithSlot=b.dataset.smithSlot;openSmith();});craftBind('[data-smith-item]',b=>openSmithItem(b.dataset.smithItem));
   }
-  function openSmithItem(id){
+  function openSmithItem(id){if(lanTown())lanTownSetView(()=>openSmithItem(id));
     facilitySelect('smith','upgrade');
     const e=EQ[id];if(!e||!save.owned.includes(id)||state!=='town'||arenaRun)return;
-    openPanel(e.name+'：強化',`<div class="craft-effect">${eqIcon(e)} ${eqName(e)}<br>${eqStats(e)}</div><p class="ui-summary">所持 ${save.gold.toLocaleString()} G ／ 上限999</p>`+smithKeys(e).map(k=>{const q=smithQuote(id,k),ok=!q.cap&&save.gold>=q.gold&&Object.entries(q.mats).every(([m,n])=>(save.materials[m]||0)>=n);return `<div class="row"><span class="nm">${SMITH_NAMES[k]} ${q.current} → ${q.next}${q.cap?'（上限）':''}</span><span class="sub">基礎 ${smithBase(e,k)} ／ 上限まであと ${Math.ceil((SMITH_CAP-q.current)/SMITH_STEP)}回<br>${q.cap?'':q.gold.toLocaleString()+' G'+Object.entries(q.mats).map(([m,n])=>uiMaterialCost(m,n)).join('')}${k==='ram'?'<br>移動 ×'+smithBootEffects(e,q.current).speed.toFixed(2)+' → ×'+smithBootEffects(e,q.next).speed.toFixed(2)+'<br>体当たり威力 ×'+smithBootEffects(e,q.current).power.toFixed(2)+' → ×'+smithBootEffects(e,q.next).power.toFixed(2):''}</span><span class="act"><button class="sbtn" data-smith-preview="${k}" ${ok?'':'disabled'}>${q.cap?'上限到達':'強化内容を確認'}</button></span></div>`;}).join(''),[['装備一覧へ',openSmith]],'smith');
+    openPanel(e.name+'：強化',`<div class="craft-effect">${eqIcon(e)} ${eqName(e)}<br>${eqStats(e)}</div><p class="ui-summary">所持 ${lanTownGold().toLocaleString()} G ／ 上限999</p>`+smithKeys(e).map(k=>{const q=smithQuote(id,k),ok=!q.cap&&lanTownGold()>=q.gold&&Object.entries(q.mats).every(([m,n])=>(save.materials[m]||0)>=n);return `<div class="row"><span class="nm">${SMITH_NAMES[k]} ${q.current} → ${q.next}${q.cap?'（上限）':''}</span><span class="sub">基礎 ${smithBase(e,k)} ／ 上限まであと ${Math.ceil((SMITH_CAP-q.current)/SMITH_STEP)}回<br>${q.cap?'':q.gold.toLocaleString()+' G'+Object.entries(q.mats).map(([m,n])=>uiMaterialCost(m,n)).join('')}${k==='ram'?'<br>移動 ×'+smithBootEffects(e,q.current).speed.toFixed(2)+' → ×'+smithBootEffects(e,q.next).speed.toFixed(2)+'<br>体当たり威力 ×'+smithBootEffects(e,q.current).power.toFixed(2)+' → ×'+smithBootEffects(e,q.next).power.toFixed(2):''}</span><span class="act"><button class="sbtn" data-smith-preview="${k}" ${ok?'':'disabled'}>${q.cap?'上限到達':'強化内容を確認'}</button></span></div>`;}).join(''),[['装備一覧へ',openSmith]],'smith');
     uiBindMaterials(()=>openSmithItem(id),'smith');craftBind('[data-smith-preview]',b=>openSmithConfirm(id,b.dataset.smithPreview));
   }
-  function openSmithConfirm(id,k){
+  function openSmithConfirm(id,k){if(lanTown())lanTownSetView(()=>openSmithConfirm(id,k));
     facilitySelect('smith','upgrade');
     const q=smithQuote(id,k);if(!q||q.cap||state!=='town'||arenaRun)return;
     openPanel('装備強化の確認',`<p>${EQ[id].name}<br>${SMITH_NAMES[k]} ${q.current} → ${q.next}</p><p>消費：${q.gold.toLocaleString()} G<br>${Object.entries(q.mats).map(([m,n])=>uiMaterialCost(m,n,false)).join('')}</p><p>強化すると費用・素材を消費します。元には戻せません。</p>`,[['消費して強化',()=>{if(smithUpgrade(id,k,q.current))openSmithItem(id);else openPanel('強化できませんでした','<p>所持数・現在値を確認してください。保存失敗の場合は素材とゴールドを元に戻しています。</p>',[['装備へ',()=>openSmithItem(id)]],'smith');},true],['やめる',()=>openSmithItem(id)]],'smith');uiBindMaterials(()=>openSmithConfirm(id,k),'smith');
@@ -1343,7 +1365,7 @@
     try{
       guildSampleBoss();for(let j=0;j<2;j++){const k=mats[j];save.materials[k]=craftHave(k)+2;runMaterials[k]=(runMaterials[k]||0)+2;bestObtain('mat:'+k);guildMaterial(k,2);guildInc('boss:'+r.bosses[j].type);gainExp(r.bosses[j].exp);gainGold(r.bosses[j].gold);}
       guildDayInc('boss',2);guildDayInc('clear');if(guildRun){for(const k of Object.keys(guildRun.skills))save.guild.stats.skills[k]=true;guildRun.finalized=true;}
-      save.hard.cleared[r.pair]=hardToday();save.hp=null;bestSyncOwned();localStorage.setItem('bumphero_save',JSON.stringify(save));
+      save.hard.cleared[r.pair]=hardToday();save.hp=null;bestSyncOwned();lanWriteCurrentSave();
     }catch(e){save=JSON.parse(before);runExp=oldExp;runGold=oldGold;runMaterials=oldMats;hero.s=oldStats;hero.hp=oldHp;if(guildRun)guildRun.finalized=oldFinal;r.bosses.forEach((b,i)=>{[b.hardPrevHp,b.hardDamage]=oldDamage[i];});paused=true;openPanel('保存できませんでした','<p>報酬とクリア回数は元に戻しました。再試行できます。</p>',[['保存を再試行',()=>{paused=false;hardSettle();}],['街へ',()=>{paused=false;goTown();}]]);return false;}
     r.settled=true;paused=false;state='over';A.jingle('clear');openPanel('ハードモード せいは！',`<p>${r.bosses.map(b=>b.name).join(' と ')} を倒した！</p><dl class="stat"><dt>経験値（1.5倍）</dt><dd>+${runExp}</dd><dt>ゴールド（1.5倍）</dt><dd>+${runGold} G</dd></dl><p class="gold">ボス素材 各2個を獲得！</p>${craftLootHtml()}<p class="craft-intro">この組は本日クリア済みです。日本時間0時に更新します。</p>`,[['街へもどる',goTown,true]]);return true;
   }
@@ -1721,7 +1743,7 @@
       if (s && s.tut == null && (save.lv > 1 || (save.cleared || []).some(Boolean))) { save.tut = 1; save.tutTown = 1; }
     } catch (e) { /* storage blocked: play without saving */ }
   }
-  function persist() { if(lan){lanStash();if(lanHost())lanStore(lanMe());return;}bestSyncOwned();try { localStorage.setItem('bumphero_save', JSON.stringify(arenaRun?arenaRun.home:save)); } catch (e) { } }
+  function persist() { if(lanTownExecuting)return;if(lanTown()){lanTownPersist();return;}if(lan){lanStash();if(lanHost())lanStore(lanMe());return;}bestSyncOwned();try { localStorage.setItem('bumphero_save', JSON.stringify(arenaRun?arenaRun.home:save)); } catch (e) { } }
 
   function stats() {
     const L = save.lv;
@@ -1973,7 +1995,7 @@
     if(craftFloorImmune()&&/patch:|spike|vent|crumble/.test(cause))return;
     if (tut && tut.i < TUT.length - 1) return;   // no damage while learning the controls
     if (hero.inv > 0 || hero.hp <= 0 || (hero.pw && hero.pw.kind === 'giant')) return;
-    let d = Math.max(1, Math.round(dmg - hero.s.def * 0.5));
+    let d = Math.max(1, Math.round(balanceDamage(dmg,hero.s.def)));
     hurtLog[cause] = (hurtLog[cause] || 0) + d;
     if (hero.buff.def > 0) d = Math.max(1, Math.round(d * 0.5));
     if (hero.barrierT > 0) { if(hero.s.fx.aegis)arenaEvent('shield');pfxEmit('impacts/shield-block',hero.x,hero.y,110,.4);hero.barrierT = 0; hero.inv = 0.6; popText(hero.x, hero.y + 30, 'バリア！', '#c8b0ff', 16, 0.9); burst(hero.x, hero.y, 24, '#c8b0ff', 240, 0.5); A.sfx('block'); return; }
@@ -2099,7 +2121,7 @@
   }
   function pfxTick(dt){pfxClock+=dt;for(let i=pfxEvents.length-1;i>=0;i--){pfxEvents[i].t+=dt;if(pfxEvents[i].t>=pfxEvents[i].dur)pfxEvents.splice(i,1);}}
   function pfxClear(){pfxEvents.length=0;breathGroups.clear();breathDrawn.clear();}
-  function pfxDrawEvents(back){for(const e of pfxEvents)if(e.back===back){const u=e.t/e.dur;pfxSprite(e.id,e.x,sy(e.y),u,e.width,e.angle,Math.min(1,(1-u)*5));}}
+  function pfxDrawEvents(back){let drawn=0;for(const e of pfxEvents)if(e.back===back&&(!lowendActive()||drawn++<6)){const u=e.t/e.dur;pfxSprite(e.id,e.x,sy(e.y),u,e.width,e.angle,Math.min(1,(1-u)*5));}}
   function pfxCast(id){
     const h=hero;if(!h)return;const map={shock:['impacts/ground-slam',260,.65],cry:['fire/fire-ring',160,.7],heal:['holy/heal-aoe',165,1],frost:['ice/frost-nova',320,.85],sand:['arcane/time-stop',220,.8],holy:['holy/holy-pillar',140,.8],meteor:['arcane/magic-circle-cast',100,.6],thunder:['lightning/charge-up',100,.45]};const m=map[id];if(m)pfxEmit(m[0],h.x,h.y,m[1],m[2]);
   }
@@ -2448,7 +2470,7 @@
   }
   function defVillageHit(atk, x, y, msg) {
     const R = defRun; if (!R || R.end) return;
-    const d = Math.max(1, Math.round(atk - R.vDef * 0.5));
+    const d = Math.max(1, Math.round(balanceDamage(atk,R.vDef)));
     R.vHp = Math.max(0, R.vHp - d); R.hitFlash = 0.6; shake = Math.max(shake, 6); R.hitA = Math.atan2(y - arena.cy, x - arena.cx); R.hitAT = 1.2;
     if (msg && (R.msgT || 0) > globalT) msg = null;   // one big message at a time; the rest just show the damage
     if (msg) R.msgT = globalT + 1.2;
@@ -2461,7 +2483,7 @@
     const R = defRun; if (!R) return;
     if (u.village) { defVillageHit(dmg, u.x, u.y); return; }
     if (u.down > 0 || u.inv > 0) return;
-    const d = Math.max(1, Math.round(dmg - u.s.def * 0.5));
+    const d = Math.max(1, Math.round(balanceDamage(dmg,u.s.def)));
     u.hp -= d; u.inv = 0.6;
     const dx = u.x - fx2, dy = u.y - fy2, l = hyp(dx, dy) || 1; u.vx += dx / l * power * 0.8; u.vy += dy / l * power * 0.8; if (u.st === 'dash') u.st = 'run';
     popText(u.x, u.y + 20, '-' + d, '#ff9a7a', 14, 0.7);
@@ -2477,13 +2499,13 @@
   }
   function defNpcHit(n, e) {
     if (e === boss) {
-      const B = boss, dmg = Math.max(1, Math.round((n.s.atk * rnd(1.0, 1.3) - B.def * 0.5) * (B.dmgTake || 1)));
+      const B = boss, dmg = Math.max(1, Math.round((balanceDamage(n.s.atk*rnd(1.0,1.3),B.def,n.s.atk)) * (B.dmgTake || 1)));
       B.hp -= dmg; B.hurt = 0.15; burst(n.x + (B.x - n.x) * 0.5, n.y + (B.y - n.y) * 0.5, 10, n.col, 180, 0.35); A.sfx('hit');
       popText(B.x + rnd(-20, 20), B.y + B.r + 10, '' + dmg, n.col, 16, 0.8);
       if (B.hp <= 0) { B.hp = 0; bossDefeated(B); }
       return;
     }
-    const dmg = Math.max(1, Math.round(n.s.atk * rnd(1.0, 1.3) - e.def * 0.5));
+    const dmg = Math.max(1, Math.round(balanceDamage(n.s.atk*rnd(1.0,1.3),e.def,n.s.atk)));
     burst(e.x, e.y, 10, n.col, 180, 0.35); A.sfx('hit');
     hazardHit(e, dmg, n.x, n.y, 300);
   }
@@ -2868,7 +2890,7 @@
         <dl class="stat" style="margin-top:10px">
           <dt>この ぼうけんで ひろった</dt><dd class="gold">${runGold} G</dd>
           <dt>おとした（はんぶん）</dt><dd class="hpc">-${lost} G</dd>
-          <dt>のこりの ゴールド</dt><dd class="gold">${save.gold} G</dd>
+          <dt>のこりの ゴールド</dt><dd class="gold">${lanTownGold()} G</dd>
         </dl>
         ${lootHtml()}
         <p style="color:var(--muted);font-size:14px;margin-top:8px">レベルと けいけんちは そのまま。<br>そうびを ととのえて もう一度いどもう。</p>`,
@@ -3074,7 +3096,7 @@
   const SPIN_MIN = 3.2;   // radians of turning (decaying) that count as "spinning"
   function ramDamage(target, imp, isBoss, bootBonus=true) {
     const s = hero.s, F = s.fx, k = Math.min(imp / (PAD_MAX * s.ram), 1.5);
-    let dmg = s.atk * (0.8 + 1.0 * k) * rnd(0.9, 1.1) - target.def * 0.5;
+    let dmg = balanceDamage(s.atk*(0.8+1.0*k)*rnd(0.9,1.1),target.def,s.atk);
     let critP = imp > PAD_MAX * s.ram * 0.88 ? 0.35 : 0;   // full-tilt charges can land かいしん
     if (F.slowcrit) critP = Math.max(critP, Math.min(F.slowcrit, F.slowcrit * (1 - k) / 0.6));
     const crit = Math.random() < critP;
@@ -3542,7 +3564,7 @@
   }
   function explodeBarrel(p) {
     p.gone = true; const R = 85;
-    for (const e of enemies) if (!e.dead && hyp(e.x - p.x, e.y - p.y) < R + e.r) hazardHit(e, hero.s.atk * 2.5 - e.def * 0.5, p.x, p.y, 420);
+    for (const e of enemies) if (!e.dead && hyp(e.x - p.x, e.y - p.y) < R + e.r) hazardHit(e, balanceDamage(hero.s.atk*2.5,e.def,hero.s.atk), p.x, p.y, 420);
     lanEach(()=>{if (hero.hp > 0 && hyp(hero.x - p.x, hero.y - p.y) < R + hero.r * 0.5) hurtHero(trapDmg('barrel'), p.x, p.y, 520, 'barrel');});
     for (const o of props) if (o.type === 'barrel' && !o.gone && hyp(o.x - p.x, o.y - p.y) < R + 10) o.fuse = o.fuse > 0 ? Math.min(o.fuse, 0.15) : 0.15;
     burst(p.x, p.y, 46, '#ff9a3a', 380, 0.7); burst(p.x, p.y, 20, '#ffe080', 240, 0.5);
@@ -4168,7 +4190,7 @@
   // ---------------------------------------------------------------
   function skillDmg(t, mult) {
     const isB = isBoss(t);
-    let d = hero.s.atk * mult * (hero.buff.atk > 0 ? 1.5 : 1) * (hero.cryT > 0 ? 1.25 : 1) - t.def * 0.5;
+    let d = balanceDamage(hero.s.atk*mult*(hero.buff.atk>0?1.5:1)*(hero.cryT>0?1.25:1),t.def,hero.s.atk);
     return Math.max(1, Math.round(d * (isB ? (t.dmgTake || 1) : 1)));
   }
   function skillHit(t, mult, fx, fy, power = 260, col = '#fff') {
@@ -4328,8 +4350,8 @@
     const h = hero, P = h.pw; P.n--; if (P.n <= 0) endPower();
     burst(x, y, 40, '#ff9a3a', 380, 0.7); burst(x, y, 18, '#ffe080', 240, 0.5); rings.push({ x, y, r: 10, max: 95, spd: 450, dmg: 0, w: 6, fx: true });
     anims.push({ kind: 'poof', x, y, t: 0, dur: 0.4, frames: 5 }); shake = Math.max(shake, 14); A.sfx('boom');
-    for (const e of enemies) if (e !== src && !e.dead && hyp(e.x - x, e.y - y) < 95 + e.r) hazardHit(e, h.s.atk * 2.2 - e.def * 0.5, x, y, 380);
-    if (isBoss(src)) { const d2 = Math.max(1, Math.round(h.s.atk * 2.5 - src.def * 0.5)); src.hp -= d2; popText(x, y + 34, 'ドカン！ ' + d2, '#ff9a5a', 20, 1); }
+    for (const e of enemies) if (e !== src && !e.dead && hyp(e.x - x, e.y - y) < 95 + e.r) hazardHit(e, balanceDamage(h.s.atk*2.2,e.def,h.s.atk), x, y, 380);
+    if (isBoss(src)) { const d2 = Math.max(1, Math.round(balanceDamage(h.s.atk*2.5,src.def,h.s.atk))); src.hp -= d2; popText(x, y + 34, 'ドカン！ ' + d2, '#ff9a5a', 20, 1); }
   }
   function cloneHits() {   // ぶんしん: a copy follows your path a moment behind; its charges hurt too
     const h = hero, Hs = h.hist; if (!Hs || Hs.length < 22) return;
@@ -4376,7 +4398,7 @@
     paused = true; drag.down = false; h.vx = h.vy = 0;
     const leave = () => { paused = false; closePanel(); };
     const buyBag = () => {
-      if (save.gold < bag) { A.sfx('block'); return; }
+      if (lanTownGold() < bag) { A.sfx('block'); return; }
       save.gold -= bag; leave();
       const r = Math.random(), first = r < 0.1 ? 'rare' : r < 0.55 ? 'fx' : 'lo';   // only things you don't have yet
       let pool = []; for (const k of [first, 'fx', 'lo', 'rare']) { pool = dropPool(k).filter(e => !save.owned.includes(e.id)); if (pool.length) break; }
@@ -4385,7 +4407,7 @@
       o.leave = 1.2; popText(o.x, o.y + 46, 'まいど あり… ひっひっ', '#e0c8ff', 13, 1.4);
     };
     const buyMed = () => {
-      if (save.gold < med || (o.meds || 0) >= 2) { A.sfx('block'); return; }
+      if (lanTownGold() < med || (o.meds || 0) >= 2) { A.sfx('block'); return; }
       save.gold -= med; o.meds = (o.meds || 0) + 1;
       const hs = HEALS.filter(itemOpen), id = wpick({ [hs[hs.length - 1]]: 0.3, [hs[Math.max(0, hs.length - 2)]]: 0.2, power: 0.25, guard: 0.25 });   // the best heals you could buy now, or a buff
       gainItem(id); A.sfx('item');
@@ -4396,7 +4418,7 @@
       <dl class="stat" style="margin-top:10px">
         <dt>なぞの そうびぶくろ</dt><dd class="gold">${bag} G</dd>
         <dt>あやしい くすり（のこり${2 - (o.meds || 0)}）</dt><dd class="gold">${med} G</dd>
-        <dt>もっている ゴールド</dt><dd class="gold">${save.gold} G</dd>
+        <dt>もっている ゴールド</dt><dd class="gold">${lanTownGold()} G</dd>
       </dl>
       <p style="color:var(--muted);font-size:13px;margin-top:8px">ふくろ：ぼろぼろの品・◆とくしゅこうかの品・★めいこうの品（まれ）のどれか<br>くすり：ハイポーション・エリクサー・ちからのくすり・まもりのくすりのどれか</p>`,
       [['ふくろを かう', buyBag, true], ['くすりを かう', buyMed], ['いらない', leave]]);
@@ -5772,11 +5794,11 @@
   const enemyPoseFrames=new WeakMap();
   let crowdedEnemyPoses=false;
   function enemyPoseFrame(e,view,hurt,build){
-    if(!crowdedEnemyPoses)return build();
+    if(!crowdedEnemyPoses&&!lowendActive())return build();
     const since=view?globalT-view.changed:99,band=since<.08?0:since<.2?1:since<.24?2:since<.28?3:since<.30?4:5;
     const key=[e.st,view?.face,hurt,!!e.guard,!!e.headOut,!!e.shine,!!e.critNext,!!e.awake,view?.goblinMoving,view?.walking,view?.infantryMoving,view?.groundMoving,band,e.st==='dash'&&e.t<.07].join('|');
     const released=(['archer','firearcher'].includes(e.type)&&view?.prev==='aim'&&since<.08)||(e.type==='bomber'&&e.st==='throw'&&e.t<.08);
-    const slot=Math.floor((globalT+(e.phase||0)*.037)*30+1e-7),last=enemyPoseFrames.get(e);
+    const slot=Math.floor((globalT+(e.phase||0)*.037)*(lowendActive()&&['idle','tired'].includes(e.st)?20:30)+1e-7),last=enemyPoseFrames.get(e);
     if(!released&&last&&last.key===key&&last.slot===slot)return last.sprite;
     const sprite=build();enemyPoseFrames.set(e,{key,slot,sprite});return sprite;
   }
@@ -6890,7 +6912,7 @@
   function drawFx() {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const offset=arena?W/2-bcamX:WX;
-    for (const p of fx) { const y=sy(p.y),x=p.x+offset;if(x < -6 || x > W+6 || y < -6 || y > H+6)continue;ctx.globalAlpha = Math.max(0, p.life / p.max); ctx.fillStyle = p.col; const s = p.r > 2.5 ? 3 : 1.5; ctx.fillRect(q(p.x) - s / 2, q(y) - s / 2, s, s); }
+    let drawnFx=0;for (const p of fx) { if(lowendActive()&&drawnFx++%3)continue;const y=sy(p.y),x=p.x+offset;if(x < -6 || x > W+6 || y < -6 || y > H+6)continue;ctx.globalAlpha = Math.max(0, p.life / p.max); ctx.fillStyle = p.col; const s = p.r > 2.5 ? 3 : 1.5; ctx.fillRect(q(p.x) - s / 2, q(y) - s / 2, s, s); }
     ctx.restore(); ctx.globalAlpha = 1;
     // hit sparks / defeat puffs (pixel animations)
     for (const a of anims) {
@@ -6941,7 +6963,7 @@
     ctx.fillStyle = col; ctx.fillText(s, x, y);
   }
   function drawHud() {
-    const h = hero, top = safeTop() + 8, hpW=arenaRun?arenaHudBox().hpW:196, chargeH=craftHudRows()*16;
+    const h = hero, top = safeTop() + 8, hpW=arenaRun?arenaHudBox().hpW:196, chargeH=craftHudRows()*16+(lanFight()?lanAllyHudBox().h+2:0);
     // status window
     ctx.fillStyle = 'rgba(19,24,58,.86)'; roundRect(8, top, hpW, 50, 6); ctx.fill();
     ctx.strokeStyle = '#f3ecda'; ctx.lineWidth = 2; roundRect(8, top, hpW, 50, 6); ctx.stroke();
@@ -7008,7 +7030,7 @@
     }
     if (freezeT > 0) { ctx.fillStyle = `rgba(200,205,255,${0.16 * Math.min(1, freezeT * 3)})`; ctx.fillRect(0, 0, W, H); txt('TIME STOP', W / 2, H * 0.4, 22, '#e8ecff', 'center'); }
     toasts.forEach((q2, i) => {   // equipment found: short notices under the status bar
-      ctx.globalAlpha = Math.min(1, q2.t * 2); const y2 = top + (arenaRun?154+chargeH:hardRun&&state==='boss'?160:defRun?208+chargeH:92) + i * 22;
+      ctx.globalAlpha = Math.min(1, q2.t * 2); const y2 = top + (arenaRun?154+chargeH:hardRun&&state==='boss'?160:defRun?208+chargeH:92+(lanFight()?lanAllyHudBox().h+2:0)) + i * 22;
       ctx.fillStyle = 'rgba(10,8,24,.75)'; ctx.fillRect(16, y2 - 15, W - 50, 20);
       txt(q2.s, W / 2 - 9, y2, 13, q2.col, 'center'); ctx.globalAlpha = 1;
     });
@@ -7243,7 +7265,7 @@
     txt(`Lv ${save.lv}`, 20, top + 22, 16, '#f2c14e', 'left', false);
     bar(76, top + 15, 120, 6, save.exp / expNeed(save.lv), '#7ab8ff');
     txt('EXP', 76, top + 34, 10, 'rgba(243,236,218,.6)', 'left', false);
-    txt(`${save.gold} G`, W - 20, top + 27, 17, '#f2c14e', 'right', false);
+    txt(`${lanTownGold()} G`, W - 20, top + 27, 17, '#f2c14e', 'right', false);
   }
 
   // interiors (the shop window sits on the lower half; the room shows above)
@@ -7302,13 +7324,13 @@
     if (audioOn && !musicRoom) FMusic.setLayer(['guild','arena'].includes(curPage().id)?'house':curPage().id);   // each building re-orchestrates the waltz
   }
   function enterBuilding(id) {
-    if(lan)return lanShowLobby();
+    if(lan&&id==='arena'){toast('通信中は闘技場に入れません');return;}
     A.sfx('select');
     facilityEnter(id);
   }
 
   function render() {
-    mainCtx.setTransform(dpr * S, 0, 0, dpr * S, 0, 0);
+    lowendBegin();mainCtx.setTransform(dpr * S, 0, 0, dpr * S, 0, 0);
     mainCtx.clearRect(0, 0, W, H);
     ctx = mainCtx;pfxCalls=0;prepareEnemyBreaths();
     if (state === 'title') { beginPix(); drawTitleBg(); endPix(); return; }
@@ -7539,7 +7561,7 @@
   }
   function facilityCloseHelp(){
     if(facilityHelpOwner){const old=save.settings.facilityHelp;save.settings.facilityHelp={...old,[facilityHelpOwner]:!!$('helpHide').checked};
-      try{localStorage.setItem('bumphero_save',JSON.stringify(save));}catch{if(old===undefined)delete save.settings.facilityHelp;else save.settings.facilityHelp=old;$('helpError').textContent='設定を保存できませんでした。もう一度お試しください。';return;}}
+      try{lanWriteCurrentSave();}catch{if(old===undefined)delete save.settings.facilityHelp;else save.settings.facilityHelp=old;$('helpError').textContent='設定を保存できませんでした。もう一度お試しください。';return;}}
     const focus=facilityHelpFocus;facilityDismissHelp();if(focus?.isConnected)focus.focus?.({preventScroll:true});
   }
   function facilityDetail(title,paragraphs){return `<button class="sbtn ui-detail" data-ui-description="${encodeURIComponent(JSON.stringify({title,paragraphs}))}">説明を見る</button>`;}
@@ -7647,7 +7669,7 @@
   }
   // change equipment (house and pause menu). In a dungeon the new stats apply at once.
   let eqTab = 'weapon';
-  function equip(id, slot) {
+  function equip(id, slot) {if(lanTown()&&!lanTownExecuting)return lanTownRequest('equip',[id,slot]);
     const before = stats().maxHp;
     save.eq[slot] = id;
     const after = stats();
@@ -7660,6 +7682,7 @@
     const room = state === 'town' ? 'house' : null;
     if(room)facilitySelect('house','gear');
     const render2 = () => {
+      if(lanTown())lanTownSetView(render2);
       const s = hero && (state === 'play' || state === 'boss') ? hero.s : stats();
       const list = EQUIP.filter(e => e.slot === eqTab && save.owned.includes(e.id))
         .sort((a, b) => {a=smithEquipment(a);b=smithEquipment(b);return (b.atk || b.def || b.ram || b.hp || 0) - (a.atk || a.def || a.ram || a.hp || 0);});
@@ -7688,7 +7711,7 @@
       <dt>ぼうぎょ</dt><dd>${s.def}</dd>
       <dt>移動速度</dt><dd>×${s.ram.toFixed(2)}</dd><dt>体当たり威力</dt><dd>×${s.ramPower.toFixed(2)}</dd>
       <dt>つぎのレベルまで</dt><dd>${expNeed(save.lv) - save.exp} EXP</dd>
-      <dt>ゴールド</dt><dd class="gold">${save.gold} G</dd>
+      <dt>ゴールド</dt><dd class="gold">${lanTownGold()} G</dd>
       <dt>たおした数</dt><dd>${save.kills}</dd>
     </dl>
     <div style="margin-top:10px;font-size:14px;line-height:1.7">${['weapon', 'armor', 'boots', 'charm'].map(sl => `${SLOT_NAME[sl]}：${save.eq[sl] ? eqIcon(EQ[save.eq[sl]], 24) + ' ' + eqName(EQ[save.eq[sl]]) : 'なし'}`).join('<br>')}<br>スキル：${save.skill ? SKILLS[save.skill].name : 'なし'}</div>${fxHtml(s)}${save.guild?.titles.length?'<p class="guild-note">称号：'+save.guild.titles.join('・')+'</p>':''}`;
@@ -7700,18 +7723,19 @@
     if (shopTab === 'skill') return openSkillShop();
     const tabs = '';
     const render2 = () => {
-      openPanel('どうぐや', tabs + `<p style="font-size:14px;color:var(--muted);margin-bottom:4px">もちもの：<span class="gold">${save.gold} G</span></p>` +
+      if(lanTown())lanTownSetView(render2);
+      openPanel('どうぐや', tabs + `<p style="font-size:14px;color:var(--muted);margin-bottom:4px">もちもの：<span class="gold">${lanTownGold()} G</span></p>` +
         Object.entries(ITEMS).filter(([id,it])=>!it.craft).map(([id, it]) => {
           const n = save.items[id] || 0;
           if (!itemOpen(id) && !n) return `<div class="row lock"><span class="nm">？？？</span><span class="sub">${it.unlock}ばんめの ダンジョンを せいはすると ならぶ</span></div>`;
-          const can = k => itemOpen(id) && save.gold >= it.price * k && n + k <= ITEM_MAX;
+          const can = k => itemOpen(id) && lanTownGold() >= it.price * k && n + k <= ITEM_MAX;
           return `<div class="row"><span class="nm">${icon(id, 28)} ${it.name} <span style="color:var(--muted);font-size:13px">×${n}</span></span>
           <span class="sub">${it.note}・もちこみ ${it.carry}こまで（いえに ${ITEM_MAX}こまで）</span>
           <span class="act"><span class="price">${it.price} G</span><span style="display:flex;gap:4px"><button class="sbtn" data-buy="${id}" data-k="1" ${can(1) ? '' : 'disabled'}>かう</button><button class="sbtn" data-buy="${id}" data-k="10" ${can(10) ? '' : 'disabled'}>×10</button></span></span></div>`;
         }).join(''),
         [['みせを でる', closePanel]], 'item');
       panelBody.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => {
-        const id = b.dataset.buy, it = ITEMS[id], k = +b.dataset.k || 1; if (!itemOpen(id) || save.gold < it.price * k || (save.items[id] || 0) + k > ITEM_MAX) return;
+        const id = b.dataset.buy, it = ITEMS[id], k = +b.dataset.k || 1; if(lanTown())return lanTownRequest('buyItem',[id,k]); if (!itemOpen(id) || lanTownGold() < it.price * k || (save.items[id] || 0) + k > ITEM_MAX) return;
         save.gold -= it.price * k; save.items[id] = (save.items[id] || 0) + k; persist(); A.sfx('buy'); const sc = panelBody.scrollTop; render2(); panelBody.scrollTop = sc;
       }));
       panelBody.querySelectorAll('[data-st]').forEach(b => b.addEventListener('click', () => { shopTab = b.dataset.st; A.sfx('select'); openItemShop(); }));
@@ -7719,46 +7743,47 @@
     render2();
   }
   const skillRow = (id, act) => { const S = SKILLS[id]; return `<div class="row"><span class="nm"><span style="color:${S.col}">【${S.ch}】</span>${S.name}</span><span class="sub">${S.note}<br>クールタイム ${S.cd}びょう</span><span class="act">${act}</span></div>`; };
-  function openSkillShop() {
+  function openSkillShop() {if(lanTown())lanTownSetView(openSkillShop);
     facilitySelect('item','books');
     openPanel('どうぐや', `
-      <p style="font-size:14px;color:var(--muted);margin-bottom:4px">もちもの：<span class="gold">${save.gold} G</span></p>` +
-      Object.keys(SKILLS).map(id => skillRow(id, save.skills.includes(id) ? `<span class="tag">${save.skill === id ? 'セットちゅう' : STARTER_SKILL === id ? 'はじめから' : 'おぼえた'}</span>` : `<span class="price">${SKILLS[id].price} G</span><button class="sbtn" data-sk="${id}" ${save.gold < SKILLS[id].price ? 'disabled' : ''}>かう</button>`)).join(''),
+      <p style="font-size:14px;color:var(--muted);margin-bottom:4px">もちもの：<span class="gold">${lanTownGold()} G</span></p>` +
+      Object.keys(SKILLS).map(id => skillRow(id, save.skills.includes(id) ? `<span class="tag">${save.skill === id ? 'セットちゅう' : STARTER_SKILL === id ? 'はじめから' : 'おぼえた'}</span>` : `<span class="price">${SKILLS[id].price} G</span><button class="sbtn" data-sk="${id}" ${lanTownGold() < SKILLS[id].price ? 'disabled' : ''}>かう</button>`)).join(''),
       [['みせを でる', closePanel]], 'item');
     panelBody.querySelectorAll('[data-st]').forEach(b => b.addEventListener('click', () => { shopTab = b.dataset.st; A.sfx('select'); openItemShop(); }));
     panelBody.querySelectorAll('[data-sk]').forEach(b => b.addEventListener('click', () => {
-      const id = b.dataset.sk, S = SKILLS[id]; if (save.gold < S.price || save.skills.includes(id)) return;
+      const id = b.dataset.sk, S = SKILLS[id]; if(lanTown())return lanTownRequest('buySkill',[id]); if (lanTownGold() < S.price || save.skills.includes(id)) return;
       save.gold -= S.price; save.skills.push(id); if (!save.skill) save.skill = id;
       persist(); A.sfx('buy'); toast && toast(`スキル「${S.name}」を おぼえた！`, S.col); const top = panelBody.scrollTop; openSkillShop(); panelBody.scrollTop = top;
     }));
   }
-  function openSkills() {
+  function openSkills() {if(lanTown())lanTownSetView(openSkills);
     facilitySelect('house','skills');
     const html = save.skills.length ? save.skills.map(id => skillRow(id, save.skill === id ? '<span class="tag">セットちゅう</span>' : `<button class="sbtn" data-set="${id}">セットする</button>`)).join('')
       : '<p style="color:var(--muted)">まだ スキルを おぼえていない。どうぐやの「スキルのしょ」で かえる。</p>';
     openPanel('スキル', html,
       [['もどる', openHouse, true]], 'house');
-    panelBody.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', () => { save.skill = b.dataset.set; persist(); A.sfx('equip'); openSkills(); }));
+    panelBody.querySelectorAll('[data-set]').forEach(b => b.addEventListener('click', () => { if(lanTown())return lanTownRequest('skill',[b.dataset.set]); save.skill = b.dataset.set; persist(); A.sfx('equip'); openSkills(); }));
   }
 
   let equipTab = 'weapon';
   function openEquipShop() {
     facilitySelect('smith','shop');
     const render2 = () => {
+      if(lanTown())lanTownSetView(render2);
       const s = stats();
       const list = EQUIP.filter(e => e.slot === equipTab && !e.drop && (e.price > 0 || save.owned.includes(e.id)));
       const statOf = eqStats;
       openPanel('かじや', `<div class="tabs">${['weapon', 'armor', 'boots', 'charm'].map(sl => `<button data-tab="${sl}" aria-pressed="${sl === equipTab}">${SLOT_NAME[sl]}</button>`).join('')}</div>
-        <p style="font-size:14px;color:var(--muted)">こうげき ${s.atk}・ぼうぎょ ${s.def}・<span class="gold">${save.gold} G</span></p>` +
+        <p style="font-size:14px;color:var(--muted)">こうげき ${s.atk}・ぼうぎょ ${s.def}・<span class="gold">${lanTownGold()} G</span></p>` +
         list.map(e => {
-          const own = save.owned.includes(e.id), eq = save.eq[e.slot] === e.id;
+          const own = save.owned.includes(e.id), eq = save.eq[e.slot] === e.id;if(!own&&!balanceShopOpen(e))return `<div class="row lock"><span class="nm">${eqIcon(e)} ${eqName(e)}</span><span class="sub">${balanceShopLock(e)}</span><span class="act"><button class="sbtn" disabled>未解放</button></span></div>`;
           return `<div class="row"><span class="nm">${eqIcon(e)} ${eqName(e)}</span><span class="sub">${statOf(e) || 'ふつうの そうび'}${Object.keys(forgeFx(e)).length ? '<br>' + Object.keys(forgeFx(e)).map(k => `<span style="color:#7ad8ff">◆${FX[k].note}</span>`).join('<br>') : ''}</span>
-            <span class="act">${eq ? '<span class="tag">そうびちゅう</span>' : own ? `<button class="sbtn" data-eq="${e.id}">そうびする</button>` : `<span class="price">${e.price} G</span><button class="sbtn" data-buy="${e.id}" ${save.gold < e.price ? 'disabled' : ''}>かう</button>`}</span></div>`;
+            <span class="act">${eq ? '<span class="tag">そうびちゅう</span>' : own ? `<button class="sbtn" data-eq="${e.id}">そうびする</button>` : `<span class="price">${e.price} G</span><button class="sbtn" data-buy="${e.id}" ${lanTownGold() < e.price ? 'disabled' : ''}>かう</button>`}</span></div>`;
         }).join(''),
         [['みせを でる', closePanel]], 'smith');
       panelBody.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { equipTab = b.dataset.tab; A.sfx('select'); render2(); }));
       panelBody.querySelectorAll('[data-buy]').forEach(b => b.addEventListener('click', () => {
-        const e = EQ[b.dataset.buy]; if (save.gold < e.price) return;
+        const e = EQ[b.dataset.buy]; if(lanTown())return lanTownRequest('buy',[e.id]); if (!balanceShopOpen(e)||lanTownGold() < e.price) return;
         const before = stats().maxHp;
         const guideBefore=stats();
         save.gold -= e.price; save.owned.push(e.id); save.eq[e.slot] = e.id;
@@ -7766,7 +7791,7 @@
         if (save.hp != null) save.hp += Math.max(0, stats().maxHp - before);
         persist(); A.sfx('buy'); const sc = panelBody.scrollTop; render2(); panelBody.scrollTop = sc;
       }));
-      panelBody.querySelectorAll('[data-eq]').forEach(b => b.addEventListener('click', () => { const e = EQ[b.dataset.eq]; save.eq[e.slot] = e.id; persist(); A.sfx('equip'); render2(); }));
+      panelBody.querySelectorAll('[data-eq]').forEach(b => b.addEventListener('click', () => { const e = EQ[b.dataset.eq]; if(lanTown())return lanTownRequest('equip',[e.id,e.slot]); save.eq[e.slot] = e.id; persist(); A.sfx('equip'); render2(); }));
     };
     render2();
   }
@@ -7900,6 +7925,7 @@
     obj(s.eq);for(const slot of ['weapon','armor','boots','charm']){const id=s.eq[slot];if(id==null){if(slot!=='charm')bad();}else if(!Object.hasOwn(EQ,id)||EQ[id].slot!==slot||!s.owned.includes(id))bad();}
     if(s.skill!=null&&!s.skills.includes(s.skill))bad();obj(s.items);for(const[k,n]of Object.entries(s.items))if(!Object.hasOwn(ITEMS,k)||!integer(n)||n>ITEM_MAX)bad();
     obj(s.settings);for(const k of ['bgm','sfx'])if(typeof s.settings[k]!=='number'||s.settings[k]<0||s.settings[k]>1)bad();
+    if(s.settings.renderQuality!=null&&!['auto','low','high'].includes(s.settings.renderQuality))bad();
     if(s.settings.pixelfx!=null&&typeof s.settings.pixelfx!=='boolean')bad();
     if(![0,30,60,90,120].includes(s.settings.fps)||![.4,.7,1,1.5].includes(s.settings.pad))bad();
     for(const path of ['materials','bestiary','bestiary.seen','bestiary.obtained','forge','forge.inherited','forge.upgrades','guild','guild.stats','guild.stats.values','guild.stats.crafts','guild.stats.skills','guild.stats.builds','guild.claimed','guild.receipts','arena','arena.trials','arena.chains','arena.rewards','hard','hard.cleared']){let v=s;for(const k of path.split('.'))v=v?.[k];if(v!=null)obj(v);}
@@ -7964,10 +7990,11 @@
         <span class="optn">現在の画面：約 ${Math.round(1000 / rafMs / 10) * 10}Hz</span></div>
       <div class="optg">スライドパッドの こさ<div class="tabs" id="optPad">${[[0.4, 'うすい'], [0.7, 'ややうすい'], [1, 'ふつう'], [1.5, 'こい']].map(([v, l]) => `<button data-v="${v}" aria-pressed="${save.settings.pad === v}">${l}</button>`).join('')}</div>
         <canvas id="optPadPrev" width="150" height="74" style="display:block;margin:6px auto 0;border-radius:8px;background:#2a2a3e"></canvas></div>
+      <div class="optg">描画品質<div class="tabs" id="optQuality"><button data-v="auto" aria-pressed="${lowendMode()==='auto'}">自動</button><button data-v="low" aria-pressed="${lowendMode()==='low'}">軽量</button><button data-v="high" aria-pressed="${lowendMode()==='high'}">高品質</button></div><span class="optn">軽量は待機・歩行の画像を再利用し、装飾を減らします。FPSが自動なら最大30。攻撃範囲・弾数・当たり判定は変わりません。</span></div>
       <div class="optg">技のエフェクト<div class="tabs" id="optFx"><button data-v="1" aria-pressed="${save.settings.pixelfx!==false}">新しい演出</button><button data-v="0" aria-pressed="${save.settings.pixelfx===false}">従来の演出</button></div></div>
       <div class="optg"><button class="btn" id="optSaveTransfer">セーブデータの管理</button></div>
       `,
-      [['もどる', openHouse, true], ['操作の説明',openHelp], ['冒険ガイドをやり直す',()=>{save.guide={stage:'welcome',combatStep:0,bonusUsed:!!save.guide?.bonusUsed};save.tut=0;persist();goTown();}], ['操作練習をやり直す',()=>{save.tut=0;persist();toast('次に はじまりの洞窟へ入ると操作練習が始まります。','#f2c14e');}], ['データをけす', () => openPanel('ほんとうに けしますか？', '<p>冒険記録と端末内の読み込み前の控えを消し、すべて最初にもどします。</p>', [['けす', () => { localStorage.removeItem(TRANSFER_BACKUP); save = DEF_SAVE(); craftNormalize(); forgeNormalize(); bestNormalize(); guildNormalize(); hardNormalize(); arenaNormalize(); guildRun=null; persist(); goTown(); }], ['やめる', openOptions, true]], 'house')]], 'house');
+      [['もどる', openHouse, true], ['操作の説明',openHelp], ['冒険ガイドをやり直す',()=>{save.guide={stage:'welcome',combatStep:0,bonusUsed:!!save.guide?.bonusUsed};save.tut=0;persist();goTown();}], ['操作練習をやり直す',()=>{save.tut=0;persist();toast('次に はじまりの洞窟へ入ると操作練習が始まります。','#f2c14e');}], ['データをけす', () => openPanel('ほんとうに けしますか？', '<p>冒険記録と端末内の読み込み前の控えを消し、すべて最初にもどします。</p>', [['けす', () => { if(lan){toast('データ消去は通信を終了してから行ってください');return;}localStorage.removeItem(TRANSFER_BACKUP); save = DEF_SAVE(); craftNormalize(); forgeNormalize(); bestNormalize(); guildNormalize(); hardNormalize(); arenaNormalize(); guildRun=null; persist(); goTown(); }], ['やめる', openOptions, true]], 'house')]], 'house');
     const apply = () => { save.settings.bgm = +$('optBgm').value; save.settings.sfx = +$('optSfx').value; if (audioOn) FMusic.setVolume(save.settings.bgm, save.settings.sfx); persist(); };
     $('optBgm').addEventListener('input', apply); $('optSfx').addEventListener('input', apply);
     const seg = (id, key, after) => $(id).querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
@@ -7977,6 +8004,7 @@
     const prev = () => { const c = $('optPadPrev'), x = c.getContext('2d'); x.clearRect(0, 0, c.width, c.height); padShape(x, 75, 37, 105, 30, 30, false, 0.6); };
     $('optFx').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{save.settings.pixelfx=b.dataset.v==='1';pfxClear();persist();A.sfx('select');$('optFx').querySelectorAll('button').forEach(o=>o.setAttribute('aria-pressed',String(o===b)));}));
     $('optSaveTransfer').addEventListener('click',()=>{A.sfx('select');openSaveTransfer();});
+    $('optQuality').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{save.settings.renderQuality=b.dataset.v;persist();nextT=0;openOptions();}));
     seg('optFps', 'fps', () => { nextT = 0; }); seg('optPad', 'pad', prev); prev();
   }
 
@@ -8160,7 +8188,7 @@
   const GPACT = { 0: 'roll', 4: 'roll', 1: 'skill', 5: 'skill', 2: 'item', 3: 'whistle', 9: 'pause', 8: 'pause' };
   function pollInput(dt) {
     let ax = 0, ay = 0, any = false;
-    const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+    const pads = lanReadGamepads();
     for (const g of pads) {
       const b = i => !!(g.buttons[i] && g.buttons[i].pressed);
       let sx = g.axes[0] || 0, sy2 = g.axes[1] || 0;
@@ -8251,7 +8279,7 @@
     requestAnimationFrame(frame);
     const rd = now - lastRaf; lastRaf = now; if (rd > 2 && rd < 100) rafMs += (rd - rafMs) * 0.05;   // the display's own refresh interval
     if (sleeping) { last = now; return; }   // nothing runs while the app is hidden
-    const cap = 1000 / (save.settings.fps || 60);   // Auto targets stable 60Hz; explicit 30/90/120 remain available.
+    const cap = 1000 / (save.settings.fps || (lowendMode()!=='high'&&(lowendMode()==='low'||lowendHardware()||lowendMeasured)?30:60));   // Auto targets stable 60Hz; explicit 30/90/120 remain available.
     if (cap) { if (now < nextT - 1) return; nextT = Math.max(nextT + cap, now - cap); }
     const raw = now - last;
     const dt = Math.min(0.05, raw / 1000); last = now;
@@ -8263,13 +8291,14 @@
         perfWin.n = 0; perfWin.sum = 0;
       }
     }
+    const lowendWorkStart=performance.now();
     pollInput(dt);lanPulse(dt);
     if (!manual) update(dt);
-    render(); guideTick();
+    render(); guideTick();lowendObserve(performance.now()-lowendWorkStart);
   }
   // First-adventure guide. Progress lives in the regular save; no per-frame persistence.
   let guideBlocksCombat=false,guideUI=null,guideKey='',guideAck='',guideTarget=null,guideClock=0;
-  function guideActive(){if(lan)return false;return !!save.guide&&save.guide.stage!=='done';}
+  function guideActive(){if(lan||lanBrowserClient()&&lanBrowserJoining)return false;return !!save.guide&&save.guide.stage!=='done';}
   function guideSet(stage){if(!save.guide)save.guide={};save.guide.stage=stage;guideKey='';guideBlocksCombat=false;persist();}
   function guideInit(){
     if(!save.guide){save.guide={stage:save.tut||save.lv>1||save.kills>0?'done':'welcome',combatStep:0};persist();}
@@ -8372,6 +8401,25 @@
   window.claude?.hot?.snapshot?.(() => arenaRun?arenaRun.home:save);
   requestAnimationFrame(frame);
   // test hooks
+  let lowendVisible=0,lowendMeasured=false,lowendWorkSum=0,lowendWorkFrames=0;
+  function lowendObserve(ms){if(!['play','boss'].includes(state)||paused||ms>200)return;lowendWorkSum+=ms;lowendWorkFrames++;if(lowendWorkFrames>=45){if(lowendWorkSum/lowendWorkFrames>18)lowendMeasured=true;lowendWorkSum=lowendWorkFrames=0;}}
+  const lowendHardware=()=>((navigator.hardwareConcurrency||8)<=4)||((navigator.deviceMemory||8)<=4);
+  const lowendMode=()=>save.settings.renderQuality||'auto';
+  const lowendActive=()=>!bestPainting&&lowendMode()!=='high'&&(lowendMode()==='low'||lowendHardware()||lowendMeasured||lowendVisible>=8||quality<=.5);
+  function lowendBegin(){lowendVisible=0;for(const e of enemies){if(e.dead)continue;const y=sy(e.y),x=e.x+(arena?W/2-bcamX:WX);if(y>=-70&&y<=H+70&&x>=-128&&x<=W+128)lowendVisible++;}}
+  const lowendSprite=SPR.enemy;
+  SPR.enemy=function(type,pose){return lowendSprite(type,lowendActive()?{...pose,light:true}:pose);};
+
+  let lanBrowserJoining=false;
+  const lanBrowserClient=()=>window.YushaLan?.browserClient===true;
+  function lanWebLinks(){if(!lanHost())return '';const urls=(lan.webAddress||'').split(', ').filter(s=>/^http:\/\/[0-9.]+:\d+\/$/.test(s));if(!urls.length)return '<p>ブラウザ用の接続先を準備しています…</p>';return '<h3>普段のブラウザ版から参加</h3><p>同じWi-Fiにつなぎ、普段のゲームの「ローカル通信」→「部屋に入る」で、下の接続先と合言葉を入力してください。</p>'+urls.map((url,i)=>`<div style="margin:8px 0"><input id="lanWebUrl${i}" readonly value="${lanEsc(url)}" aria-label="ブラウザ用接続先" style="width:95%;font-size:14px"><button class="sbtn" data-lan-web-copy="${i}">接続先をコピー</button></div>`).join('');}
+  function lanBrowserAddress(value){if(!lanBrowserClient())return value;let s=value.trim();if(/^https?:\/\//.test(s)){try{const u=new URL(s);s=u.hostname+':'+(u.port||39762);}catch{return '';}}if(/^\d{1,3}(?:\.\d{1,3}){3}$/.test(s))s+=':39762';return s;}
+  function lanBindWebLinks(){panelBody.querySelectorAll('[data-lan-web-copy]').forEach(b=>b.onclick=()=>{const input=$('lanWebUrl'+b.dataset.lanWebCopy);if(!input)return;input.select();if(window.YushaLan?.copyUrl){window.YushaLan.copyUrl(input.value);toast('参加URLをコピーしました','#f2c14e');}});}
+  function lanReadGamepads(){try{return navigator.getGamepads?[...navigator.getGamepads()].filter(Boolean):[];}catch(e){return [];}}
+
+  const lanBeforeBrowserClose=closePanel;
+  closePanel=function(){if(lanBrowserClient()&&!lan&&['home','join','exit'].includes(lanUI))lanBrowserJoining=false;return lanBeforeBrowserClose();};
+
   let lanSearch=null,lanSearchToken=0;
   function lanValidAddress(a){const m=/^(\d{1,3}(?:\.\d{1,3}){3}):(\d{1,5})$/.exec(a);return !!m&&m[1].split('.').every(n=>Number(n)<=255)&&Number(m[2])>0&&Number(m[2])<=65535;}
   function lanStopSearch(){if(lanSearch?.timer)clearTimeout(lanSearch.timer);lanSearch=null;window.YushaLan?.stopDiscovery?.();}
@@ -8380,10 +8428,63 @@
   function lanShowRooms(){const s=lanSearch,select=$('lanRooms'),a=$('lanAddress');if(!s||!select||!a)return;select.innerHTML='';const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent=s.rooms.length?'部屋を選択してください':'見つかった部屋がここに表示されます';select.appendChild(placeholder);for(const r of s.rooms){const o=document.createElement('option');o.value=r.id;o.textContent=r.name+'（'+r.address+'）';select.appendChild(o);}if(s.selected&&s.rooms.some(r=>r.id===s.selected)){select.value=s.selected;const r=s.rooms.find(r=>r.id===s.selected);if(!s.manual){s.auto=r.address;a.value=r.address;}}
     else{if(!s.manual&&s.auto&&a.value===s.auto)a.value='';s.auto='';s.selected=null;select.value='';if(!s.manual&&s.rooms.length===1)lanPickRoom(s.rooms[0].id);}
   }
-  window.__lanDiscovered=(token,status,rooms)=>{const s=lanSearch;if(!s||s.done||token!==s.token||lan||!$('lanAddress'))return;s.rooms=Array.isArray(rooms)?rooms.filter(r=>r&&typeof r.id==='string'&&r.id.length<=256&&typeof r.name==='string'&&r.name.length<=256&&typeof r.address==='string'&&lanValidAddress(r.address)).slice(0,32):[];lanShowRooms();if(status==='error')lanSearchStatus('自動検索を開始できませんでした。「もう一度探す」か手動入力を使ってください。');else if(s.rooms.length>1)lanSearchStatus('部屋が複数見つかりました。参加する部屋を選んでください。');else if(s.rooms.length===1)lanSearchStatus(s.manual?'部屋が見つかりました。選ぶと接続先を自動入力できます。':'接続先を自動入力しました。合言葉を入力してください。');else lanSearchStatus('同じWi-Fi内の部屋を探しています… 先にホストが部屋を作ってください。');};
-  function lanFindRooms(){const a=$('lanAddress');if(!a)return;const manual=lanSearch?lanSearch.manual:!!a.value;if(!manual)a.value='';lanStopSearch();const token=++lanSearchToken;lanSearch={token,rooms:[],manual,selected:null,auto:'',done:false};lanShowRooms();if(!window.YushaLan?.discover){lanSearchStatus('この版では自動検索を使えません。両方の端末を最新版へ更新するか、接続先を入力してください。');return;}lanSearchStatus('同じWi-Fi内の部屋を探しています…');window.YushaLan.discover(token);const s=lanSearch;s.timer=setTimeout(()=>{if(lanSearch!==s)return;s.done=true;window.YushaLan?.stopDiscovery?.();if(!s.rooms.length)lanSearchStatus('部屋が見つかりませんでした。同じWi-Fi・ホストの待合室を確認し、もう一度探すか接続先を入力してください。');},12000);}
+  window.__lanDiscovered=(token,status,rooms)=>{const s=lanSearch;if(!s||s.done||token!==s.token||lan||!$('lanAddress'))return;if(status==='manual'){s.done=true;lanSearchStatus('ブラウザでは部屋の自動検索を使えません。親機のブラウザ用接続先を入力してください。');return;}s.rooms=Array.isArray(rooms)?rooms.filter(r=>r&&typeof r.id==='string'&&r.id.length<=256&&typeof r.name==='string'&&r.name.length<=256&&typeof r.address==='string'&&lanValidAddress(r.address)).slice(0,32):[];lanShowRooms();if(status==='error')lanSearchStatus('自動検索を開始できませんでした。「もう一度探す」か手動入力を使ってください。');else if(s.rooms.length>1)lanSearchStatus('部屋が複数見つかりました。参加する部屋を選んでください。');else if(s.rooms.length===1)lanSearchStatus(s.manual?'部屋が見つかりました。選ぶと接続先を自動入力できます。':'接続先を自動入力しました。合言葉を入力してください。');else lanSearchStatus('同じWi-Fi内の部屋を探しています… 先にホストが部屋を作ってください。');};
+  function lanFindRooms(){const a=$('lanAddress');if(!a)return;const manual=lanSearch?lanSearch.manual:!!a.value;if(!manual)a.value='';lanStopSearch();const token=++lanSearchToken;lanSearch={token,rooms:[],manual,selected:null,auto:'',done:false};lanShowRooms();if(!window.YushaLan?.discover){lanSearchStatus('この版では自動検索を使えません。両方の端末を最新版へ更新するか、接続先を入力してください。');return;}lanSearchStatus('同じWi-Fi内の部屋を探しています…');window.YushaLan.discover(token);const s=lanSearch;s.timer=setTimeout(()=>{if(lanSearch!==s)return;const manual=s.done;s.done=true;window.YushaLan?.stopDiscovery?.();if(!manual&&!s.rooms.length)lanSearchStatus('部屋が見つかりませんでした。同じWi-Fi・ホストの待合室を確認し、もう一度探すか接続先を入力してください。');},12000);}
   const lanBeforeDiscoveryClose=closePanel;
   closePanel=function(){if(lanSearch)lanStopSearch();return lanBeforeDiscoveryClose();};
+
+  // Use the regular facilities while the room stays connected. Purchases execute once on the host.
+  let lanTownExecuting=false,lanTownView=null,lanTownPending=0,lanTownCounter=0,lanTownViewFresh=false,lanTownViewTitle='',lanTownStamp='';
+  function lanTownSetView(fn){lanTownView=fn;lanTownViewFresh=true;}
+  const lanTown=()=>!!lan&&lan.phase==='lobby'&&state==='town';
+  const lanTownGold=()=>lanTown()&&!lanTownExecuting?(lanHost()?lan.pool:lan.lobby?.pool||0):save.gold;
+  function lanTownPreferences(s){return Object.fromEntries(['eq','skill','settings','slots','loadout','craftSkills','lastGate'].filter(k=>s[k]!==undefined).map(k=>[k,lanCopy(s[k])]));}
+  function lanTownPersist(){
+    if(lanTownExecuting)return;
+    const p=lanMe();if(!p)return;
+    if(lanHost()){p.save=save;lanStore(p);}
+    else lanRequest({type:'townPreferences',preferences:lanTownPreferences(save)});
+  }
+  function lanWriteCurrentSave(){if(lanTownExecuting)return;if(lanTown())return lanTownPersist();localStorage.setItem('bumphero_save',JSON.stringify(save));}
+  function lanTownRequest(kind,args=[]){if(!lanTown()||lanTownExecuting)return false;if(lanTownPending){toast('処理が終わるまでお待ちください');return true;}lanTownPending=++lanTownCounter;lanRequest({type:'townAction',request:lanTownPending,kind,args});return true;}
+  function lanTownResult(m){if(m.request!==lanTownPending)return;lanTownPending=0;if(!m.ok)toast(m.notice||'残高や所持数が変わったため実行できませんでした。','#ff9a8a');else A.sfx('buy');lanRefresh();}
+  function lanTownExecute(p,kind,args){
+    if(!Array.isArray(args)||args.length>4)return false;
+    const original=lanCopy(p.save),pool=lan.pool,privateGold=p.save.gold;
+    let ok=false;
+    lanWith(p,()=>{lanTownExecuting=true;save.gold=pool;try{
+      if(kind==='buy'){const e=EQ[args[0]];if(e&&!e.drop&&balanceShopOpen(e,save)&&e.price>0&&save.gold>=e.price&&!save.owned.includes(e.id)){save.gold-=e.price;save.owned.push(e.id);save.eq[e.slot]=e.id;ok=true;}}
+      else if(kind==='buyItem'){const e=ITEMS[args[0]],n=args[1];if(e&&!e.craft&&e.price>0&&Number.isInteger(n)&&n>0&&n<=10&&itemOpen(args[0])&&save.gold>=e.price*n&&(save.items[args[0]]||0)+n<=ITEM_MAX){save.gold-=e.price*n;save.items[args[0]]=(save.items[args[0]]||0)+n;ok=true;}}
+      else if(kind==='buySkill'){const e=SKILLS[args[0]];if(e&&e.price>0&&!save.skills.includes(args[0])&&save.gold>=e.price){save.gold-=e.price;save.skills.push(args[0]);if(!save.skill)save.skill=args[0];ok=true;}}
+      else if(kind==='equip'){const [id,slot]=args,e=EQ[id];if(id===null&&slot==='charm'){save.eq.charm=null;ok=true;}else if(e&&e.slot===slot&&save.owned.includes(id)){save.eq[slot]=id;ok=true;}}
+      else if(kind==='skill'){if(save.skills.includes(args[0])){save.skill=args[0];ok=true;}}
+      else if(kind==='smith')ok=smithUpgrade(...args);
+      else if(kind==='craft')ok=craftMake(...args);
+      else if(kind==='exchange')ok=craftExchange(...args);
+      else if(kind==='inherit')ok=forgeInherit(...args);
+      else if(kind==='guild')ok=guildClaim(...args);
+      if(ok){const nextPool=save.gold;save.gold=privateGold;transferValidate(save);if(!Number.isSafeInteger(nextPool)||nextPool<0)throw Error('gold');lan.pool=nextPool;}
+      else save=lanCopy(original);
+    }catch(e){save=lanCopy(original);lan.pool=pool;ok=false;}finally{save.gold=privateGold;lanTownExecuting=false;}});
+    if(p.id===lan.id)save=p.save;
+    if(ok)lan.players.forEach(q=>q.ready=false);
+    return ok;
+  }
+  function lanTownHandle(p,m){
+    if(m.type==='townPreferences'){
+      try{const next={...p.save,...lanTownPreferences(m.preferences||{})};transferValidate(next);const changed=JSON.stringify(lanTownPreferences(next))!==JSON.stringify(lanTownPreferences(p.save));p.save=next;if(p.id===lan.id)save=p.save;if(changed)p.ready=false;}catch{return;}
+    }else{
+      if(!Number.isSafeInteger(m.request)||m.request<=0||m.request<=(p.townRequest||0))return;p.townRequest=m.request;
+      const ok=lanTownExecute(p,m.kind,m.args);lanCheckpoint();lanAll({type:'lobby',...lanLobbyData()});
+      const result={type:'townResult',request:m.request,ok};if(p.id===lan.id)lanTownResult(result);else lanSend(p.id,result);lanRefresh();return;
+    }
+    lanCheckpoint();lanAll({type:'lobby',...lanLobbyData()});lanRefresh();
+  }
+  const lanTownOpenPanel=openPanel,lanTownClosePanel=closePanel;
+  openPanel=function(title,html,buttons,room=null){if(lanTown()&&room){if(lanTownViewFresh){lanTownViewTitle=title;lanTownViewFresh=false;}else if(lanTownViewTitle!==title)lanTownView=null;lanUI='town';html='<p class="ui-summary gold">共通のお金 '+lanTownGold().toLocaleString()+' G</p>'+html;}return lanTownOpenPanel(title,html,buttons,room);};
+  closePanel=function(){if(lanTown()){lanUI='town';lanTownView=null;}return lanTownClosePanel();};
+  const lanTownTransfer=openSaveTransfer;
+  openSaveTransfer=function(){if(lan){toast('セーブの読み込み・書き出しは通信を終了してから行ってください');return;}return lanTownTransfer();};
 
   // LAN COOP BEGIN — host authority, per-device saves, ordinary dungeons only.
   const LAN_VERSION='lan-1';
@@ -8415,36 +8516,37 @@
   function lanRequest(m){if(lanHost())lanHandle('0',m);else lanSend('0',m);}
   function lanLobbyData(){return{room:lan.room,pool:lan.pool,limit:lanLimit(),notice:lan.notice,players:lan.players.map(p=>({id:p.id,name:p.name,lv:p.save.lv,frontier:lanFrontier(p.save),ready:p.ready}))};}
   function lanCheckpoint(){if(!lanHost())return;lanStash();lan.seq++;for(const p of lan.players){if(p.id==='0')lanStore(p);else lanSend(p.id,{type:'checkpoint',seq:lan.seq,profile:p.save,credit:lanShare(p)});}}
-  function lanLobby(){if(!lan)return;lanUI='lobby';if(lanHost()){lanStash();lanCheckpoint();lanAll({type:'lobby',...lanLobbyData()});}lanShowLobby();}
+  function lanLobby(){if(!lan)return;if(lanHost()){lanStash();lanCheckpoint();lanAll({type:'lobby',...lanLobbyData()});}if(['home','connecting','lobby'].includes(lanUI))lanShowLobby();}
   function lanCloseDone(){if(!lan||lan.phase!=='closing')return;lanAll({type:'end',notice:lan.closeMessage});lanExit(lan.closeMessage);}
   function lanAbort(message){if(!lan)return;if(!lanHost())return lanExit(message);if(lan.phase==='closing')return;if(lan.phase==='fight')lanSettle(false,true);lan.phase='closing';lan.closeMessage=message;lanCheckpoint();lan.closeSeq=lan.seq;const room=lan;openPanel('保存して終了しています','<p>全員の端末へ進行を送っています。</p>',[]);if(lan.players.every(p=>p.id==='0'||p.ack>=lan.closeSeq))lanCloseDone();else setTimeout(()=>{if(lan===room)lanCloseDone();},2500);}
-  function lanExit(message='通信プレイを終了しました'){if(!lan)return;lanStash();const p=lanMe(),final=p?lanFinalSave(p):save;if(window.YushaLan)setTimeout(()=>{if(!lan)window.YushaLan.close();},150);lan=null;lanContext=null;closeTray();save=final;hero=null;transition=null;deathT=0;slowMo=hitStop=0;guideBlocksCombat=false;goTown();openPanel('ローカル通信',`<p>${lanEsc(message)}</p><p>各自の進行・経験値・入手品を端末に保存しました。</p>`,[['街へ',closePanel,true]]);}
-  function lanOpen(){lanStopSearch();if(lan)return lanShowLobby();if(state!=='town')return;lanUI='home';openPanel('ローカル通信',`<p>同じWi-Fiで 2〜4人の協力プレイ。</p><p>各自のセーブで参加し、全員が行けるダンジョンだけに出発します。</p><p>経験値は全員に全額。敵HPは出発人数倍。冒険で稼いだお金を共有し、残額は終了時に均等分配します。</p><label>名前 <input id="lanName" maxlength="16" value="勇者" style="width:65%"></label><p id="lanNativeHint">${window.YushaLan||window.__lanTestSend?'':'通信にはAndroid版APKを使ってください。'}</p>`,[['部屋を作る',()=>lanCreate(),true],['部屋に入る',lanJoinUI],['もどる',closePanel]]);}
+  function lanExit(message='通信プレイを終了しました'){if(!lan)return;lanStash();const p=lanMe(),final=p?lanFinalSave(p):save;if(window.YushaLan)setTimeout(()=>{if(!lan)window.YushaLan.close();},150);lan=null;lanContext=null;closeTray();save=final;hero=null;transition=null;deathT=0;slowMo=hitStop=0;guideBlocksCombat=false;goTown();if(lanBrowserClient())lanUI='exit';openPanel('ローカル通信',`<p>${lanEsc(message)}</p><p>各自の進行・経験値・入手品を端末に保存しました。</p>`,[['街へ',closePanel,true]]);}
+  function lanOpen(){if(lanBrowserClient())lanBrowserJoining=true;lanStopSearch();if(lan)return lanShowLobby();if(state!=='town')return;lanUI='home';openPanel('ローカル通信',`<p>同じWi-Fiで 2〜4人の協力プレイ。</p><p>各自のセーブで参加し、全員が行けるダンジョンだけに出発します。</p><p>経験値は全員に全額。敵HPは出発人数倍。冒険で稼いだお金を共有し、残額は終了時に均等分配します。</p>${lanBrowserClient()?'<p>Androidが作った部屋へ、このブラウザから参加できます。</p><p>今遊んでいる記録のまま参加し、進行もこのページに保存します。通信専用の補助タブを開くため、閉じずに元のゲーム画面へ戻って遊んでください。</p>':''}<label>名前 <input id="lanName" maxlength="16" value="勇者" style="width:65%"></label><p id="lanNativeHint">${window.YushaLan||window.__lanTestSend?'':'Androidで部屋を作り、表示されたブラウザ用URLから参加してください。'}</p>`,[...(lanBrowserClient()?[]:[['部屋を作る',()=>lanCreate(),true]]),['部屋に入る',lanJoinUI,true],['もどる',closePanel]]);}
   function lanInit(role,name){lan={role,id:role==='host'?'0':'',room:'',phase:'lobby',pool:0,players:[],seq:0,lastSeq:-1,notice:'',address:'',lastMessage:Date.now(),sendT:0,checkT:0,pingT:0,inputSeq:0,remoteSeq:{}};lan.name=name||'勇者';lan.backup=lanCopy(save);}
-  function lanCreate(name){lanStopSearch();if(!window.YushaLan&&!window.__lanTestSend)return;name=name||$('lanName')?.value||'勇者';lanInit('host',name);lan.room=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);lan.pin=String(Math.floor(100000+Math.random()*900000));lan.players=[lanPlayer('0',name,save)];if(window.YushaLan)window.YushaLan.host(lan.pin);else lanLobby();}
-  function lanJoinUI(){const name=$('lanName')?.value||lan?.name||'勇者';lanStopSearch();lanUI='join';openPanel('部屋に入る',`<p>同じWi-Fi内の部屋を自動で探します。</p><label>見つかった部屋<select id="lanRooms" style="width:100%;margin:8px 0;padding:8px"></select></label><p id="lanSearchStatus" role="status" aria-live="polite"></p><button class="sbtn" id="lanSearchAgain">もう一度探す</button><p><label>接続先 <input id="lanAddress" placeholder="部屋が見つかると自動入力" inputmode="url" style="width:90%"></label></p><label>合言葉 <input id="lanPin" maxlength="6" inputmode="numeric" style="width:65%"></label><p>見つからない場合はホストに表示された接続先を入力できます。ゲスト用Wi-Fiでは端末間の通信が禁止されている場合があります。</p>`,[['接続する',()=>{const a=$('lanAddress').value.trim(),pin=$('lanPin').value.trim();if(!lanValidAddress(a)||!/^\d{6}$/.test(pin)){toast('接続先と合言葉を確認してください');return;}const split=a.lastIndexOf(':'),ip=a.slice(0,split),port=Number(a.slice(split+1));lanStopSearch();lanInit('client',name);lanUI='connecting';openPanel('接続中…','<p>ホストに接続しています。</p>',[['キャンセル',()=>lanExit('接続を中止しました')]]);window.YushaLan?.join(ip,port,pin);},true],['もどる',lanOpen]]);$('lanRooms').addEventListener('change',e=>lanPickRoom(e.target.value));$('lanAddress').addEventListener('input',()=>{if(lanSearch){lanSearch.manual=!!$('lanAddress').value;lanSearch.auto='';lanSearch.selected=null;$('lanRooms').value='';}});$('lanSearchAgain').addEventListener('click',lanFindRooms);lanFindRooms();}
+  function lanCreate(name){lanStopSearch();if(lanBrowserClient())return;if(!window.YushaLan&&!window.__lanTestSend)return;name=name||$('lanName')?.value||'勇者';lanInit('host',name);lan.room=Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10);lan.pin=String(Math.floor(100000+Math.random()*900000));lan.players=[lanPlayer('0',name,save)];if(window.YushaLan)window.YushaLan.host(lan.pin);else lanLobby();}
+  function lanJoinUI(){const name=$('lanName')?.value||lan?.name||'勇者';lanStopSearch();lanUI='join';openPanel('部屋に入る',`<p>${lanBrowserClient()?'親機の「ブラウザ用接続先」を入力してください。ゲーム画面とセーブはそのままです。':'同じWi-Fi内の部屋を自動で探します。'}</p><label>見つかった部屋<select id="lanRooms" style="width:100%;margin:8px 0;padding:8px"></select></label><p id="lanSearchStatus" role="status" aria-live="polite"></p><button class="sbtn" id="lanSearchAgain">もう一度探す</button><p><label>接続先 <input id="lanAddress" placeholder="部屋が見つかると自動入力" inputmode="url" style="width:90%"></label></p><label>合言葉 <input id="lanPin" maxlength="6" inputmode="numeric" style="width:65%"></label><p>見つからない場合はホストに表示された接続先を入力できます。ゲスト用Wi-Fiでは端末間の通信が禁止されている場合があります。</p>`,[['接続する',()=>{const a=lanBrowserAddress($('lanAddress').value.trim()),pin=$('lanPin').value.trim();if(!lanValidAddress(a)||!/^\d{6}$/.test(pin)){toast('接続先と合言葉を確認してください');return;}const split=a.lastIndexOf(':'),ip=a.slice(0,split),port=Number(a.slice(split+1));lanStopSearch();lanInit('client',name);lanUI='connecting';openPanel('接続中…','<p>ホストに接続しています。</p>',[['キャンセル',()=>lanExit('接続を中止しました')]]);if(lanBrowserClient())try{localStorage.setItem('yusha_lan_address',a);}catch{}window.YushaLan?.join(ip,port,pin);},true],['もどる',lanOpen]]);$('lanRooms').addEventListener('change',e=>lanPickRoom(e.target.value));$('lanAddress').addEventListener('input',()=>{if(lanSearch){lanSearch.manual=!!$('lanAddress').value;lanSearch.auto='';lanSearch.selected=null;$('lanRooms').value='';}});$('lanSearchAgain').addEventListener('click',lanFindRooms);if(lanBrowserClient()){try{$('lanAddress').value=localStorage.getItem('yusha_lan_address')||'';}catch{}$('lanAddress').placeholder='192.168.1.10 または http://192.168.1.10:39762/';}lanFindRooms();}
   function lanShowLobby(){if(!lan||lan.phase!=='lobby')return;lanUI='lobby';const rows=lanHost()?lanLobbyData():lan.lobby,me=lanMe();if(!rows)return;const lim=rows.limit;
-    openPanel('ローカル通信：待合室',`${lanHost()?`<p>接続先：<b>${lanEsc(lan.address||'確認中…')}</b><br>合言葉：<b>${lanEsc(lan.pin)}</b></p>`:''}<p class="gold">共通のお金 ${rows.pool} G</p><p>${lanEsc(lan.notice||rows.notice||'全員が準備完了したらホストが出発します。')}</p>${rows.players.map((p,i)=>`<div class="row"><span class="nm" style="color:${['#f2c14e','#8ac4ff','#ff9ad0','#a8f0a0'][i]}">${i+1}P ${lanEsc(p.name)} Lv${p.lv}</span><span class="sub">第${p.frontier+1}まで開放・${p.ready?'準備完了':'準備中'}</span></div>`).join('')}<p>全員の進行に合わせて <b>第${lim+1}ダンジョンまで</b>選べます。</p><p>元の所持金は各自で保持。共有財布は通信中の収入のみです。</p>`,[[me?.ready?'準備を取り消す':'準備完了',()=>lanRequest({type:'ready',ready:!me?.ready}),true],['装備・スキル',lanEquipment],['共有ショップ',lanShop],...(lanHost()?[['ダンジョンを選ぶ',lanGate]]:[]),['通信を終了',()=>lanHost()?lanAbort('ホストが部屋を閉じました'):lanRequest({type:'leave'})]]);
+    openPanel('ローカル通信：待合室',`${lanHost()?`<p>接続先：<b>${lanEsc(lan.address||'確認中…')}</b><br>合言葉：<b>${lanEsc(lan.pin)}</b></p>`:''}${lanWebLinks()}<p class="gold">共通のお金 ${rows.pool} G</p><p>${lanEsc(lan.notice||rows.notice||'全員が準備完了したらホストが出発します。')}</p>${rows.players.map((p,i)=>`<div class="row"><span class="nm" style="color:${['#f2c14e','#8ac4ff','#ff9ad0','#a8f0a0'][i]}">${i+1}P ${lanEsc(p.name)} Lv${p.lv}</span><span class="sub">第${p.frontier+1}まで開放・${p.ready?'準備完了':'準備中'}</span></div>`).join('')}<p>全員の進行に合わせて <b>第${lim+1}ダンジョンまで</b>選べます。</p><p>元の所持金は各自で保持。共有財布は通信中の収入のみです。</p>`,[[me?.ready?'準備を取り消す':'準備完了',()=>lanRequest({type:'ready',ready:!me?.ready}),true],['街へ',closePanel,true],['通信を終了',()=>lanHost()?lanAbort('ホストが部屋を閉じました'):lanRequest({type:'leave'})]]);lanBindWebLinks();
   }
-  function lanGate(){if(!lanHost()||lan.phase!=='lobby')return;lanUI='gate';const limit=lanLimit();openPanel('協力ダンジョン',`<p>全員が行ける場所だけを表示しています。敵HPは${lan.players.length}倍です。</p>`+DUNGEONS.slice(0,limit+1).map((d,i)=>`<div class="row"><span class="nm">${i+1}. ${d.name}</span><span class="sub">推奨 Lv${d.rec}</span><button class="sbtn" data-lan-stage="${i}">出発</button></div>`).join(''),[['待合室へ',lanLobby]]);panelBody.querySelectorAll('[data-lan-stage]').forEach(b=>b.onclick=()=>lanStart(Number(b.dataset.lanStage)));}
+  function lanGate(){if(!lanHost()||lan.phase!=='lobby')return;lanUI='gate';const limit=lanLimit();openPanel('協力ダンジョン',`<p>全員が行ける場所だけを表示しています。敵HPは${lan.players.length}倍です。</p>`+DUNGEONS.slice(0,limit+1).map((d,i)=>`<div class="row"><span class="nm">${i+1}. ${d.name}</span><span class="sub">推奨 Lv${d.rec}</span><button class="sbtn" data-lan-stage="${i}">出発</button></div>`).join(''),[['街へ',closePanel]]);panelBody.querySelectorAll('[data-lan-stage]').forEach(b=>b.onclick=()=>lanStart(Number(b.dataset.lanStage)));}
   function lanEquipment(){const p=lanMe();if(!p||lan.phase!=='lobby')return;lanUI='equipment';const s=p.save;const list=EQUIP.filter(e=>e.slot===lanEqSlot&&s.owned.includes(e.id));openPanel('自分の装備・スキル',`<div class="tabs">${Object.entries(SLOT_NAME).map(([k,n])=>`<button data-lan-slot="${k}">${n}</button>`).join('')}</div>`+list.map(e=>`<div class="row"><span class="nm">${eqIcon(e)}${e.name}</span><span class="sub">${lanWith(p,()=>eqStats(e))}</span><button class="sbtn" data-lan-equip="${e.id}" ${s.eq[e.slot]===e.id?'disabled':''}>${s.eq[e.slot]===e.id?'装備中':'装備する'}</button></div>`).join('')+`<h3>スキル</h3>`+s.skills.map(id=>`<button class="sbtn" data-lan-skill="${id}" ${s.skill===id?'disabled':''}>${SKILLS[id].name}${s.skill===id?'（セット中）':''}</button>`).join(''),[['待合室へ',lanLobby]]);panelBody.querySelectorAll('[data-lan-slot]').forEach(b=>b.onclick=()=>{lanEqSlot=b.dataset.lanSlot;lanEquipment();});panelBody.querySelectorAll('[data-lan-equip]').forEach(b=>b.onclick=()=>lanRequest({type:'equip',id:b.dataset.lanEquip}));panelBody.querySelectorAll('[data-lan-skill]').forEach(b=>b.onclick=()=>lanRequest({type:'skill',id:b.dataset.lanSkill}));}
   function lanShop(){const p=lanMe();if(!p||lan.phase!=='lobby')return;lanUI='shop';const pool=lanHost()?lan.pool:lan.lobby.pool;openPanel('共有ショップ',`<p class="gold">共通のお金 ${pool} G</p><p>購入品は購入した人のセーブに残ります。全員が同じ財布・品ぞろえを使います。</p><div class="tabs">${Object.entries({...SLOT_NAME,item:'道具'}).map(([k,n])=>`<button data-lan-shop-slot="${k}">${n}</button>`).join('')}</div>`+(lanShopSlot==='item'?Object.entries(ITEMS).filter(([id,e])=>!e.craft&&e.price>0&&(!e.unlock||e.unlock<=lanLimit())).map(([id,e])=>`<div class="row"><span class="nm">${e.name}（所持${p.save.items[id]||0}）</span><span>${e.price} G</span><button class="sbtn" data-lan-item="${id}" ${pool<e.price?'disabled':''}>買う</button></div>`).join(''):EQUIP.filter(e=>e.slot===lanShopSlot&&!e.drop&&e.price>0).map(e=>`<div class="row"><span class="nm">${eqIcon(e)}${e.name}</span><span class="sub">${lanWith(p,()=>eqStats(e))} ／ ${e.price} G</span><button class="sbtn" data-lan-buy="${e.id}" ${p.save.owned.includes(e.id)||pool<e.price?'disabled':''}>${p.save.owned.includes(e.id)?'所持済み':'買う'}</button></div>`).join('')), [['待合室へ',lanLobby]]);panelBody.querySelectorAll('[data-lan-shop-slot]').forEach(b=>b.onclick=()=>{lanShopSlot=b.dataset.lanShopSlot;lanShop();});panelBody.querySelectorAll('[data-lan-buy]').forEach(b=>b.onclick=()=>lanRequest({type:'buy',id:b.dataset.lanBuy}));panelBody.querySelectorAll('[data-lan-item]').forEach(b=>b.onclick=()=>lanRequest({type:'buyItem',id:b.dataset.lanItem}));}
-  function lanRefresh(){if(!lan||lan.phase!=='lobby')return;const mode=lanUI;if(mode==='shop')lanShop();else if(mode==='equipment')lanEquipment();else if(mode==='gate'&&lanHost())lanGate();else if(mode==='lobby')lanShowLobby();}
+  function lanRefresh(){if(!lan||lan.phase!=='lobby')return;const mode=lanUI;if(mode==='shop')lanShop();else if(mode==='equipment')lanEquipment();else if(mode==='gate'&&lanHost())lanGate();else if(mode==='lobby')lanShowLobby();else if(mode==='town'&&panelOpen&&lanTownView){const stamp=JSON.stringify([lanMe()?.save,lan.pool]);if(stamp!==lanTownStamp){lanTownStamp=stamp;const sc=panelBody.scrollTop;lanTownView();panelBody.scrollTop=sc;}}}
   function lanHandle(id,m){if(!lanHost()||!m||m.v&&m.v!==LAN_VERSION)return;let p=lan.players.find(p=>p.id===String(id));
     if(m.type==='hello'){if(p||lan.phase!=='lobby'||lan.players.length>=4){window.YushaLan?.disconnect(id);return;}try{p=lanPlayer(id,m.name,m.profile);lan.players.push(p);lan.notice='参加者が変わったため、準備完了を確認してください';lan.players.forEach(p=>p.ready=false);lanLobby();}catch(e){lanSend(id,{type:'reject',notice:'参加データの形式またはゲームの版が一致しません'});window.YushaLan?.disconnect(id);}return;}
     if(!p)return;if(m.type==='ack'&&Number.isSafeInteger(m.seq)){p.ack=Math.max(p.ack||0,m.seq);if(lan.phase==='closing'&&lan.players.every(p=>p.id==='0'||p.ack>=lan.closeSeq))lanCloseDone();return;}if(m.type==='ping'){lanSend(id,{type:'pong'});return;}
     if(m.type==='input'){if(lan.phase!=='fight'||!Number.isSafeInteger(m.seq)||m.seq<=(p.inputSeq||0))return;p.inputSeq=m.seq;p.input={x:clamp(Number(m.x)||0,-1,1),y:clamp(Number(m.y)||0,-1,1)};p.inputAt=Date.now();if(['skill','roll','item'].includes(m.action))p.actions=(p.actions||[]).concat({kind:m.action,id:m.id,x:p.input.x,y:p.input.y}).slice(-8);return;}
     if(m.type==='leave'){lanAbort('参加者が退出したため、通信プレイを終了しました');return;}
     if(lan.phase!=='lobby')return;
+    if(m.type==='townAction'||m.type==='townPreferences')return lanTownHandle(p,m);
     if(m.type==='ready')p.ready=!!m.ready;
     else if(m.type==='equip'){const e=EQ[m.id];if(!e||!p.save.owned.includes(e.id))return;p.save.eq[e.slot]=e.id;p.ready=false;}
     else if(m.type==='skill'){if(!p.save.skills.includes(m.id))return;p.save.skill=m.id;p.ready=false;}
-    else if(m.type==='buy'){const e=EQ[m.id];if(!e||e.drop||!(e.price>0)||lan.pool<e.price||p.save.owned.includes(e.id))return;lan.pool-=e.price;p.save.owned.push(e.id);p.save.eq[e.slot]=e.id;lan.players.forEach(p=>p.ready=false);}
+    else if(m.type==='buy'){const e=EQ[m.id];if(!e||e.drop||!balanceShopOpen(e,p.save)||!(e.price>0)||lan.pool<e.price||p.save.owned.includes(e.id))return;lan.pool-=e.price;p.save.owned.push(e.id);p.save.eq[e.slot]=e.id;lan.players.forEach(p=>p.ready=false);}
     else if(m.type==='buyItem'){const e=ITEMS[m.id];if(!e||e.craft||!(e.price>0)||lan.pool<e.price||(e.unlock&&e.unlock>lanLimit())||(p.save.items[m.id]||0)>=ITEM_MAX)return;lan.pool-=e.price;p.save.items[m.id]=(p.save.items[m.id]||0)+1;lan.players.forEach(p=>p.ready=false);}
     else return;
     lanCheckpoint();lanAll({type:'lobby',...lanLobbyData()});lanRefresh();
   }
-  function lanStart(di){if(!lanHost()||lan.phase!=='lobby'||!Number.isInteger(di)||di<0||di>lanLimit())return false;if(lan.players.length<2||!lan.players.every(p=>p.ready)){lan.notice='2人以上が参加し、全員が準備完了にしてください';lanShowLobby();return false;}
+  function lanStart(di){if(!lanHost()||lan.phase!=='lobby'||!Number.isInteger(di)||di<0||di>lanLimit())return false;if(lan.players.length<2||!lan.players.every(p=>p.ready)){lan.notice='2人以上が参加し、全員が準備完了にしてください';if(lanUI==='lobby')lanShowLobby();else toast(lan.notice);return false;}
     lan.phase='starting';closeTray();closePanel();lan.fighters=lan.players.length;lan.stage=di;lan.savedGuide=lan.players.map(p=>lanCopy(p.save.guide||null));lan.players.forEach(p=>{p.save.guide={stage:'done'};p.save.tut=1;p.save.hp=null;});
     enterDungeon(di);const base=hero;for(let i=0;i<lan.players.length;i++){const p=lan.players[i];lanWith(p,()=>{hero=newHero(VW/2+(i-(lan.players.length-1)/2)*38,70);p.h=hero;bag=fillBag(Array.isArray(save.slots)?slotsLoadout(getSlots()):save.loadout||autoLoadout());p.bag=bag;guildRunStart();p.guild=guildRun;p.loot=[];p.materials={};p.combo=p.comboT=0;});p.ready=false;p.actions=[];p.input={x:0,y:0};}
     lan.phase='fight';hero=lanMe().h;save=lanMe().save;bag=lanMe().bag;guildRun=lanMe().guild;runLoot=lanMe().loot;runMaterials=lanMe().materials;lanContext=null;for(const e of enemies)lanScale(e);tut=null;hint=0;guideBlocksCombat=false;noMerchant=true;lanAll({type:'start',stage:di,count:lan.fighters});lanSnapshot();lanCheckpoint();return true;
@@ -8455,7 +8557,7 @@
   function lanSettle(won,aborted=false){if(!lanHost()||lan.phase!=='fight')return;lanStash();lan.phase='settling';if(won&&boss){lan.phase='fight';gainExp(boss.exp);gainGold(boss.gold);lan.phase='settling';}
     if(!won&&!aborted)lan.pool=Math.max(0,lan.pool-Math.floor(runGold/2));
     for(let i=0;i<lan.players.length;i++){const p=lan.players[i];lanWith(p,()=>{if(won){guildClear();boss.craftDropped=false;craftDropBoss(boss);save.cleared[lan.stage]=true;if(Math.random()<DROP_RATE.boss)giveLoot(pick(dropPool('rare')),p.h.x,p.h.y);}save.hp=null;save.guide=lan.savedGuide?.[i]||{stage:'done'};});p.ready=false;}
-    A.jingle(won?'clear':'defeat');A.bgm(FARR.town);lan.phase='lobby';lan.notice=won?'ダンジョンをクリア！全員の端末に進行を保存しました。':aborted?'通信を終了します。':'全員が倒れました。経験値と入手品は残ります。';closeTray();transition=null;deathT=0;slowMo=hitStop=0;state='town';D=null;arena=null;boss=null;enemies=[];bullets=[];zones=[];hero=null;lan.players.forEach(p=>p.h=null);save=lanMe().save;bag={};lanContext=null;paused=false;showHud(false);lanLobby();
+    A.jingle(won?'clear':'defeat');A.bgm(FARR.town);lan.phase='lobby';lan.notice=won?'ダンジョンをクリア！全員の端末に進行を保存しました。':aborted?'通信を終了します。':'全員が倒れました。経験値と入手品は残ります。';closeTray();transition=null;deathT=0;slowMo=hitStop=0;state='town';D=null;arena=null;boss=null;enemies=[];bullets=[];zones=[];hero=null;lan.players.forEach(p=>p.h=null);save=lanMe().save;bag={};lanContext=null;paused=false;showHud(false);lanUI='town';closePanel();lanLobby();
   }
   // A graph codec preserves owner/boss references and Set/Map links without serializing cached art.
   function lanPack(value){const seen=new Map(),nodes=[];const skip=/^(?:b3|r3|kay.*Visual|birdVisual|quadVisual|fenrirTail|mouths|mouthT|canvas|image|sprite|cached.*)$/;
@@ -8469,16 +8571,17 @@
   function lanApplyWorld(m){if(!lan||lanHost()||m.tick<=(lan.tick||0))return;const beforeState=state,w=lanUnpack(m.world);lan.tick=m.tick;if(w.state==='boss'&&beforeState!=='boss'){A.bgm(FARR.boss[DUNGEONS[w.dIdx].boss]);A.sfx('bossAppear');}for(const sound of w.sounds||[])A.sfx(sound[0],sound[1]);if(lan.lobby)lan.lobby.pool=w.pool;lan.phase='fight';state=w.state;dIdx=w.dIdx;D=DUNGEONS[dIdx];nodes=w.nodes;goalY=w.goalY;gateNeed=w.gateNeed;gateKills=w.gateKills;arena=w.arena;boss=w.boss;enemies=w.enemies;bullets=w.bullets;drops=w.drops;props=w.props;rings=w.rings;zones=w.zones;anims=w.anims;texts=w.texts;fx=w.fx;evs=w.evs;ev=w.ev;shades=w.shades;twisters=w.twisters;globalT=w.globalT;t=w.t;freezeT=w.freezeT;darkT=w.darkT;runExp=w.runExp;runGold=w.runGold;runKills=w.runKills;banner=w.banner;for(const v of w.players){const p=lan.players.find(p=>p.id===v.id);if(p){p.h=v.h;p.save.eq=v.eq;p.save.lv=v.lv;p.save.exp=v.exp;p.bag=v.bag;p.combo=v.combo;}}const me=lanMe();if(!me?.h)return;hero=me.h;save=me.save;bag=me.bag;combo=me.combo;paused=panelOpen||trayOpen;WX=(W-VW)/2;showHud(true);updateHudButtons();}
   function lanReceive(id,m){if(!lan||m.v!==LAN_VERSION)return;lan.lastMessage=Date.now();if(lanHost()){if(m.type==='hello'||m.room===lan.room)lanHandle(id,m);return;}if(m.type==='reject'){lanExit(m.notice);return;}if(lan.room&&m.room!==lan.room)return;if(!lan.room)lan.room=m.room;
     if(m.type==='checkpoint'){if(!Number.isSafeInteger(m.seq)||m.seq<=lan.lastSeq)return;try{const profile=lanProfile(m.profile);if(!Number.isSafeInteger(m.credit)||m.credit<0)return;lan.lastSeq=m.seq;let me=lanMe();if(!me){me=lanPlayer(lan.id,lan.name,profile);lan.players.push(me);}me.save=profile;lan.credit=m.credit;const disk=lanCopy(profile);disk.gold+=m.credit;localStorage.setItem('bumphero_save',JSON.stringify(disk));lanSend('0',{type:'ack',seq:m.seq});save=me.save;lanRefresh();}catch(e){lan.notice='進行を端末に保存できませんでした';}return;}
-    if(m.type==='lobby'){if(lan.phase==='fight'){A.bgm(FARR.town);}if(lan.phase==='fight'||lanUI==='connecting')lanUI='lobby';lan.phase='lobby';lan.lobby=m;lan.pool=m.pool;const me=lanMe();lan.players=m.players.map(p=>{const prior=lan.players.find(q=>q.id===p.id);return Object.assign(prior||{id:p.id,save:p.id===lan.id?(me?.save||lan.backup):{cleared:Array(p.frontier).fill(true),lv:p.lv,eq:{}}},p);});closeTray();transition=null;deathT=0;state='town';D=arena=boss=hero=null;paused=false;showHud(false);lanRefresh();return;}
+    if(m.type==='lobby'){if(lan.phase==='fight'){A.bgm(FARR.town);}if(lan.phase==='fight'){closePanel();lanUI='town';}else if(lanUI==='connecting')lanUI='lobby';lan.phase='lobby';lan.lobby=m;lan.pool=m.pool;const me=lanMe();lan.players=m.players.map(p=>{const prior=lan.players.find(q=>q.id===p.id);return Object.assign(prior||{id:p.id,save:p.id===lan.id?(me?.save||lan.backup):{cleared:Array(p.frontier).fill(true),lv:p.lv,eq:{}}},p);});closeTray();transition=null;deathT=0;state='town';D=arena=boss=hero=null;paused=false;showHud(false);lanRefresh();return;}
+    if(m.type==='townResult'){lanTownResult(m);return;}
     if(m.type==='start'){closeTray();closePanel();lan.phase='fight';lan.stage=m.stage;lan.fighters=m.count;lan.entities=new Map();A.bgm(FARR.dungeon[m.stage]);paused=false;guideBlocksCombat=false;return;}
     if(m.type==='state'){lanApplyWorld(m);return;}if(m.type==='end'){lanExit(m.notice);}
   }
-  window.__lanNative=(type,id,data)=>{if(!lan)return;if(type==='hosted'){lan.address=data;lanLobby();}else if(type==='connected'){lan.id=id;lanSend('0',{type:'hello',name:lan.name,profile:lan.backup});}else if(type==='message'){try{lanReceive(id,JSON.parse(data));}catch(e){lan.notice='通信データを読み込めませんでした';}}else if(type==='disconnected'){if(lanHost()){if(lan.players.some(p=>p.id===id))lanAbort('参加者との接続が切れたため終了しました');}else lanExit('ホストとの接続が切れました。最後に保存できた進行を保持します。');}else if(type==='error'){if(lanHost())lanAbort(data);else lanExit(data);}};
+  window.__lanNative=(type,id,data)=>{if(!lan)return;if(type==='webhosted'){lan.webAddress=data;lanRefresh();}else if(type==='weberror'){lan.notice=data;lanRefresh();}else if(type==='hosted'){lan.address=data;lanLobby();}else if(type==='connected'){lan.id=id;lanSend('0',{type:'hello',name:lan.name,profile:lan.backup});}else if(type==='message'){try{lanReceive(id,JSON.parse(data));}catch(e){lan.notice='通信データを読み込めませんでした';}}else if(type==='disconnected'){if(lanHost()){if(lan.players.some(p=>p.id===id))lanAbort('参加者との接続が切れたため終了しました');}else lanExit('ホストとの接続が切れました。最後に保存できた進行を保持します。');}else if(type==='error'){if(lanHost())lanAbort(data);else lanExit(data);}};
   window.__lanSuspend=()=>{lanStopSearch();if(lan)lanHost()?lanAbort('ホストがゲーム画面を離れたため終了しました'):lanRequest({type:'leave'});};
   function lanPulse(dt){if(!lan)return;lanClock+=dt;lan.sendT+=dt;lan.checkT+=dt;lan.pingT+=dt;if(lanFight()&&lan.sendT>=.05){lan.sendT=0;lanInput();if(lanHost())lanSnapshot();}if(lanHost()&&lan.checkT>=1){lan.checkT=0;lanCheckpoint();}if(lan.pingT>=2){lan.pingT=0;if(lanHost())lanAll({type:'pong'});else lanSend('0',{type:'ping'});}if(!lanHost()&&Date.now()-lan.lastMessage>12000)lanExit('ホストから応答がありません。最後に保存できた進行を保持します。');}
   function lanDrawPlayers(){const order=lan.players.filter(p=>p.h).slice().sort((a,b)=>b.h.y-a.h.y);for(const p of order)lanWith(p,()=>{if(hero.hp>0)drawHero();else{ctx.fillStyle='#8d86a0';ctx.beginPath();ctx.ellipse(hero.x,sy(hero.y),14,7,0,0,7);ctx.fill();}ctx.strokeStyle=['#f2c14e','#8ac4ff','#ff9ad0','#a8f0a0'][lan.players.indexOf(p)];ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(hero.x,sy(hero.y)+hero.r*.75,hero.r,hero.r*.38,0,0,7);ctx.stroke();});}
-  function lanDrawHud(){if(!lanFight())return;const y0=H-safeBottom()-160;ctx.fillStyle='rgba(19,24,58,.86)';ctx.fillRect(8,y0-13,W-16,76);ctx.strokeStyle='rgba(243,236,218,.65)';ctx.lineWidth=1;ctx.strokeRect(8,y0-13,W-16,76);txt(`協力 ${lan.fighters}人 ／ 倒れた仲間は次の出発で復帰`,16,y0,9,'#e7ddc7','left',false);lan.players.forEach((p,i)=>{if(!p.h)return;const x=16+(i%2)*(W/2-8),y=y0+20+Math.floor(i/2)*26;txt(`${i+1}P ${p.name.slice(0,7)} Lv${p.save.lv}${p.h.hp<=0?' ×':''}`,x,y,10,['#f2c14e','#8ac4ff','#ff9ad0','#a8f0a0'][i],'left',false);bar(x,y+4,W/2-32,4,p.h.hp/p.h.s.maxHp,'#6fd38a');});}
-  // LAN COOP END
+  function lanAllyHudBox(){const n=lanFight()?lan.players.filter(p=>p.id!==lan.id&&p.h).length:0;return{x:8,y:safeTop()+60,w:196,h:n?4+n*13:0};}
+  function lanDrawHud(){if(!lanFight())return;const box=lanAllyHudBox(),allies=lan.players.filter(p=>p.id!==lan.id&&p.h);if(!allies.length)return;ctx.fillStyle='rgba(19,24,58,.8)';ctx.fillRect(box.x,box.y,box.w,box.h);allies.forEach((p,i)=>{const y=box.y+11+i*13,n=lan.players.indexOf(p),down=p.h.hp<=0;txt(`${n+1}P ${p.name.slice(0,6)}${down?' ×':''}`,16,y,9,['#f2c14e','#8ac4ff','#ff9ad0','#a8f0a0'][n],'left',false);bar(88,y-6,108,4,clamp(p.h.hp/p.h.s.maxHp,0,1),down?'#777080':'#6fd38a');});}
 
   function lanUpdateProps(dt) {
     const spawned=[];lanEach(h=>{h.gnd={};if(h.poisonT>0)h.poisonT-=dt;});
@@ -8707,12 +8810,12 @@
   openPause=function(){if(!lan)return lanSoloPause();openPanel('通信プレイ', '<p>この画面を開いている間も冒険は進みます。</p>',[['冒険を続ける',closePanel,true],['通信プレイを終了',()=>lanHost()?lanAbort('ホストが通信を終了しました'):lanRequest({type:'leave'})]]);};
   render=function(){if(lanFight()&&lanMe()?.h){const h=lanMe().h.hp>0?lanMe().h:(lanAlive()[0]?.h||lanMe().h);if(arena){bcamX=h.x;bcamY=h.y;}else camY=Math.min(Math.max(h.y+40,H*.38-30),goalY+120-H*.38);}return lanSoloRender();};
   const lanOriginalBack=window.__appBack;
-  window.__appBack=()=>{if(lan&&lan.phase==='lobby'){lanShowLobby();return true;}return lanOriginalBack?.();};
+  window.__appBack=()=>{if(lan&&lan.phase==='lobby'&&panelOpen){closePanel();return true;}return lanOriginalBack?.();};
   // Visible entry remains available in town without replacing existing facilities.
   const lanEntry=document.createElement('button');lanEntry.id='lanEntry';lanEntry.className='sbtn';lanEntry.textContent='ローカル通信';lanEntry.style.cssText='position:fixed;z-index:18;right:12px;bottom:calc(72px + env(safe-area-inset-bottom,0px));font-size:13px;padding:10px;background:#13183a;color:#f2c14e;border:2px solid #f2c14e';lanEntry.onclick=lanOpen;document.body?.appendChild(lanEntry);
-  const lanBaseRender=render;render=function(){lanEntry.hidden=state!=='town'||!!lan||panelOpen;return lanBaseRender();};
+  const lanBaseRender=render;render=function(){lanEntry.hidden=state!=='town'||panelOpen;return lanBaseRender();};
 
-  window.__yusha = { lan:{open:lanOpen,create:lanCreate,start:lanStart,request:lanRequest,receive:lanReceive,pulse:lanPulse,limit:lanLimit,frontier:lanFrontier,pack:lanPack,unpack:lanUnpack,exit:lanExit,get room(){return lan;}}, guide:{tick:()=>{guideClock=0;guideTick();},get active(){return guideActive();},get blocked(){return guideBlocksCombat;}}, pixelfx:{emit:pfxEmit,clear:pfxClear,get data(){return {effects:Object.keys(pfxData?.effects||{}),decodedBytes:pfxData?.decodedBytes||0,loaded:pfxLoaded,images:pfxImages.length,calls:pfxCalls,events:pfxEvents.length,used:[...pfxUsed]};}},saveTransfer:{validate:transferValidate,open:openSaveTransfer,encode:transferEncode,parse:transferParse,preview:transferPreview,commit:transferCommit,export:transferExportFile,get pending(){return transferPending;}},arenaMode:{ruleVersion:ARENA_RULE,ruleFor:id=>arenaTrialRule(arenaTrial(id)),open:openArena,trial:openArenaTrial,chain:openArenaChain,startTrial:arenaStartTrial,startChain:arenaStartChain,trials:ARENA_TRIALS,classes:ARENA_CLASSES,pool:arenaPool,canChain:arenaCanChain,rewards:ARENA_REWARDS,gear:arenaGear,claim:arenaClaim,normalize:arenaNormalize,supply:arenaSupply,rest:arenaRest,withdraw:arenaWithdraw,finish:arenaFinish,win:arenaBattleWon,next:arenaNextBattle,get run(){return arenaRun;},hudBox:arenaHudBox,hudLines:arenaHudLines,get circle(){return arena;}},enterBuilding,townSwipeTo, hard:{enter:hardEnter,pairs:HARD_PAIRS,normalize:hardNormalize,done:hardDone,unlocked:hardUnlocked,settle:hardSettle,contains:hardContains,confine:hardConfine,allBosses:fightBosses,hit:skillHit,openGate,get run(){return hardRun;},get arena(){return arena;}},facilities:{enter:facilityEnter,help:facilityShowHelp,closeHelp:facilityCloseHelp,stage:uiStageEnemies,get config(){return FACILITIES;},get active(){return{room:facilityRoom,tab:facilityTab};}},smith:{open:openSmith,detail:openSmithItem,confirm:openSmithConfirm,quote:smithQuote,upgrade:smithUpgrade,value:smithValue,keys:smithKeys,boots:smithBootEffects},forge:{open:openForge,confirm:openForgeConfirm,inherit:forgeInherit,check:forgeCheck,fx:forgeFx,normalize:forgeNormalize,grant:forgeGrantCrystals,hasEffect:forgeHasEffect},guild:{open:openGuild,detail:openGuildMission,missions:GUILD,claim:guildClaim,progress:guildProgress,choices:guildChoices,daily:guildDaily,normalize:guildNormalize,value:guildValue,inc:guildInc,clear:guildClear,sample:guildSampleBoss,dodge:guildDodge,ram:guildRam,wall:guildWall,hit:guildHit,heal:guildHeal,tick:guildTick,gear:guildGear,damage:ramDamage,hurt:hurtHero,rollScale:guildRollScale,get run(){return guildRun;}},bestiary:{open:openBestiary,detail:openBestiaryEntry,entries:bestEntries,drops:bestDrops,places:bestPlaces,normalize:bestNormalize,frame:bestFrame,playback:bestPlayback,get preview(){return bestPreview;}},crafting:{materials:craftMats,recipes:craftRecipes,make:craftMake,can:craftCanMake,open:openCraftShop,detail:openCraftRecipe,inventory:openCraftMaterials,exchange:craftExchange,normalize:craftNormalize,has:craftHas,ram:craftOnRam,roll:craftOnRoll,tick:craftTick,potion:craftUsePotion,skill:craftOnSkill,drop:craftDropEnemy,bossDrop:craftDropBoss,hasState:craftState,damage:craftDamageAdjust,gauges:craftGauges,feedback:craftFeedback},startRoll,useSkill,useItem, get tut() { return tut; }, get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
+  window.__yusha = { lan:{open:lanOpen,create:lanCreate,start:lanStart,request:lanRequest,receive:lanReceive,pulse:lanPulse,limit:lanLimit,frontier:lanFrontier,pack:lanPack,unpack:lanUnpack,exit:lanExit,town:lanTownRequest,allyHudBox:lanAllyHudBox,get room(){return lan;}}, lowend:{active:lowendActive,observe:lowendObserve,get measured(){return lowendMeasured;},get visible(){return lowendVisible;}}, balance:{damage:balanceDamage,shopOpen:balanceShopOpen,frontier:balanceFrontier,oldGold:BALANCE_OLD_GP}, guide:{tick:()=>{guideClock=0;guideTick();},get active(){return guideActive();},get blocked(){return guideBlocksCombat;}}, pixelfx:{emit:pfxEmit,clear:pfxClear,get data(){return {effects:Object.keys(pfxData?.effects||{}),decodedBytes:pfxData?.decodedBytes||0,loaded:pfxLoaded,images:pfxImages.length,calls:pfxCalls,events:pfxEvents.length,used:[...pfxUsed]};}},saveTransfer:{validate:transferValidate,open:openSaveTransfer,encode:transferEncode,parse:transferParse,preview:transferPreview,commit:transferCommit,export:transferExportFile,get pending(){return transferPending;}},arenaMode:{ruleVersion:ARENA_RULE,ruleFor:id=>arenaTrialRule(arenaTrial(id)),open:openArena,trial:openArenaTrial,chain:openArenaChain,startTrial:arenaStartTrial,startChain:arenaStartChain,trials:ARENA_TRIALS,classes:ARENA_CLASSES,pool:arenaPool,canChain:arenaCanChain,rewards:ARENA_REWARDS,gear:arenaGear,claim:arenaClaim,normalize:arenaNormalize,supply:arenaSupply,rest:arenaRest,withdraw:arenaWithdraw,finish:arenaFinish,win:arenaBattleWon,next:arenaNextBattle,get run(){return arenaRun;},hudBox:arenaHudBox,hudLines:arenaHudLines,get circle(){return arena;}},enterBuilding,townSwipeTo, hard:{enter:hardEnter,pairs:HARD_PAIRS,normalize:hardNormalize,done:hardDone,unlocked:hardUnlocked,settle:hardSettle,contains:hardContains,confine:hardConfine,allBosses:fightBosses,hit:skillHit,openGate,get run(){return hardRun;},get arena(){return arena;}},facilities:{enter:facilityEnter,help:facilityShowHelp,closeHelp:facilityCloseHelp,stage:uiStageEnemies,get config(){return FACILITIES;},get active(){return{room:facilityRoom,tab:facilityTab};}},smith:{open:openSmith,detail:openSmithItem,confirm:openSmithConfirm,quote:smithQuote,upgrade:smithUpgrade,value:smithValue,keys:smithKeys,boots:smithBootEffects},forge:{open:openForge,confirm:openForgeConfirm,inherit:forgeInherit,check:forgeCheck,fx:forgeFx,normalize:forgeNormalize,grant:forgeGrantCrystals,hasEffect:forgeHasEffect},guild:{open:openGuild,detail:openGuildMission,missions:GUILD,claim:guildClaim,progress:guildProgress,choices:guildChoices,daily:guildDaily,normalize:guildNormalize,value:guildValue,inc:guildInc,clear:guildClear,sample:guildSampleBoss,dodge:guildDodge,ram:guildRam,wall:guildWall,hit:guildHit,heal:guildHeal,tick:guildTick,gear:guildGear,damage:ramDamage,hurt:hurtHero,rollScale:guildRollScale,get run(){return guildRun;}},bestiary:{open:openBestiary,detail:openBestiaryEntry,entries:bestEntries,drops:bestDrops,places:bestPlaces,normalize:bestNormalize,frame:bestFrame,playback:bestPlayback,get preview(){return bestPreview;}},crafting:{materials:craftMats,recipes:craftRecipes,make:craftMake,can:craftCanMake,open:openCraftShop,detail:openCraftRecipe,inventory:openCraftMaterials,exchange:craftExchange,normalize:craftNormalize,has:craftHas,ram:craftOnRam,roll:craftOnRoll,tick:craftTick,potion:craftUsePotion,skill:craftOnSkill,drop:craftDropEnemy,bossDrop:craftDropBoss,hasState:craftState,damage:craftDamageAdjust,gauges:craftGauges,feedback:craftFeedback},startRoll,useSkill,useItem, get tut() { return tut; }, get state() { return state; }, get hero() { return hero; }, get boss() { return boss; }, get enemies() { return enemies; }, get save() { return save; }, set save(v) { save = v; },
     defense: { enter: defEnter, whistle: defWhistle, stages: DEF_STAGES, spawnBoss: defSpawnBoss, get run() { return defRun; }, get arena() { return arena; } },
     enter: enterDungeon, hurtLog, get runExp() { return runExp; }, get runGold() { return runGold; }, get zones() { return zones; }, dropTest: (x, y, g) => dropCoins(x, y, g), kill: () => { hero.inv = 0; hurtHero(99999, hero.x, hero.y - 10, 100, 'test'); }, set manual(v) { manual = v; }, set noMerchant(v) { noMerchant = v; }, useSkill, data: { DUNGEONS, EN, ITEMS, EQUIP }, get bag() { return bag; }, openPrep, charmHit, stats, spawn: (t, x, y) => spawnEnemy(t, x, y, true), get evs() { return evs; }, get ev() { return ev; }, applyPower, useItem, get rings() { return rings; }, set audio(v) { audioOn = v; }, toBoss: () => { transition = null; enterBossRoom(); }, goTown, update, render, get goalY() { return goalY; }, get gate() { return [gateKills, gateNeed]; }, killE: e => killEnemy(e), hitE:hitEnemy, drag, get bullets() { return bullets; }, get props() { return props; }, stats, tunnelAt, openOptions };
 })();

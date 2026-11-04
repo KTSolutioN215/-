@@ -467,5 +467,5 @@ sh tools/build_apk.sh      # 初回は Android SDK（platform 35 / build-tools 3
 - メニュー・どうぐ・ヘルプ：矢印（十字・スティック、押しっぱなしで連続）でボタン移動、Enter／Aで決定、Esc／Bでとじる（ポーズ中はつづける）。街：左右で移動、Enter／A・上で入る。タイトル：Enter／A。
 
 ## ローカル通信（2026-11-03）
-- 同じWi-Fiで2〜4人の協力プレイ。JS側は yusha.js の `lan*`、Android側は `LanTransport.java`（TCPソケット）、`LanDiscovery.java`（同じWi-Fi内の部屋の自動発見、マルチキャスト。権限 ACCESS_NETWORK_STATE・CHANGE_WIFI_MULTICAST_STATE）と MainActivity の `LanBridge`（`window.YushaLan`）。Web版にはブリッジがないので通信はアプリ版のみ。
+- 同じWi-Fiで2〜4人の協力プレイ。JS側は yusha.js の `lan*`、Android側は `LanTransport.java`（TCPソケット）、`LanWebServer.java`・`LanWebSocket.java`（ブラウザから参加するための中継。web/browser-lan.js・lan-relay.html・lan-relay.js）、`LanDiscovery.java`（同じWi-Fi内の部屋の自動発見、マルチキャスト。権限 ACCESS_NETWORK_STATE・CHANGE_WIFI_MULTICAST_STATE）と MainActivity の `LanBridge`（`window.YushaLan`）。Web版にはブリッジがないので通信はアプリ版のみ。
 - Android側のソースは、受け取ったAPKのclasses.dexからjadxで復元してリポジトリに入れた（セーブの書き出し・読み込み＝ファイル選択の処理も含む。v2.2以降のAPKにはあったが、リポジトリに無かった）。復元時に1か所（セーブ書き出しのtry-with-resources）を手で直した。

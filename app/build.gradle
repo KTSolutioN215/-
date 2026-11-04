@@ -56,7 +56,7 @@ tasks.register('syncWeb') {
     outputs.dir outDir
     doLast {
         outDir.mkdirs()
-        webDir.eachFile { f -> if (f.name.endsWith('.js')) { new File(outDir, f.name).bytes = f.bytes } }
+        webDir.eachFile { f -> if (f.name.endsWith('.js') || (f.name.endsWith('.html') && f.name != 'index.html' && !f.name.startsWith('_'))) { new File(outDir, f.name).bytes = f.bytes } }
         def body = new File(webDir, 'index.html').getText('UTF-8')
         def head = '<!doctype html><html lang="ja"><head><meta charset="utf-8">' +
                 '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">' +

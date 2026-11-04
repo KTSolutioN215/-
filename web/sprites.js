@@ -5105,7 +5105,31 @@ const SPR = (() => {
     for(let i=0;i<3;i++)g.line(p[i][0],p[i][1],p[i+1][0],p[i+1][1],3-i*.55,color.m);
   }
   // BIRD WINGS END
+  // Lazy 2D bank for rest/gait; active attacks/recovery retain exact geometry and pins.
+  const lightPoseBank=new Map();let lightPoseBytes=0,lightPoseHits=0,lightPoseMisses=0;
+  function lightEnemy(type,P){
+    const key=['wolfKay','goblinKay','supportKay','infantryKay','kay'].find(k=>P[k]);if(!key)return null;
+    const src=P[key];const resting=['idle','tired','walk'].includes(src.st||'idle')&&(!src.prev||(src.since??99)>=.35);
+    if(!resting&&(['archer','firearcher','bomber','mage','frostmage','darkpriest','crossbow'].includes(type)||src.channel))return null;
+    if(!['wolf','snowwolf','hellhound','baku','goblin','hobgoblin','archer','firearcher','bomber','mage','frostmage','darkpriest','crossbow','dwarf','knight','crimsonknight','armor','shadowarmor','skeleton'].includes(type))return null;
+    const moving=!!src.moving,K={...src,t:resting?0:Math.floor((src.t||0)*15)/15,prev:resting?null:src.prev,since:resting?99:Math.min(.4,Math.floor((src.since??99)*15)/15),origin:null};
+    const wrap=v=>((v%1)+1)%1,step=(u,n)=>(Math.floor(wrap(u)*n)+.5)/n;
+    if(Number.isFinite(K.angle))K.angle=Math.round(K.angle*4/Math.PI)*Math.PI/4;
+    if(key==='wolfKay'){
+      const duration=WOLF_MOTION.clips[moving?'Walk':'Idle'].duration,factor=moving?Math.max(.25,Math.min(1.5,(src.speed||80)/80)):1;
+      K.time=step((src.time||0)*factor/duration,moving?8:4)*duration;K.speed=moving?80:0;
+    }else{const duration=KAY_SKEL_DATA.clips.idle.duration;K.time=step((src.time||0)/duration,4)*duration;}
+    if(Number.isFinite(K.walkPhase))K.walkPhase=step(K.walkPhase,8);
+    const id=type+'|'+(P.view||'f')+'|'+!!P.flash+'|'+JSON.stringify(K),cached=lightPoseBank.get(id);
+    if(cached){lightPoseHits++;lightPoseBank.delete(id);lightPoseBank.set(id,cached);return cached;}
+    lightPoseMisses++;const out=enemy(type,{...P,light:false,[key]:K});if(!out)return null;
+    const bytes=out.c.width*out.c.height*4;lightPoseBank.set(id,{sprite:out,bytes});lightPoseBytes+=bytes;
+    while(lightPoseBytes>8*1024*1024||lightPoseBank.size>384){const first=lightPoseBank.keys().next().value,entry=lightPoseBank.get(first);lightPoseBank.delete(first);lightPoseBytes-=entry.bytes;}
+    return{sprite:out,bytes};
+  }
+
   function enemy(type, P) {
+    if(P.light){const light=lightEnemy(type,P);if(light)return light.sprite;}
     if(P.birdKay){const birdPose=BIRD_MOTION.pose(type,P.birdKay);P={...P,f:Math.floor(birdPose.u*3)%3,birdPose};}
     if(['mage','frostmage','darkpriest','crossbow','dwarf'].includes(type)&&P.supportKay){const v=supportPose(type,P);return P.flash?{...v,c:white(v).c}:v;}
     if(['lizard','frostlizard','chaosbeast'].includes(type)&&P.groundKay){const v=groundSprite(P,type);return P.flash?{...v,c:white(v).c}:v;}
@@ -5683,5 +5707,5 @@ const SPR = (() => {
   };
   function x0ring(g) { g.x.strokeStyle = '#e8f0ff'; g.x.lineWidth = 1; g.x.beginPath(); g.x.arc(8, 8, 4, 0, 7); g.x.stroke(); }
 
-  return { util: { canvas, api, pixelize, tube, blob, spike, feather }, SCALE, motionPose:kaySample, humanoid:kayHumanoid, creatureParts, shadeOf, stoneOf, part, relic, itemIcon, gearIcon, hero: heroS, enemy, boss, draw, skeletonParts, ENV, floorTile, wallTile, dither, tileCanvas, shade: sh, seeded, cacheSize: () => cache.size, types: () => ({ enemies: Object.keys(EN), bosses: Object.keys(BOSS) }) };
+  return { util: { canvas, api, pixelize, tube, blob, spike, feather }, SCALE, motionPose:kaySample, humanoid:kayHumanoid, creatureParts, shadeOf, stoneOf, part, relic, itemIcon, gearIcon, hero: heroS, enemy, boss, draw, skeletonParts, ENV, floorTile, wallTile, dither, tileCanvas, shade: sh, seeded, lightCache:()=>({entries:lightPoseBank.size,bytes:lightPoseBytes,hits:lightPoseHits,misses:lightPoseMisses}),cacheSize: () => cache.size, types: () => ({ enemies: Object.keys(EN), bosses: Object.keys(BOSS) }) };
 })();

@@ -50,6 +50,30 @@ public final class LanTransport implements Closeable {
         return serverSocket.getLocalPort();
     }
 
+    public boolean isHosting() {
+        return (this.server == null || this.closed) ? false : true;
+    }
+
+    public boolean acceptWeb(Socket socket, DataInputStream dataInputStream, DataOutputStream dataOutputStream) throws IOException {
+        int i = this.generation;
+        LanWebSocket lanWebSocket = new LanWebSocket(dataInputStream, dataOutputStream);
+        socket.setSoTimeout(8000);
+        String readText = lanWebSocket.readText();
+        synchronized (this) {
+            if (!this.closed && this.server != null && this.generation == i && this.peers.size() < 3 && ("BYH1:" + this.pin).equals(readText)) {
+                String valueOf = String.valueOf(this.next.getAndIncrement());
+                lanWebSocket.writeText("BYH1:" + valueOf);
+                Peer peer = new Peer(valueOf, socket, dataInputStream, dataOutputStream, i, lanWebSocket);
+                this.peers.put(valueOf, peer);
+                emit("peer", valueOf, "");
+                peer.start();
+                return true;
+            }
+            lanWebSocket.writeText("BYH1:ERROR");
+            return false;
+        }
+    }
+
     /* JADX INFO: Access modifiers changed from: private */
     public void emit(String str, String str2, String str3) {
         this.listener.event(str, str2, str3);
@@ -139,7 +163,7 @@ public final class LanTransport implements Closeable {
                         dataOutputStream.writeInt(MAGIC);
                         dataOutputStream.writeUTF(valueOf);
                         dataOutputStream.flush();
-                        Peer peer = new Peer(valueOf, socket, dataInputStream, dataOutputStream, i);
+                        Peer peer = new Peer(this, valueOf, socket, dataInputStream, dataOutputStream, i);
                         this.peers.put(valueOf, peer);
                         emit("peer", valueOf, "");
                         peer.start();
@@ -192,7 +216,7 @@ public final class LanTransport implements Closeable {
             String readUTF = dataInputStream.readUTF();
             synchronized (this) {
                 if (!this.closed && this.generation == i2) {
-                    Peer peer = new Peer("0", socket, dataInputStream, dataOutputStream, i2);
+                    Peer peer = new Peer(this, "0", socket, dataInputStream, dataOutputStream, i2);
                     this.peers.put("0", peer);
                     emit("connected", readUTF, "");
                     peer.start();
@@ -255,15 +279,22 @@ public final class LanTransport implements Closeable {
         final String id;
         final DataInputStream in;
         final DataOutputStream out;
-        final ArrayBlockingQueue<byte[]> queue = new ArrayBlockingQueue<>(16);
+        final ArrayBlockingQueue<byte[]> queue;
         final Socket socket;
+        final LanWebSocket ws;
 
-        Peer(String str, Socket socket, DataInputStream dataInputStream, DataOutputStream dataOutputStream, int i) throws IOException {
+        Peer(LanTransport lanTransport, String str, Socket socket, DataInputStream dataInputStream, DataOutputStream dataOutputStream, int i) throws IOException {
+            this(str, socket, dataInputStream, dataOutputStream, i, null);
+        }
+
+        Peer(String str, Socket socket, DataInputStream dataInputStream, DataOutputStream dataOutputStream, int i, LanWebSocket lanWebSocket) throws IOException {
+            this.queue = new ArrayBlockingQueue<>(16);
             this.id = str;
             this.socket = socket;
             this.in = dataInputStream;
             this.out = dataOutputStream;
             this.gen = i;
+            this.ws = lanWebSocket;
             socket.setTcpNoDelay(true);
             socket.setSoTimeout(15000);
         }
@@ -272,13 +303,17 @@ public final class LanTransport implements Closeable {
         /* synthetic */ void m12lambda$0$comktsolutionbutsukariLanTransport$Peer() {
             while (!this.done && LanTransport.this.generation == this.gen) {
                 try {
-                    int readInt = this.in.readInt();
-                    if (readInt < 1 || readInt > LanTransport.MAX) {
-                        throw new IOException("size");
+                    if (this.ws != null) {
+                        LanTransport.this.emit("message", this.id, this.ws.readText());
+                    } else {
+                        int readInt = this.in.readInt();
+                        if (readInt < 1 || readInt > LanTransport.MAX) {
+                            throw new IOException("size");
+                        }
+                        byte[] bArr = new byte[readInt];
+                        this.in.readFully(bArr);
+                        LanTransport.this.emit("message", this.id, new String(bArr, StandardCharsets.UTF_8));
                     }
-                    byte[] bArr = new byte[readInt];
-                    this.in.readFully(bArr);
-                    LanTransport.this.emit("message", this.id, new String(bArr, StandardCharsets.UTF_8));
                 } catch (IOException e) {
                 } catch (Throwable th) {
                     close();
@@ -309,9 +344,13 @@ public final class LanTransport implements Closeable {
                 try {
                     byte[] poll = this.queue.poll(1L, TimeUnit.SECONDS);
                     if (poll != null) {
-                        this.out.writeInt(poll.length);
-                        this.out.write(poll);
-                        this.out.flush();
+                        if (this.ws != null) {
+                            this.ws.writeFrame(1, poll);
+                        } else {
+                            this.out.writeInt(poll.length);
+                            this.out.write(poll);
+                            this.out.flush();
+                        }
                     }
                 } catch (Exception e) {
                 } catch (Throwable th) {

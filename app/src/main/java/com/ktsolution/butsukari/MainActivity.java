@@ -1,6 +1,8 @@
 package com.ktsolution.butsukari;
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -17,7 +19,11 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import com.ktsolution.butsukari.LanDiscovery;
 import com.ktsolution.butsukari.LanTransport;
+import com.ktsolution.butsukari.LanWebServer;
 import com.ktsolution.butsukari.MainActivity;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import org.json.JSONObject;
@@ -30,6 +36,7 @@ public class MainActivity extends Activity {
     private ValueCallback<Uri[]> fileCallback;
     private LanDiscovery lanDiscovery;
     private LanTransport lanTransport;
+    private LanWebServer lanWebServer;
     private WebView web;
 
     public final class LanBridge {
@@ -41,13 +48,13 @@ public class MainActivity extends Activity {
             MainActivity.this.runOnUiThread(new Runnable() { // from class: com.ktsolution.butsukari.MainActivity$LanBridge$$ExternalSyntheticLambda2
                 @Override // java.lang.Runnable
                 public final void run() {
-                    MainActivity.LanBridge.this.m19lambda$0$comktsolutionbutsukariMainActivity$LanBridge(str);
+                    MainActivity.LanBridge.this.m22lambda$0$comktsolutionbutsukariMainActivity$LanBridge(str);
                 }
             });
         }
 
         /* renamed from: lambda$0$com-ktsolution-butsukari-MainActivity$LanBridge, reason: not valid java name */
-        /* synthetic */ void m19lambda$0$comktsolutionbutsukariMainActivity$LanBridge(String str) {
+        /* synthetic */ void m22lambda$0$comktsolutionbutsukariMainActivity$LanBridge(String str) {
             if (MainActivity.this.trustedGame()) {
                 MainActivity.this.lanDiscovery.close();
                 try {
@@ -63,17 +70,37 @@ public class MainActivity extends Activity {
             MainActivity.this.runOnUiThread(new Runnable() { // from class: com.ktsolution.butsukari.MainActivity$LanBridge$$ExternalSyntheticLambda3
                 @Override // java.lang.Runnable
                 public final void run() {
-                    MainActivity.LanBridge.this.m20lambda$1$comktsolutionbutsukariMainActivity$LanBridge(str, i, str2);
+                    MainActivity.LanBridge.this.m23lambda$1$comktsolutionbutsukariMainActivity$LanBridge(str, i, str2);
                 }
             });
         }
 
         /* renamed from: lambda$1$com-ktsolution-butsukari-MainActivity$LanBridge, reason: not valid java name */
-        /* synthetic */ void m20lambda$1$comktsolutionbutsukariMainActivity$LanBridge(String str, int i, String str2) {
+        /* synthetic */ void m23lambda$1$comktsolutionbutsukariMainActivity$LanBridge(String str, int i, String str2) {
             if (MainActivity.this.trustedGame()) {
                 MainActivity.this.lanDiscovery.close();
+                MainActivity.this.lanWebServer.close();
                 MainActivity.this.lanTransport.join(str, i, str2);
             }
+        }
+
+        @JavascriptInterface
+        public void copyUrl(final String str) {
+            MainActivity.this.runOnUiThread(new Runnable() { // from class: com.ktsolution.butsukari.MainActivity$LanBridge$$ExternalSyntheticLambda5
+                @Override // java.lang.Runnable
+                public final void run() {
+                    MainActivity.LanBridge.this.m24lambda$2$comktsolutionbutsukariMainActivity$LanBridge(str);
+                }
+            });
+        }
+
+        /* renamed from: lambda$2$com-ktsolution-butsukari-MainActivity$LanBridge, reason: not valid java name */
+        /* synthetic */ void m24lambda$2$comktsolutionbutsukariMainActivity$LanBridge(String str) {
+            ClipboardManager clipboardManager;
+            if (!MainActivity.this.trustedGame() || str == null || !str.matches("http://[0-9.]+:39762/") || (clipboardManager = (ClipboardManager) MainActivity.this.getSystemService("clipboard")) == null) {
+                return;
+            }
+            clipboardManager.setPrimaryClip(ClipData.newPlainText("ぶつかり勇者：参加URL", str));
         }
 
         @JavascriptInterface
@@ -81,20 +108,20 @@ public class MainActivity extends Activity {
             MainActivity.this.runOnUiThread(new Runnable() { // from class: com.ktsolution.butsukari.MainActivity$LanBridge$$ExternalSyntheticLambda0
                 @Override // java.lang.Runnable
                 public final void run() {
-                    MainActivity.LanBridge.this.m21lambda$2$comktsolutionbutsukariMainActivity$LanBridge(i);
+                    MainActivity.LanBridge.this.m25lambda$3$comktsolutionbutsukariMainActivity$LanBridge(i);
                 }
             });
         }
 
-        /* renamed from: lambda$2$com-ktsolution-butsukari-MainActivity$LanBridge, reason: not valid java name */
-        /* synthetic */ void m21lambda$2$comktsolutionbutsukariMainActivity$LanBridge(int i) {
+        /* renamed from: lambda$3$com-ktsolution-butsukari-MainActivity$LanBridge, reason: not valid java name */
+        /* synthetic */ void m25lambda$3$comktsolutionbutsukariMainActivity$LanBridge(int i) {
             if (MainActivity.this.trustedGame()) {
                 MainActivity.this.lanDiscovery.start(i);
             }
         }
 
-        /* renamed from: lambda$3$com-ktsolution-butsukari-MainActivity$LanBridge, reason: not valid java name */
-        /* synthetic */ void m22lambda$3$comktsolutionbutsukariMainActivity$LanBridge() {
+        /* renamed from: lambda$4$com-ktsolution-butsukari-MainActivity$LanBridge, reason: not valid java name */
+        /* synthetic */ void m26lambda$4$comktsolutionbutsukariMainActivity$LanBridge() {
             if (MainActivity.this.lanDiscovery != null) {
                 MainActivity.this.lanDiscovery.stop();
             }
@@ -105,7 +132,7 @@ public class MainActivity extends Activity {
             MainActivity.this.runOnUiThread(new Runnable() { // from class: com.ktsolution.butsukari.MainActivity$LanBridge$$ExternalSyntheticLambda4
                 @Override // java.lang.Runnable
                 public final void run() {
-                    MainActivity.LanBridge.this.m22lambda$3$comktsolutionbutsukariMainActivity$LanBridge();
+                    MainActivity.LanBridge.this.m26lambda$4$comktsolutionbutsukariMainActivity$LanBridge();
                 }
             });
         }
@@ -129,13 +156,13 @@ public class MainActivity extends Activity {
             MainActivity.this.runOnUiThread(new Runnable() { // from class: com.ktsolution.butsukari.MainActivity$LanBridge$$ExternalSyntheticLambda1
                 @Override // java.lang.Runnable
                 public final void run() {
-                    MainActivity.LanBridge.this.m23lambda$4$comktsolutionbutsukariMainActivity$LanBridge();
+                    MainActivity.LanBridge.this.m27lambda$5$comktsolutionbutsukariMainActivity$LanBridge();
                 }
             });
         }
 
-        /* renamed from: lambda$4$com-ktsolution-butsukari-MainActivity$LanBridge, reason: not valid java name */
-        /* synthetic */ void m23lambda$4$comktsolutionbutsukariMainActivity$LanBridge() {
+        /* renamed from: lambda$5$com-ktsolution-butsukari-MainActivity$LanBridge, reason: not valid java name */
+        /* synthetic */ void m27lambda$5$comktsolutionbutsukariMainActivity$LanBridge() {
             if (MainActivity.this.lanDiscovery != null) {
                 MainActivity.this.lanDiscovery.close();
             }
@@ -147,16 +174,16 @@ public class MainActivity extends Activity {
 
     /* JADX INFO: Access modifiers changed from: private */
     public void lanDiscoveryEvent(final int i, final String str, final String str2) {
-        runOnUiThread(new Runnable() { // from class: com.ktsolution.butsukari.MainActivity$$ExternalSyntheticLambda6
+        runOnUiThread(new Runnable() { // from class: com.ktsolution.butsukari.MainActivity$$ExternalSyntheticLambda7
             @Override // java.lang.Runnable
             public final void run() {
-                MainActivity.this.m14lambda$0$comktsolutionbutsukariMainActivity(i, str, str2);
+                MainActivity.this.m16lambda$0$comktsolutionbutsukariMainActivity(i, str, str2);
             }
         });
     }
 
     /* renamed from: lambda$0$com-ktsolution-butsukari-MainActivity, reason: not valid java name */
-    /* synthetic */ void m14lambda$0$comktsolutionbutsukariMainActivity(int i, String str, String str2) {
+    /* synthetic */ void m16lambda$0$comktsolutionbutsukariMainActivity(int i, String str, String str2) {
         if (trustedGame()) {
             this.web.evaluateJavascript("window.__lanDiscovered && window.__lanDiscovered(" + i + "," + JSONObject.quote(str) + "," + str2 + ");", null);
         }
@@ -167,18 +194,26 @@ public class MainActivity extends Activity {
         runOnUiThread(new Runnable() { // from class: com.ktsolution.butsukari.MainActivity$$ExternalSyntheticLambda2
             @Override // java.lang.Runnable
             public final void run() {
-                MainActivity.this.m15lambda$1$comktsolutionbutsukariMainActivity(str, str2, str3);
+                MainActivity.this.m17lambda$1$comktsolutionbutsukariMainActivity(str, str2, str3);
             }
         });
     }
 
     /* renamed from: lambda$1$com-ktsolution-butsukari-MainActivity, reason: not valid java name */
-    /* synthetic */ void m15lambda$1$comktsolutionbutsukariMainActivity(String str, String str2, String str3) {
+    /* synthetic */ void m17lambda$1$comktsolutionbutsukariMainActivity(String str, String str2, String str3) {
         if (trustedGame()) {
             if (str.equals("hosted")) {
                 this.lanDiscovery.advertise(this.lanTransport.localPort());
             }
             this.web.evaluateJavascript("window.__lanNative && window.__lanNative(" + JSONObject.quote(str) + "," + JSONObject.quote(str2) + "," + JSONObject.quote(str3) + ");", null);
+            if (str.equals("hosted")) {
+                try {
+                    this.lanWebServer.start(LanWebServer.PORT);
+                    this.web.evaluateJavascript("window.__lanNative && window.__lanNative('webhosted','0'," + JSONObject.quote(LanWebServer.addresses(this.lanWebServer.port())) + ");", null);
+                } catch (Exception e) {
+                    this.web.evaluateJavascript("window.__lanNative && window.__lanNative('weberror','0','ブラウザ用の接続を開始できませんでした。ほかの部屋を閉じてから作り直してください。');", null);
+                }
+            }
         }
     }
 
@@ -196,13 +231,13 @@ public class MainActivity extends Activity {
             MainActivity.this.runOnUiThread(new Runnable() { // from class: com.ktsolution.butsukari.MainActivity$SaveBridge$$ExternalSyntheticLambda0
                 @Override // java.lang.Runnable
                 public final void run() {
-                    MainActivity.SaveBridge.this.m24lambda$0$comktsolutionbutsukariMainActivity$SaveBridge(str, str2);
+                    MainActivity.SaveBridge.this.m28lambda$0$comktsolutionbutsukariMainActivity$SaveBridge(str, str2);
                 }
             });
         }
 
         /* renamed from: lambda$0$com-ktsolution-butsukari-MainActivity$SaveBridge, reason: not valid java name */
-        /* synthetic */ void m24lambda$0$comktsolutionbutsukariMainActivity$SaveBridge(String str, String str2) {
+        /* synthetic */ void m28lambda$0$comktsolutionbutsukariMainActivity$SaveBridge(String str, String str2) {
             if (MainActivity.this.trustedGame()) {
                 if (MainActivity.this.exportData == null) {
                     if (str != null && str.getBytes(StandardCharsets.UTF_8).length <= MainActivity.MAX_SAVE_BYTES && str2 != null && str2.matches("[a-zA-Z0-9._-]{1,100}\\.json")) {
@@ -258,10 +293,10 @@ public class MainActivity extends Activity {
                 saveResult(false, "保存をキャンセルしました。");
             } else {
                 final Uri data = intent.getData();
-                new Thread(new Runnable() { // from class: com.ktsolution.butsukari.MainActivity$$ExternalSyntheticLambda5
+                new Thread(new Runnable() { // from class: com.ktsolution.butsukari.MainActivity$$ExternalSyntheticLambda6
                     @Override // java.lang.Runnable
                     public final void run() {
-                        MainActivity.this.m16lambda$2$comktsolutionbutsukariMainActivity(data, str);
+                        MainActivity.this.m18lambda$2$comktsolutionbutsukariMainActivity(data, str);
                     }
                 }, "save-export").start();
             }
@@ -269,7 +304,7 @@ public class MainActivity extends Activity {
     }
 
     /* renamed from: lambda$2$com-ktsolution-butsukari-MainActivity, reason: not valid java name */
-    /* synthetic */ void m16lambda$2$comktsolutionbutsukariMainActivity(Uri uri, String str) {
+    /* synthetic */ void m18lambda$2$comktsolutionbutsukariMainActivity(Uri uri, String str) {
         boolean ok = false;
         try (OutputStream out = getContentResolver().openOutputStream(uri, "wt")) {
             if (out != null) {
@@ -281,11 +316,11 @@ public class MainActivity extends Activity {
             ok = false;
         }
         final boolean z = ok;
-        runOnUiThread(() -> MainActivity.this.m17lambda$3$comktsolutionbutsukariMainActivity(z));
+        runOnUiThread(() -> MainActivity.this.m19lambda$3$comktsolutionbutsukariMainActivity(z));
     }
 
     /* renamed from: lambda$3$com-ktsolution-butsukari-MainActivity, reason: not valid java name */
-    /* synthetic */ void m17lambda$3$comktsolutionbutsukariMainActivity(boolean z) {
+    /* synthetic */ void m19lambda$3$comktsolutionbutsukariMainActivity(boolean z) {
         saveResult(z, z ? "セーブファイルを保存しました。" : "ファイルを保存できませんでした。保存先を確認してください。");
     }
 
@@ -337,6 +372,12 @@ public class MainActivity extends Activity {
                 MainActivity.this.lanDiscoveryEvent(i, str, str2);
             }
         });
+        this.lanWebServer = new LanWebServer(this.lanTransport, new LanWebServer.Assets() { // from class: com.ktsolution.butsukari.MainActivity$$ExternalSyntheticLambda5
+            @Override // com.ktsolution.butsukari.LanWebServer.Assets
+            public final byte[] read(String str) throws java.io.IOException {
+                return MainActivity.this.m20lambda$6$comktsolutionbutsukariMainActivity(str);
+            }
+        });
         this.web.addJavascriptInterface(new LanBridge(), "YushaLan");
         this.web.setWebChromeClient(new WebChromeClient() { // from class: com.ktsolution.butsukari.MainActivity.2
             @Override // android.webkit.WebChromeClient
@@ -365,6 +406,36 @@ public class MainActivity extends Activity {
         setContentView(this.web);
         hideSystemUi();
         this.web.loadUrl("file:///android_asset/index.html");
+    }
+
+    /* renamed from: lambda$6$com-ktsolution-butsukari-MainActivity, reason: not valid java name */
+    /* synthetic */ byte[] m20lambda$6$comktsolutionbutsukariMainActivity(String str) throws IOException {
+        Throwable th = null;
+        try {
+            InputStream open = getAssets().open(str);
+            try {
+                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                try {
+                    byte[] bArr = new byte[16384];
+                    while (true) {
+                        int read = open.read(bArr);
+                        if (read == -1) {
+                            break;
+                        }
+                        byteArrayOutputStream.write(bArr, 0, read);
+                    }
+                    byte[] byteArray = byteArrayOutputStream.toByteArray();
+                    if (open != null) {
+                        open.close();
+                    }
+                    return byteArray;
+                } finally {
+                    byteArrayOutputStream.close();
+                }
+            } finally {
+            }
+        } finally {
+        }
     }
 
     private void hideSystemUi() {
@@ -397,14 +468,14 @@ public class MainActivity extends Activity {
             this.web.evaluateJavascript("(window.__appBack && window.__appBack()) ? 'yes' : 'no'", new ValueCallback() { // from class: com.ktsolution.butsukari.MainActivity$$ExternalSyntheticLambda0
                 @Override // android.webkit.ValueCallback
                 public final void onReceiveValue(Object obj) {
-                    MainActivity.this.m18lambda$6$comktsolutionbutsukariMainActivity((String) obj);
+                    MainActivity.this.m21lambda$7$comktsolutionbutsukariMainActivity((String) obj);
                 }
             });
         }
     }
 
-    /* renamed from: lambda$6$com-ktsolution-butsukari-MainActivity, reason: not valid java name */
-    /* synthetic */ void m18lambda$6$comktsolutionbutsukariMainActivity(String str) {
+    /* renamed from: lambda$7$com-ktsolution-butsukari-MainActivity, reason: not valid java name */
+    /* synthetic */ void m21lambda$7$comktsolutionbutsukariMainActivity(String str) {
         if (str == null || !str.contains("yes")) {
             finish();
         }
@@ -412,6 +483,9 @@ public class MainActivity extends Activity {
 
     @Override // android.app.Activity
     protected void onPause() {
+        if (this.lanWebServer != null) {
+            this.lanWebServer.close();
+        }
         if (this.lanDiscovery != null) {
             this.lanDiscovery.close();
         }
@@ -442,6 +516,10 @@ public class MainActivity extends Activity {
             this.fileCallback = null;
         }
         this.exportData = null;
+        if (this.lanWebServer != null) {
+            this.lanWebServer.close();
+            this.lanWebServer = null;
+        }
         if (this.lanDiscovery != null) {
             this.lanDiscovery.close();
             this.lanDiscovery = null;
